@@ -5,13 +5,23 @@ from pathlib import Path
 
 import psycopg
 import s3_client
-from main import DB_DSN
+from main import DB_DSN, _tool
 
 SRC_VIDEO = "Class-10/Semester-01/Biology/Chapter-01/digestive system.mp4"
 
 with psycopg.connect(DB_DSN, autocommit=True) as conn:
-    vid_mod = conn.execute("SELECT module_id FROM video_payloads vp "
-                           "JOIN modules m ON m.id = vp.module_id WHERE m.title = 'Intro to Heat'").fetchone()[0]
+    # Owns a dedicated module ("Seed 4BC Video") — never write segments into
+    # curated/demo modules (this seed once overwrote 'Intro to Heat').
+    ch = conn.execute(
+        "SELECT c.id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+        "WHERE s.name = 'Global Physics' AND c.name = 'Chapter 4: Thermodynamics'").fetchone()[0]
+    row = conn.execute("SELECT id FROM modules WHERE title = 'Seed 4BC Video'").fetchone()
+    if row is None:
+        vid_mod = conn.execute(
+            "INSERT INTO modules (chapter_id, title, module_type, sequence_order, is_published) "
+            "VALUES (%s, 'Seed 4BC Video', 'VIDEO', 90, TRUE) RETURNING id", (ch,)).fetchone()[0]
+    else:
+        vid_mod = row[0]
     lab_mod = conn.execute("SELECT module_id FROM lab_payloads lp "
                            "JOIN modules m ON m.id = lp.module_id WHERE m.title = 'Heat Transfer Virtual Lab'").fetchone()[0]
 
@@ -24,7 +34,7 @@ with tempfile.TemporaryDirectory() as tmp:
 
     # First 24s -> 6s HLS segments (4 segments expected)
     subprocess.run([
-        "ffmpeg", "-y", "-i", str(src), "-t", "24",
+        _tool("ffmpeg"), "-y", "-i", str(src), "-t", "24",
         "-c:v", "libx264", "-c:a", "aac", "-preset", "veryfast",
         "-f", "hls", "-hls_time", "6", "-hls_playlist_type", "vod",
         "-hls_segment_filename", str(Path(tmp) / "seg_%03d.ts"),
@@ -57,7 +67,8 @@ with tempfile.TemporaryDirectory() as tmp:
     print(f"uploaded simulation to s3://{s3_client.S3_BUCKET}/{sim_key}")
 
 with psycopg.connect(DB_DSN, autocommit=True) as conn:
-    conn.execute("UPDATE video_payloads SET s3_key_prefix = %s WHERE module_id = %s", (prefix, vid_mod))
+    conn.execute("INSERT INTO video_payloads (module_id, s3_key_prefix) VALUES (%s, %s) "
+                 "ON CONFLICT (module_id) DO UPDATE SET s3_key_prefix = EXCLUDED.s3_key_prefix",
+                 (vid_mod, prefix))
     conn.execute("UPDATE lab_payloads SET s3_file_key = %s WHERE module_id = %s", (sim_key, lab_mod))
-    n_seg = conn.execute("SELECT 1").fetchone()
 print("seeded: phase4bc fixtures ready")

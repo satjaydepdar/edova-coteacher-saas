@@ -22,7 +22,7 @@ def login(email):
 
 with psycopg.connect(DB_DSN) as conn:
     vid_mod, soon_mod, lab_mod = conn.execute(
-        "SELECT (SELECT id FROM modules WHERE title = 'Intro to Heat'),"
+        "SELECT (SELECT id FROM modules WHERE title = 'Seed 4BC Video'),"
         "       (SELECT id FROM modules WHERE title = 'Coming Soon: Advanced Heat'),"
         "       (SELECT id FROM modules WHERE title = 'Heat Transfer Virtual Lab')"
     ).fetchone()

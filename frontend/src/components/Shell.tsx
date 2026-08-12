@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useOutletContext } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import {
   BookOpen,
   ChevronDown,
@@ -73,6 +73,16 @@ export default function Shell() {
   const setSubjectId = (id: string) => {
     setSubjectIdRaw(id)
     setChapterId('ALL')
+    backToShelf()
+  }
+
+  // The chapter/type/subject pickers are global context: changing them while
+  // viewing a module must leave the detail page, otherwise the shelf filter
+  // silently changes behind the open asset.
+  const navigate = useNavigate()
+  const location = useLocation()
+  function backToShelf() {
+    if (location.pathname !== '/') navigate('/')
   }
 
   const chapters = useMemo(() => tree?.chapters ?? [], [tree])
@@ -82,11 +92,11 @@ export default function Shell() {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl border border-black/[0.06] p-8 max-w-sm text-center shadow-card">
-          <p className="font-display font-bold text-[16px] text-ink">Workspace unavailable</p>
-          <p className="text-[13px] opacity-70 mt-2 text-ink">{bootError}</p>
+          <p className="font-display font-bold text-[16px] text-forest">Workspace unavailable</p>
+          <p className="text-[13px] opacity-70 mt-2 text-forest">{bootError}</p>
           <button
             onClick={deactivate}
-            className="mt-5 h-9 px-4 rounded-full bg-ink text-white text-[13px] font-medium"
+            className="mt-5 h-9 px-4 rounded-full bg-forest text-white text-[13px] font-medium"
           >
             Back to activation
           </button>
@@ -98,7 +108,7 @@ export default function Shell() {
   if (!session) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
-        <span className="w-5 h-5 border-2 border-ink/20 border-t-ink rounded-full animate-spin" />
+        <span className="w-5 h-5 border-2 border-forest/20 border-t-forest rounded-full animate-spin" />
       </div>
     )
   }
@@ -124,7 +134,7 @@ export default function Shell() {
   }
 
   return (
-    <div className="min-h-screen flex w-full bg-cream text-ink overflow-hidden">
+    <div className="min-h-screen flex w-full bg-cream text-forest overflow-hidden">
       {navOpen && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden"
@@ -133,7 +143,7 @@ export default function Shell() {
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-[300px] max-w-[85vw] lg:w-[280px] shrink-0 flex flex-col transition-transform duration-300 lg:translate-x-0 bg-ink ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-[300px] max-w-[85vw] lg:w-[280px] shrink-0 flex flex-col transition-transform duration-300 lg:translate-x-0 bg-forest ${
           navOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -202,7 +212,7 @@ export default function Shell() {
               className={({ isActive }) =>
                 `w-full flex items-center gap-3 px-3 h-10 rounded-xl text-[14px] transition-colors ${
                   isActive
-                    ? 'bg-white text-ink font-semibold shadow'
+                    ? 'bg-white text-forest font-semibold shadow'
                     : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
                 }`
               }
@@ -256,7 +266,10 @@ export default function Shell() {
             <div className="relative">
               <select
                 value={chapterId}
-                onChange={(e) => setChapterId(e.target.value)}
+                onChange={(e) => {
+                  setChapterId(e.target.value)
+                  backToShelf()
+                }}
                 className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-cream border border-black/[0.06] text-[13px] font-medium outline-none focus:border-gold cursor-pointer max-w-[140px] sm:max-w-none"
               >
                 <option value="ALL">All Chapters</option>
@@ -272,7 +285,10 @@ export default function Shell() {
             <div className="relative">
               <select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as ModuleType | 'ALL')}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value as ModuleType | 'ALL')
+                  backToShelf()
+                }}
                 className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-black/[0.08] text-[13px] font-medium outline-none focus:border-gold cursor-pointer"
               >
                 {(Object.keys(TYPE_LABEL) as (ModuleType | 'ALL')[]).map((t) => (
@@ -288,7 +304,7 @@ export default function Shell() {
               <span className="text-[11px] tracking-widest uppercase opacity-40 font-semibold">
                 Subject
               </span>
-              <span className="text-[13px] font-semibold px-2.5 py-1 rounded-full bg-ink text-white">
+              <span className="text-[13px] font-semibold px-2.5 py-1 rounded-full bg-forest text-white">
                 {activeSubject?.name ?? '—'}
               </span>
             </div>

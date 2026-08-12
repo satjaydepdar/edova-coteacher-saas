@@ -1,0 +1,30 @@
+# --- project ---
+# Entire migration/ folder is intentionally untracked (scratch/content-staging area,
+# includes >1GB of media). NOTE: schema.sql and migration_*.sql live only there —
+# they are NOT versioned. Copy them elsewhere if that changes.
+migration/
+
+# --- secrets ---
+.env
+.env.*
+!.env.example
+
+# --- python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- node / frontend ---
+node_modules/
+frontend/dist/
+
+# --- android / capacitor build output ---
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/

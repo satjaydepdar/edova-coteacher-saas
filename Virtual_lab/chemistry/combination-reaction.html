@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 1.4 — Combination Reaction: Quick Lime + Water</title>
+<style>
+:root{
+  --ink:#1a1a1a; --cream:#f6f1e4; --paper:#fffdf7; --line:#e2dac6;
+  --amber:#e0a63a; --ok:#2f7a5f; --bad:#b23b3b; --hot:#ff7a29;
+  --serif:"Iowan Old Style",Palatino,Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --shadow:0 18px 40px -22px rgba(26,26,26,.45);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:22px clamp(12px,3vw,34px) 90px}
+.page{display:none}
+.page.on{display:block}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px;border-radius:6px}
+button{font:inherit;color:inherit}
+
+/* ---------- header ---------- */
+.lab-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:18px;flex-wrap:wrap}
+.eyebrow{letter-spacing:.16em;text-transform:uppercase;font-size:.72rem;color:#8a7f63;font-weight:600}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(1.55rem,3.6vw,2.45rem);margin:.12em 0 .1em;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-weight:600;font-size:1.25rem;margin:0 0 .5em}
+.sub{margin:0;color:#6d6448;font-size:.92rem}
+
+/* ---------- buttons & pills ---------- */
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--line);
+  border-radius:999px;padding:8px 16px;cursor:pointer;font-size:.88rem;font-weight:600;text-decoration:none;
+  box-shadow:0 2px 6px -3px rgba(26,26,26,.3);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:#fff}
+.btn:active{transform:translateY(0)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn.primary{background:var(--amber);border-color:#c58f2b;color:#241a05}
+.btn.primary:hover{background:#eab253}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.pill{font-size:.76rem;font-weight:600;background:#f3e8cd;border:1px solid #e2d3a8;color:#6b5620;
+  border-radius:999px;padding:4px 12px}
+
+/* ---------- cards ---------- */
+.card{background:var(--paper);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.context{padding:20px 24px;margin-bottom:18px}
+.context p{margin:.4em 0}
+.factcheck{border-left:4px solid var(--hot);background:#fff2e6;border-radius:0 12px 12px 0;
+  padding:10px 14px;margin-top:14px;font-size:.92rem}
+
+/* ---------- equation ---------- */
+.equation{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-family:var(--mono);
+  background:#fbf7ec;border:1px solid var(--line);border-radius:14px;padding:12px 18px;margin:14px 0 4px;font-size:1.02rem}
+.term{text-align:center;line-height:1.2}
+.term em{display:block;font-style:italic;font-size:.68rem;color:#8a7f63;font-family:var(--serif)}
+.term sub{font-size:.62em}
+.op{color:#8a7f63}
+.hotword{color:var(--hot);font-weight:700}
+.eqno{margin-left:auto;color:#8a7f63;font-size:.85rem}
+
+/* ---------- stage ---------- */
+.stage-outer{perspective:1300px;margin-bottom:6px}
+.stage-card{position:relative;aspect-ratio:640/460;overflow:hidden;background:
+  linear-gradient(180deg,#fdfbf3 0%,#f7f2e3 62%,#eee6d0 100%);
+  transform:rotateX(1.6deg);transition:transform .6s cubic-bezier(.2,.7,.2,1),box-shadow .4s}
+.stage-outer:hover .stage-card{transform:rotateX(3.5deg) rotateY(-2.4deg)}
+.stage-card svg{position:absolute;inset:0;width:100%;height:100%}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#spotlight{position:absolute;width:200px;height:160px;left:50%;top:50%;transform:translate(-50%,-50%);
+  border-radius:50%;pointer-events:none;opacity:0;transition:opacity .35s;
+  box-shadow:0 0 0 4px var(--amber),0 0 0 2600px rgba(20,19,17,.38)}
+#spotlight.on{opacity:1}
+.stage-cap{font-family:var(--serif);font-style:italic;font-size:.84rem;color:#6d6448;margin:10px 4px 16px}
+
+/* ---------- controls ---------- */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 18px;margin-bottom:18px}
+.ctl-group{display:flex;align-items:center;gap:8px}
+.ctl-group label{font-size:.8rem;font-weight:600;color:#5d5438}
+input[type="range"]{accent-color:var(--amber);cursor:pointer}
+.readout{font-family:var(--mono);background:var(--ink);color:#ffd9a8;padding:7px 13px;border-radius:10px;
+  font-size:.84rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.readout b{color:#fff;font-weight:600}
+.spacer{flex:1}
+
+/* ---------- steps panel ---------- */
+.steps{background:#141311;color:#f2ead6;border-radius:20px;box-shadow:var(--shadow);
+  padding:18px;margin-bottom:18px}
+.steps-head{display:flex;align-items:baseline;gap:12px;margin:0 4px 14px}
+.steps-head h2{color:#f6f1e4;margin:0}
+.steps-head span{font-size:.78rem;color:#a89c7d}
+.steps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.step{background:#1f1d19;border:1px solid #35322b;border-radius:14px;padding:12px 14px;cursor:pointer;
+  text-align:left;opacity:.55;transition:opacity .25s,border-color .25s,background .25s}
+.step:hover{opacity:.85}
+.step.active{opacity:1;border-color:var(--amber);background:#272319}
+.step.done{opacity:.8}
+.stepnum{font-family:var(--mono);font-size:.72rem;color:var(--amber);letter-spacing:.08em}
+.step h3{font-family:var(--serif);font-size:.98rem;margin:4px 0 6px;color:#faf5e6;font-weight:600}
+.step p{font-size:.78rem;line-height:1.45;color:#c9bfa4;margin:0 0 10px}
+.bar{display:block;height:6px;background:#33302a;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--amber),var(--hot));border-radius:3px}
+
+/* ---------- reference cards ---------- */
+.refs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+.ref{padding:18px 20px}
+.ref h2{font-size:1.08rem}
+.ref p,.ref li{font-size:.88rem}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:.78rem}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:14px;height:14px;border-radius:50%;display:inline-block;box-shadow:inset -3px -3px 5px rgba(0,0,0,.28),inset 2px 3px 4px rgba(255,255,255,.75)}
+.fig-labels{font-family:var(--serif);font-size:.9rem;margin:8px 0 0;padding-left:0;list-style:none}
+.fig-labels li{padding:6px 0;border-bottom:1px dashed var(--line)}
+.fig-labels b{font-family:var(--sans);font-size:.78rem;background:var(--cream);border:1px solid var(--line);border-radius:6px;padding:2px 8px;margin-right:8px}
+
+/* ---------- teacher view ---------- */
+.teacher{background:#141311;color:#efe7d2;border-radius:20px;box-shadow:var(--shadow);
+  padding:22px 24px;margin-bottom:18px}
+.teacher[hidden]{display:none}
+.teacher h2{color:#f6f1e4}
+.teacher h3{font-family:var(--serif);color:var(--amber);font-size:.98rem;margin:1.2em 0 .4em}
+.teacher p,.teacher li{font-size:.88rem;color:#d8cfb4}
+.teacher-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
+.safety{grid-column:1 / -1;border:1px solid var(--hot);background:#241a12;border-radius:14px;padding:12px 16px;margin-top:16px}
+.safety h3{margin-top:0;color:var(--hot)}
+
+/* ---------- assignment ---------- */
+.assign-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.assign-head .spacer{flex:1}
+.scorebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px;margin-bottom:16px}
+.scorebar .readout{background:#2a2417}
+.acc{margin-bottom:12px;overflow:hidden}
+.acc-head{width:100%;display:flex;align-items:center;gap:12px;background:none;border:0;
+  padding:16px 18px;cursor:pointer;text-align:left}
+.acc-head:hover{background:#fdf9ee}
+.qnum{font-family:var(--mono);font-size:.78rem;color:#8a7f63;background:var(--cream);
+  border:1px solid var(--line);border-radius:8px;padding:4px 8px;white-space:nowrap}
+.qtitle{font-family:var(--serif);font-weight:600;font-size:1.02rem;flex:1}
+.qstatus{font-family:var(--mono);font-size:.7rem;padding:3px 10px;border-radius:999px;
+  background:var(--cream);border:1px solid var(--line);color:#8a7f63;white-space:nowrap}
+.qstatus.ans{background:#f3e8cd;border-color:#e2d3a8;color:#6b5620}
+.qstatus.ok{background:#e7f2ed;border-color:#bcd8cc;color:var(--ok)}
+.qstatus.bad{background:#f8e9e7;border-color:#e4c4bf;color:var(--bad)}
+.qpts{font-family:var(--mono);font-size:.74rem;color:#8a7f63;white-space:nowrap}
+.chev{transition:transform .25s;color:#8a7f63;flex:none}
+.acc.open .chev{transform:rotate(180deg)}
+.acc-panel{padding:2px 20px 20px}
+.acc.right{border-color:#bcd8cc}
+.acc.wrong{border-color:#e4c4bf}
+.feedback{border-radius:12px;padding:10px 14px;margin-top:14px;font-size:.88rem;display:none}
+.feedback.show{display:block}
+.feedback.good{background:#e7f2ed;border:1px solid #bcd8cc}
+.feedback.poor{background:#f8e9e7;border:1px solid #e4c4bf}
+fieldset{border:0;padding:0;margin:0}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border:1px solid var(--line);
+  border-radius:12px;margin:8px 0;cursor:pointer;background:#fff;transition:background .15s}
+.opt:hover{background:#fdf7e8}
+.opt input{margin-top:3px;accent-color:var(--amber)}
+.opt span{font-size:.92rem}
+
+/* Q1 labelling */
+.label-task{display:grid;grid-template-columns:minmax(200px,300px) 1fr;gap:18px;align-items:start}
+.label-fig{background:#fdfaf1;border:1px solid var(--line);border-radius:14px;padding:8px}
+.label-fig svg{width:100%;height:auto;display:block}
+.dz-col{display:flex;flex-direction:column;gap:10px}
+.dz{display:flex;align-items:center;gap:10px;border:2px dashed #cfc5a8;border-radius:12px;
+  padding:9px 12px;min-height:46px;background:#fbf7ec;cursor:pointer;transition:border-color .2s,background .2s}
+.dz.over{border-color:var(--amber);background:#f8eecf}
+.dz.filled{border-style:solid;border-color:#b9ac85;background:#fff}
+.dznum{font-family:var(--mono);font-size:.74rem;background:var(--ink);color:var(--paper);
+  border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.dzslot{font-size:.9rem;color:#9a8f6e;font-style:italic}
+.dz.filled .dzslot{color:var(--ink);font-style:normal;font-weight:600}
+.chip-tray{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.chip{border:1px solid #b9ac85;background:#fff;border-radius:999px;padding:7px 16px;cursor:grab;
+  font-size:.88rem;font-weight:600;box-shadow:0 2px 5px -2px rgba(26,26,26,.3)}
+.chip.sel{outline:3px solid var(--amber);outline-offset:1px}
+.chip.used{opacity:.25;pointer-events:none}
+.hint{font-size:.78rem;color:#8a7f63;margin-top:10px}
+
+/* Q5 parameter challenge */
+.param{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;margin-top:8px}
+.ttrack{position:relative;width:36px;height:180px;background:#efe8d5;border:1px solid var(--line);
+  border-radius:18px;overflow:hidden;justify-self:center}
+.tband{position:absolute;left:0;right:0;background:rgba(47,122,95,.18);
+  border-top:2px dashed var(--ok);border-bottom:2px dashed var(--ok)}
+.tfill{position:absolute;bottom:0;left:0;right:0;height:8%;
+  background:linear-gradient(180deg,var(--hot),#d43c2c);transition:height .3s}
+.param-right label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+.param-right input[type="range"]{width:100%}
+.param-read{font-family:var(--mono);font-size:.86rem;background:#fbf7ec;border:1px solid var(--line);
+  border-radius:10px;padding:8px 12px;margin-top:10px}
+.param-read b{color:var(--bad)}
+.param-read b.in{color:var(--ok)}
+
+/* ---------- molecule modal ---------- */
+.modal{position:fixed;inset:0;background:rgba(20,19,17,.55);display:flex;align-items:center;
+  justify-content:center;padding:18px;z-index:50}
+.modal[hidden]{display:none}
+.modal-card{width:min(720px,96vw);max-height:94vh;overflow:auto;padding:18px 20px}
+.modal-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.modal-head h2{flex:1;font-size:1.1rem;margin:0}
+#molCanvas{width:100%;height:auto;border-radius:14px;background:
+  linear-gradient(180deg,#0e2333,#173b52 70%,#1d4a64);display:block}
+.modal-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
+.modal-note{font-size:.8rem;color:#6d6448;margin:10px 0 0}
+
+/* ---------- footer ---------- */
+.foot{font-size:.76rem;color:#8a7f63;margin-top:26px;font-family:var(--serif);font-style:italic}
+
+/* ---------- responsive ---------- */
+@media (max-width:860px){
+  .steps-grid{grid-template-columns:1fr 1fr}
+  .refs{grid-template-columns:1fr}
+  .teacher-grid{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .steps-grid{grid-template-columns:1fr}
+  .label-task{grid-template-columns:1fr}
+  .equation{font-size:.9rem}
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .stage-card,.stage-outer:hover .stage-card{transform:none;transition:none}
+  .btn,.chev,.tfill{transition:none}
+}
+
+/* ---------- print ---------- */
+@media print{
+  body{background:#fff}
+  .no-print{display:none !important}
+  .card,.steps,.teacher{box-shadow:none}
+  .acc-panel{display:block !important}
+}
+</style>
+</head>
+<body>
+<!-- ================= LAB PAGE ================= -->
+<div class="page on" id="page-lab">
+<div class="wrap">
+
+<header class="lab-head no-print">
+  <div>
+    <div class="eyebrow">High School Chemistry &bull; Chemical Reactions</div>
+    <h1>Combination Reaction: Quick Lime + Water</h1>
+    <p class="sub">Section 1.2.1 &middot; Activity 1.4 &middot; Figure 1.3 — formation of slaked lime</p>
+  </div>
+  <button class="btn" id="btnTeacher" aria-expanded="false" aria-controls="teacherView">🧑‍🏫 Teacher view</button>
+</header>
+
+<section class="card context">
+  <p>In Class IX we learnt that during a chemical reaction, atoms of one element do not change into those of another — bonds between atoms break, new bonds are made, and new substances appear. When <strong>calcium oxide (quick lime)</strong> meets water it reacts vigorously: the two reactants combine into a <strong>single product, calcium hydroxide (slaked lime)</strong>, releasing a large amount of heat. A reaction in which a single product is formed from two or more reactants is a <strong>combination reaction</strong>.</p>
+  <div class="pills" aria-hidden="true">
+    <span class="pill">Combination reaction</span>
+    <span class="pill">Exothermic — releases heat</span>
+    <span class="pill">Quick lime → slaked lime</span>
+  </div>
+  <div class="equation">
+    <span class="term">CaO<sub>(s)</sub><em>quick lime</em></span>
+    <span class="op">+</span>
+    <span class="term">H<sub>2</sub>O<sub>(l)</sub></span>
+    <span class="op">⟶</span>
+    <span class="term">Ca(OH)<sub>2&nbsp;(aq)</sub><em>slaked lime</em></span>
+    <span class="op">+</span>
+    <span class="term hotword">Heat</span>
+    <span class="eqno">(1.13)</span>
+  </div>
+  <p class="factcheck"><strong>Fact check:</strong> the vigorous bubbling you see is <em>not</em> a gas being produced — there is no gas on the product side of equation 1.13. The reaction releases so much heat that the water itself boils: the bubbles are steam.</p>
+</section>
+
+<!-- ================= STAGE ================= -->
+<div class="stage-outer">
+  <div class="stage-card card" id="stageCard">
+    <svg id="apparatus" viewBox="0 0 640 460" role="img"
+         aria-label="A beaker of water with calcium oxide granules at its base. A hand touches the outside of the beaker to feel the temperature. A thermometer stands in the water.">
+      <defs>
+        <linearGradient id="gGlass" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".7"/>
+          <stop offset=".12" stop-color="#dfeaf0" stop-opacity=".22"/>
+          <stop offset=".5" stop-color="#eef5f8" stop-opacity=".1"/>
+          <stop offset=".88" stop-color="#cfdde6" stop-opacity=".28"/>
+          <stop offset="1" stop-color="#ffffff" stop-opacity=".6"/>
+        </linearGradient>
+        <linearGradient id="gWater" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d3ecf8"/>
+          <stop offset=".55" stop-color="#a9d6ec"/>
+          <stop offset="1" stop-color="#8cc2de"/>
+        </linearGradient>
+        <linearGradient id="gPile" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#efe9d6"/>
+          <stop offset=".6" stop-color="#d8cdab"/>
+          <stop offset="1" stop-color="#bfb28c"/>
+        </linearGradient>
+        <radialGradient id="gGlow" cx=".5" cy=".55" r=".55">
+          <stop offset="0" stop-color="#ff7a29" stop-opacity=".85"/>
+          <stop offset=".55" stop-color="#ff9d47" stop-opacity=".32"/>
+          <stop offset="1" stop-color="#ff9d47" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="gBulb" cx=".35" cy=".35" r=".8">
+          <stop offset="0" stop-color="#ff8a76"/>
+          <stop offset="1" stop-color="#c22c1c"/>
+        </radialGradient>
+        <linearGradient id="gSkin" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f6d2ab"/>
+          <stop offset=".6" stop-color="#eab687"/>
+          <stop offset="1" stop-color="#d99b67"/>
+        </linearGradient>
+        <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="6"/>
+        </filter>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/>
+        </marker>
+        <clipPath id="clipBeaker">
+          <path d="M260,116 L460,116 L460,388 Q460,396 450,396 L270,396 Q260,396 260,388 Z"/>
+        </clipPath>
+      </defs>
+
+      <!-- bench -->
+      <ellipse cx="360" cy="412" rx="215" ry="17" fill="rgba(26,26,26,.16)" filter="url(#soft)"/>
+      <line x1="60" y1="408" x2="620" y2="408" stroke="#d8cfb6" stroke-width="3"/>
+
+      <!-- glass body (behind water) -->
+      <path d="M256,120 L464,120 L464,384 Q464,398 448,398 L272,398 Q256,398 256,384 Z"
+            fill="url(#gGlass)" fill-opacity=".55"/>
+
+      <!-- water & contents, clipped to beaker -->
+      <g clip-path="url(#clipBeaker)">
+        <path id="waterBody" d="M262,214 C300,206 420,206 458,214 L458,390 Q458,396 450,396 L270,396 Q262,396 262,390 Z"
+              fill="url(#gWater)" opacity=".9"/>
+        <path id="milk" d="M262,214 C300,206 420,206 458,214 L458,390 Q458,396 450,396 L270,396 Q262,396 262,390 Z"
+              fill="#f6f2e6" opacity="0"/>
+        <!-- waterline shimmer -->
+        <path d="M262,214 C300,206 420,206 458,214" stroke="#ffffff" stroke-width="3" opacity=".75" fill="none"/>
+        <path d="M262,219 C300,211 420,211 458,219" stroke="#7fb0cc" stroke-width="1.6" opacity=".5" fill="none"/>
+        <!-- exothermic glow -->
+        <ellipse id="glow" cx="362" cy="378" rx="132" ry="52" fill="url(#gGlow)" opacity="0"/>
+        <!-- CaO pile -->
+        <g id="pile">
+          <path d="M290,394 C305,378 320,372 340,368 C355,364 370,362 385,366 C405,370 422,378 436,394 Z" fill="url(#gPile)"/>
+          <g fill="#d8cfae" stroke="#a3966f" stroke-width="1">
+            <circle cx="302" cy="388" r="4"/><circle cx="316" cy="382" r="5"/>
+            <circle cx="331" cy="377" r="4.5"/><circle cx="347" cy="372" r="5"/>
+            <circle cx="363" cy="369" r="5.5"/><circle cx="379" cy="371" r="5"/>
+            <circle cx="395" cy="375" r="4.5"/><circle cx="409" cy="380" r="5"/>
+            <circle cx="422" cy="386" r="4"/><circle cx="337" cy="386" r="5" fill="#cfc49f"/>
+            <circle cx="371" cy="380" r="6" fill="#cfc49f"/><circle cx="399" cy="386" r="5" fill="#cfc49f"/>
+            <circle cx="311" cy="391" r="3.5"/><circle cx="428" cy="391" r="3.5"/><circle cx="355" cy="378" r="4"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- thermometer -->
+      <g id="thermo">
+        <line x1="452" y1="120" x2="437" y2="146" stroke="#8b8574" stroke-width="3"/>
+        <rect x="427" y="146" width="11" height="224" rx="5.5" fill="#fdfdf8" stroke="#b9b2a0" stroke-width="1.6"/>
+        <rect id="thermoCol" x="430.8" y="352" width="3.4" height="14" rx="1.7" fill="#d43c2c"/>
+        <circle cx="432.5" cy="375" r="9.5" fill="url(#gBulb)" stroke="#b9b2a0" stroke-width="1.2"/>
+        <g stroke="#b9b2a0" stroke-width="1.2">
+          <line x1="438" y1="170" x2="443" y2="170"/><line x1="438" y1="210" x2="443" y2="210"/>
+          <line x1="438" y1="250" x2="443" y2="250"/><line x1="438" y1="290" x2="443" y2="290"/>
+          <line x1="438" y1="330" x2="443" y2="330"/>
+        </g>
+      </g>
+
+      <!-- beaker outline & rim (in front of water) -->
+      <path d="M243,102 C250,110 256,112 256,120 L256,384 Q256,398 272,398 L448,398 Q464,398 464,384 L464,120 C464,112 470,110 477,102"
+            fill="none" stroke="#93a9b6" stroke-width="4.5" stroke-linecap="round"/>
+      <line x1="258" y1="117" x2="462" y2="117" stroke="#b9cbd6" stroke-width="1.6" opacity=".8"/>
+      <!-- specular highlights -->
+      <rect x="272" y="142" width="13" height="216" rx="6.5" fill="#ffffff" opacity=".38" transform="rotate(1.5 278 250)"/>
+      <rect x="446" y="160" width="6" height="170" rx="3" fill="#ffffff" opacity=".2"/>
+      <!-- graduations -->
+      <g stroke="#9db4c0" stroke-width="1.4" opacity=".65">
+        <line x1="448" y1="356" x2="460" y2="356"/><line x1="448" y1="286" x2="460" y2="286"/>
+        <line x1="448" y1="216" x2="460" y2="216"/>
+      </g>
+
+      <!-- hand touching the beaker (front) -->
+      <g id="hand">
+        <path d="M14,296 C38,274 74,262 108,262 L128,366 C88,370 44,360 14,338 Z" fill="#7e93aa"/>
+        <path d="M96,268 C130,252 178,248 212,260 C238,270 252,282 254,296 L254,332 C250,350 228,362 198,362 C158,362 118,352 104,330 C94,314 90,286 96,268 Z"
+              fill="url(#gSkin)" stroke="#c08556" stroke-width="1.5"/>
+        <path d="M158,252 C196,242 234,244 250,252 C258,257 257,266 248,269 C220,275 186,272 164,268 C154,265 152,256 158,252 Z"
+              fill="url(#gSkin)" stroke="#c08556" stroke-width="1.2"/>
+        <path d="M168,272 C204,266 240,268 252,274 C259,279 258,288 249,290 C222,295 192,293 174,289 C165,286 163,276 168,272 Z"
+              fill="url(#gSkin)" stroke="#c08556" stroke-width="1.2"/>
+        <path d="M170,294 C206,289 242,291 253,297 C260,302 259,311 250,313 C224,318 194,316 176,311 C167,308 165,298 170,294 Z"
+              fill="url(#gSkin)" stroke="#c08556" stroke-width="1.2"/>
+        <path d="M168,317 C202,312 238,314 250,320 C257,325 256,334 247,336 C222,341 194,339 176,334 C167,331 163,321 168,317 Z"
+              fill="url(#gSkin)" stroke="#c08556" stroke-width="1.2"/>
+        <path d="M120,348 C150,362 190,364 224,352 C232,348 232,340 223,338 C196,344 166,344 140,336 C128,334 114,340 120,348 Z"
+              fill="url(#gSkin)" stroke="#c08556" stroke-width="1.2"/>
+        <g fill="#f8e2ca" opacity=".9">
+          <ellipse cx="245" cy="260" rx="5" ry="3.6"/><ellipse cx="247" cy="281" rx="5" ry="3.6"/>
+          <ellipse cx="248" cy="304" rx="5" ry="3.6"/><ellipse cx="245" cy="327" rx="5" ry="3.6"/>
+        </g>
+        <path d="M198,264 C206,272 206,284 200,290" stroke="#d8a476" stroke-width="1.4" fill="none" opacity=".6"/>
+        <path d="M196,296 C204,302 204,310 198,314" stroke="#d8a476" stroke-width="1.4" fill="none" opacity=".6"/>
+      </g>
+
+      <!-- textbook-style labels -->
+      <g id="labels" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="15" fill="#1a1a1a">
+        <line x1="524" y1="140" x2="468" y2="124" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="530" y="145">Beaker</text>
+        <line x1="524" y1="252" x2="464" y2="250" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="530" y="257">Water</text>
+        <line x1="524" y1="386" x2="442" y2="389" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="530" y="384">Calcium</text>
+        <text x="530" y="401">oxide</text>
+      </g>
+    </svg>
+    <canvas id="fx" aria-hidden="true"></canvas>
+    <div id="spotlight" aria-hidden="true"></div>
+  </div>
+</div>
+<p class="stage-cap">After Figure 1.3 — formation of slaked lime by the reaction of calcium oxide with water. Click a step below to jump the experiment there.</p>
+
+<!-- ================= CONTROL BAR ================= -->
+<div class="card controls no-print" role="group" aria-label="Simulation controls">
+  <button class="btn primary" id="btnPlay" aria-pressed="true">⏸ Pause</button>
+  <div class="ctl-group">
+    <label for="speedRange">Speed</label>
+    <input type="range" id="speedRange" min="0.25" max="4" step="0.25" value="1">
+    <span class="readout" id="speedVal">1.00×</span>
+  </div>
+  <button class="btn" id="btnLabels" aria-pressed="true">🏷 Labels</button>
+  <button class="btn" id="btnMol">🔬 Show molecules</button>
+  <button class="btn" id="btnSound" aria-pressed="false">🔇 Sound</button>
+  <span class="spacer"></span>
+  <span class="readout">🌡 <b id="readTemp">25.0</b> °C</span>
+  <span class="readout">CaO used <b id="readPct">0</b>%</span>
+  <a class="btn" id="btnAssign" href="#assignment">📝 Assignment</a>
+</div>
+
+<!-- ================= STEP PANEL ================= -->
+<section class="steps" aria-label="Reaction stages">
+  <div class="steps-head">
+    <h2>The reaction, step by step</h2>
+    <span>driven live by the simulation — click a step to jump there</span>
+  </div>
+  <div class="steps-grid" id="stepsGrid">
+    <button class="step" data-i="0">
+      <span class="stepnum">STEP 1</span>
+      <h3>Water meets quick lime</h3>
+      <p>Water is added slowly and soaks into the porous white granules of calcium oxide.</p>
+      <span class="bar"><i></i></span>
+    </button>
+    <button class="step" data-i="1">
+      <span class="stepnum">STEP 2</span>
+      <h3>The lattice breaks up</h3>
+      <p>CaO dissociates: Ca²⁺ and O²⁻ enter the water, and O²⁻ reacts with H₂O to give OH⁻ ions.</p>
+      <span class="bar"><i></i></span>
+    </button>
+    <button class="step" data-i="2">
+      <span class="stepnum">STEP 3</span>
+      <h3>Ca(OH)₂ forms — heat released</h3>
+      <p>Ca²⁺ and OH⁻ combine into the single product, calcium hydroxide. Bond-making releases energy: the mixture heats up.</p>
+      <span class="bar"><i></i></span>
+    </button>
+    <button class="step" data-i="3">
+      <span class="stepnum">STEP 4</span>
+      <h3>Milky suspension — water boils</h3>
+      <p>Ca(OH)₂ is only slightly soluble, so the water turns milky. Near the granules the heat boils water — the bubbles are steam.</p>
+      <span class="bar"><i></i></span>
+    </button>
+  </div>
+</section>
+
+<!-- ================= REFERENCE CARDS ================= -->
+<section class="refs">
+  <div class="card ref">
+    <h2>Particle view — what the colours mean</h2>
+    <svg viewBox="0 0 320 150" width="100%" role="img" aria-label="Cross-section showing calcium ions, hydroxide ions, water molecules and calcium hydroxide forming above a lattice of calcium oxide">
+      <rect x="0" y="0" width="320" height="150" rx="10" fill="#eaf4fa"/>
+      <rect x="0" y="112" width="320" height="38" rx="10" fill="#e2d8b8"/>
+      <g stroke="#a3966f" stroke-width="1">
+        <circle cx="30" cy="126" r="8" fill="#e88f3c"/><circle cx="48" cy="126" r="7" fill="#d64f38"/>
+        <circle cx="66" cy="126" r="8" fill="#e88f3c"/><circle cx="84" cy="126" r="7" fill="#d64f38"/>
+        <circle cx="102" cy="126" r="8" fill="#e88f3c"/><circle cx="120" cy="126" r="7" fill="#d64f38"/>
+      </g>
+      <circle cx="160" cy="95" r="8" fill="#e88f3c" stroke="#8a4c16"/>
+      <circle cx="205" cy="70" r="7" fill="#d64f38" stroke="#7a2417"/><circle cx="211" cy="63" r="3.5" fill="#fff"/>
+      <circle cx="70" cy="55" r="8" fill="#bfe2f2" stroke="#7fb0cc"/><circle cx="63" cy="48" r="3.5" fill="#fff"/><circle cx="78" cy="49" r="3.5" fill="#fff"/>
+      <circle cx="120" cy="30" r="8" fill="#bfe2f2" stroke="#7fb0cc"/><circle cx="113" cy="23" r="3.5" fill="#fff"/><circle cx="128" cy="24" r="3.5" fill="#fff"/>
+      <g stroke="#b9b2a0">
+        <circle cx="262" cy="40" r="9" fill="#e88f3c"/>
+        <circle cx="250" cy="30" r="6.5" fill="#efece2"/><circle cx="274" cy="30" r="6.5" fill="#efece2"/>
+      </g>
+      <text x="240" y="60" font-size="11" fill="#41586b" font-family="ui-monospace,monospace">Ca(OH)₂</text>
+    </svg>
+    <div class="legend">
+      <span><i class="dot" style="background:#e88f3c"></i> Ca²⁺ (calcium ion)</span>
+      <span><i class="dot" style="background:#d64f38"></i> O²⁻ / OH⁻</span>
+      <span><i class="dot" style="background:#bfe2f2"></i> H₂O molecule</span>
+      <span><i class="dot" style="background:#efece2"></i> Ca(OH)₂ (product)</span>
+    </div>
+    <p>Reactant granules visibly shrink as the reaction proceeds, and the white product builds up as a suspension — count the particles on the stage and watch both happen.</p>
+  </div>
+  <div class="card ref">
+    <h2>Straight from the textbook</h2>
+    <p><strong>Figure 1.3 labels</strong> — the same three labels you must know for the exam diagram:</p>
+    <ul class="fig-labels">
+      <li><b>1</b> Beaker</li>
+      <li><b>2</b> Water</li>
+      <li><b>3</b> Calcium oxide</li>
+    </ul>
+    <p style="margin-top:14px"><strong>Activity 1.4 asks you to:</strong> take a small amount of calcium oxide (quick lime) in a beaker &middot; slowly add water to it &middot; touch the beaker as shown in Fig. 1.3 &middot; ask — do you feel any change in temperature?</p>
+  </div>
+</section>
+
+<!-- ================= TEACHER VIEW ================= -->
+<section class="teacher" id="teacherView" hidden>
+  <h2>Teacher view</h2>
+  <div class="teacher-grid">
+    <div>
+      <h3>Learning outcomes</h3>
+      <ul>
+        <li>Define a combination reaction and identify CaO + H₂O → Ca(OH)₂ as one, with correct state symbols.</li>
+        <li>Classify the reaction as exothermic from observable evidence (warm beaker, boiling).</li>
+        <li>Connect the names quick lime (CaO) and slaked lime (Ca(OH)₂) to their formulae.</li>
+        <li>Explain the milky appearance as a suspension of slightly soluble Ca(OH)₂.</li>
+      </ul>
+      <h3>Suggested demo flow (10–12 min)</h3>
+      <ul>
+        <li>Run Step 1–2 at 0.5× speed with Labels on; ask students to predict what "touch the beaker" will reveal.</li>
+        <li>Pause at Step 3; open <em>Show molecules</em> and let students watch bonds form and neighbours speed up — that <em>is</em> the heat.</li>
+        <li>Run Step 4; ask "what are the bubbles?" <em>before</em> revealing the fact-check line.</li>
+        <li>Finish on the equation strip; have students copy it with state symbols.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>The misconception to attack</h3>
+      <p>Most students read the bubbling as a gas being <em>produced</em>. Push them to the equation: no gas appears on the product side. The bubbling is water boiling from the heat released. Question 3 of the assignment tests exactly this.</p>
+      <h3>Assignment notes (13 pts)</h3>
+      <ul>
+        <li>Q1 (3) — labels the Figure 1.3 diagram they will be examined on.</li>
+        <li>Q2 (2) — the Activity 1.4 observation: warm beaker ⇒ exothermic.</li>
+        <li>Q3 (2) — the misconception, head-on.</li>
+        <li>Q4 (3) — all-or-nothing multi-select on the core facts.</li>
+        <li>Q5 (3) — parameter challenge; the ΔT-per-gram model (≈3.2 °C/g in 100 mL) is <strong>illustrative, not measured</strong> — verify against your own values before quoting numbers.</li>
+      </ul>
+      <h3>Extension question</h3>
+      <p>Slaked lime is used to whitewash walls. What does the whitewash slowly react with in air, and why does the wall develop a shiny finish after a few days? (CO₂ → CaCO₃, back to the chemistry of lime.)</p>
+    </div>
+    <div class="safety">
+      <h3>⚠ Lab safety</h3>
+      <p>CaO + water is strongly exothermic and caustic — <strong>demonstrate, do not hand out</strong>. Wear eye protection, add water to the lime slowly (never lime to a little water), and never seal the vessel. The mixture and beaker get hot enough to scald.</p>
+    </div>
+  </div>
+</section>
+
+<p class="foot">Single-file interactive lab &middot; runs offline &middot; matches textbook section 1.2.1, Activity 1.4 and Figure 1.3.</p>
+</div>
+</div>
+<!-- ================= ASSIGNMENT PAGE ================= -->
+<div class="page" id="page-assign">
+<div class="wrap">
+
+<header class="assign-head">
+  <a class="btn" href="#lab">← Back to the lab</a>
+  <div>
+    <div class="eyebrow">Assignment &bull; Activity 1.4</div>
+    <h1 style="font-size:clamp(1.3rem,3vw,1.9rem)">Check what you saw</h1>
+  </div>
+  <span class="spacer"></span>
+  <span class="sub">The lab keeps running while you answer — go back any time.</span>
+</header>
+
+<div class="card scorebar no-print">
+  <span class="readout"><b id="ansCount">0</b> of 5 answered</span>
+  <span class="readout" id="scoreOut" aria-live="polite">Score: — / 13</span>
+  <span class="spacer"></span>
+  <button class="btn" id="btnExpand">Expand all</button>
+  <button class="btn" id="btnCollapse">Collapse all</button>
+  <button class="btn" id="btnPrint">🖨 Print / save as PDF</button>
+  <button class="btn primary" id="btnCheck">✔ Check answers</button>
+</div>
+
+<!-- ---------- Q1 : drag & drop labelling (3 pts) ---------- -->
+<section class="card acc open" id="q1">
+  <button class="acc-head" aria-expanded="true" aria-controls="q1p">
+    <span class="qnum">Q1</span>
+    <span class="qtitle">Label the diagram from Figure 1.3</span>
+    <span class="qstatus" data-chip>Not answered</span>
+    <span class="qpts">3 pts</span>
+    <span class="chev" aria-hidden="true">▾</span>
+  </button>
+  <div class="acc-panel" id="q1p">
+    <p>Drag each label onto the numbered part it belongs to — or tap a label, then tap its place. These are the textbook's own labels.</p>
+    <div class="label-task">
+      <div class="label-fig">
+        <svg viewBox="0 0 300 240" role="img" aria-label="Simplified beaker diagram with three numbered parts: 1 at the rim, 2 in the liquid, 3 at the base">
+          <path d="M96,30 L204,30 L204,196 Q204,206 192,206 L108,206 Q96,206 96,196 Z" fill="#eef5f8" stroke="#93a9b6" stroke-width="4"/>
+          <path d="M100,84 C122,78 178,78 200,84 L200,196 Q200,202 192,202 L108,202 Q100,202 100,196 Z" fill="#a9d6ec" opacity=".85"/>
+          <path d="M112,200 C122,186 138,180 150,180 C164,180 180,186 190,200 Z" fill="#d8cdab" stroke="#a3966f"/>
+          <g font-family="ui-monospace,monospace" font-size="13" font-weight="700">
+            <line x1="206" y1="34" x2="248" y2="24" stroke="#1a1a1a" stroke-width="1.5"/>
+            <circle cx="258" cy="22" r="11" fill="#1a1a1a"/><text x="258" y="26.5" fill="#fffdf7" text-anchor="middle">1</text>
+            <line x1="202" y1="120" x2="248" y2="116" stroke="#1a1a1a" stroke-width="1.5"/>
+            <circle cx="258" cy="115" r="11" fill="#1a1a1a"/><text x="258" y="119.5" fill="#fffdf7" text-anchor="middle">2</text>
+            <line x1="192" y1="194" x2="248" y2="204" stroke="#1a1a1a" stroke-width="1.5"/>
+            <circle cx="258" cy="206" r="11" fill="#1a1a1a"/><text x="258" y="210.5" fill="#fffdf7" text-anchor="middle">3</text>
+          </g>
+        </svg>
+      </div>
+      <div class="dz-col" role="group" aria-label="Drop zones">
+        <div class="dz" data-zone="rim" tabindex="0" role="button" aria-label="Part 1, at the vessel's rim — place a label here">
+          <span class="dznum">1</span><span class="dzslot">place label here…</span>
+        </div>
+        <div class="dz" data-zone="liquid" tabindex="0" role="button" aria-label="Part 2, the liquid — place a label here">
+          <span class="dznum">2</span><span class="dzslot">place label here…</span>
+        </div>
+        <div class="dz" data-zone="base" tabindex="0" role="button" aria-label="Part 3, the solid at the base — place a label here">
+          <span class="dznum">3</span><span class="dzslot">place label here…</span>
+        </div>
+        <div class="chip-tray" aria-label="Labels to place">
+          <button class="chip" data-chip-name="Calcium oxide">Calcium oxide</button>
+          <button class="chip" data-chip-name="Beaker">Beaker</button>
+          <button class="chip" data-chip-name="Water">Water</button>
+        </div>
+        <p class="hint">Tap a placed label to remove it.</p>
+      </div>
+    </div>
+    <div class="feedback" data-fb></div>
+  </div>
+</section>
+
+<!-- ---------- Q2 : MCQ (2 pts) ---------- -->
+<section class="card acc" id="q2">
+  <button class="acc-head" aria-expanded="false" aria-controls="q2p">
+    <span class="qnum">Q2</span>
+    <span class="qtitle">Touch the beaker — what do you feel, and why?</span>
+    <span class="qstatus" data-chip>Not answered</span>
+    <span class="qpts">2 pts</span>
+    <span class="chev" aria-hidden="true">▾</span>
+  </button>
+  <div class="acc-panel" id="q2p" hidden>
+    <fieldset>
+      <legend class="hint" style="margin-bottom:6px">Activity 1.4 asks you to touch the beaker as water is added to the quick lime.</legend>
+      <label class="opt"><input type="radio" name="q2" value="warm"><span>It feels <strong>warm</strong> — the reaction releases heat (it is exothermic).</span></label>
+      <label class="opt"><input type="radio" name="q2" value="cool"><span>It feels <strong>cool</strong> — the reaction absorbs heat from the surroundings.</span></label>
+      <label class="opt"><input type="radio" name="q2" value="same"><span>No change — mixing two substances never changes the temperature.</span></label>
+      <label class="opt"><input type="radio" name="q2" value="friction"><span>It feels warm — because stirring the water causes friction.</span></label>
+    </fieldset>
+    <div class="feedback" data-fb></div>
+  </div>
+</section>
+
+<!-- ---------- Q3 : MCQ misconception (2 pts) ---------- -->
+<section class="card acc" id="q3">
+  <button class="acc-head" aria-expanded="false" aria-controls="q3p">
+    <span class="qnum">Q3</span>
+    <span class="qtitle">The water bubbles vigorously. What are the bubbles?</span>
+    <span class="qstatus" data-chip>Not answered</span>
+    <span class="qpts">2 pts</span>
+    <span class="chev" aria-hidden="true">▾</span>
+  </button>
+  <div class="acc-panel" id="q3p" hidden>
+    <fieldset>
+      <label class="opt"><input type="radio" name="q3" value="h2"><span>Hydrogen gas produced by the reaction.</span></label>
+      <label class="opt"><input type="radio" name="q3" value="o2"><span>Oxygen gas escaping from the calcium oxide.</span></label>
+      <label class="opt"><input type="radio" name="q3" value="steam"><span><strong>Steam</strong> — the heat released is enough to boil the water.</span></label>
+      <label class="opt"><input type="radio" name="q3" value="co2"><span>Carbon dioxide, as in all reactions of lime.</span></label>
+    </fieldset>
+    <div class="feedback" data-fb></div>
+  </div>
+</section>
+
+<!-- ---------- Q4 : multi-select (3 pts) ---------- -->
+<section class="card acc" id="q4">
+  <button class="acc-head" aria-expanded="false" aria-controls="q4p">
+    <span class="qnum">Q4</span>
+    <span class="qtitle">Select every true statement (all must be right)</span>
+    <span class="qstatus" data-chip>Not answered</span>
+    <span class="qpts">3 pts</span>
+    <span class="chev" aria-hidden="true">▾</span>
+  </button>
+  <div class="acc-panel" id="q4p" hidden>
+    <fieldset>
+      <label class="opt"><input type="checkbox" name="q4" value="exo"><span>The reaction releases a large amount of heat.</span></label>
+      <label class="opt"><input type="checkbox" name="q4" value="h2gas"><span>Hydrogen gas is released during the reaction.</span></label>
+      <label class="opt"><input type="checkbox" name="q4" value="single"><span>A single product is formed from two reactants — so this is a combination reaction.</span></label>
+      <label class="opt"><input type="checkbox" name="q4" value="endo"><span>The temperature of the mixture falls as the reaction proceeds.</span></label>
+      <label class="opt"><input type="checkbox" name="q4" value="slaked"><span>Slaked lime is another name for calcium hydroxide, Ca(OH)₂.</span></label>
+    </fieldset>
+    <div class="feedback" data-fb></div>
+  </div>
+</section>
+
+<!-- ---------- Q5 : parameter challenge (3 pts) ---------- -->
+<section class="card acc" id="q5">
+  <button class="acc-head" aria-expanded="false" aria-controls="q5p">
+    <span class="qnum">Q5</span>
+    <span class="qtitle">Parameter challenge — how much quick lime?</span>
+    <span class="qstatus" data-chip>Not answered</span>
+    <span class="qpts">3 pts</span>
+    <span class="chev" aria-hidden="true">▾</span>
+  </button>
+  <div class="acc-panel" id="q5p" hidden>
+    <p>In this model, quick lime is added to <strong>100 mL of water at 25 °C</strong>, and every gram that reacts heats the water by about the same amount. Slide to find an amount that pushes the final temperature <strong>into the green target band (60–66 °C)</strong> — and notice how too little CaO barely warms the water at all: the heat released scales with the amount that reacts.</p>
+    <div class="param">
+      <div class="ttrack" aria-hidden="true">
+        <div class="tband" id="tband"></div>
+        <div class="tfill" id="tfill"></div>
+      </div>
+      <div class="param-right">
+        <label for="paramSlider">Amount of calcium oxide: <span id="paramMass" style="font-family:var(--mono)">6 g</span></label>
+        <input type="range" id="paramSlider" min="1" max="20" step="1" value="6"
+               aria-describedby="paramRead">
+        <div class="param-read" id="paramRead">Final temperature: <b id="paramT">44.2 °C</b> &nbsp;·&nbsp; ΔT = <span id="paramDT">+19.2 °C</span> &nbsp;·&nbsp; <span id="paramNote">below the target band</span></div>
+      </div>
+    </div>
+    <div class="feedback" data-fb></div>
+  </div>
+</section>
+
+<p class="foot">Leave your answers set, then press <em>Check answers</em>. Wrong answers reopen with an explanation.</p>
+</div>
+</div>
+
+<!-- ================= MOLECULE INSPECTOR MODAL ================= -->
+<div class="modal" id="molModal" role="dialog" aria-modal="true" aria-label="Particle inspector" hidden>
+  <div class="modal-card card">
+    <div class="modal-head">
+      <h2>Particle inspector — CaO + H₂O → Ca(OH)₂</h2>
+      <button class="btn" id="molClose">✕ Close</button>
+    </div>
+    <canvas id="molCanvas" width="640" height="400"></canvas>
+    <div class="modal-bar">
+      <div class="ctl-group">
+        <label for="molTemp">Water temperature</label>
+        <input type="range" id="molTemp" min="40" max="220" value="125">
+      </div>
+      <button class="btn" id="molReset">↺ Reset</button>
+      <span class="spacer"></span>
+      <span class="readout" id="molCounts">H₂O 18 · Ca²⁺ 0 · OH⁻ 0 · Ca(OH)₂ 0</span>
+    </div>
+    <p class="modal-note">Live collision physics, not a scripted loop: when a water molecule strikes a CaO unit hard enough, the lattice unit breaks apart, hydroxide ions form, and each new Ca(OH)₂ bond releases energy — watch the neighbouring particles speed up. That speed-up <em>is</em> the heat you feel through the glass.</p>
+  </div>
+</div>
+<script>
+'use strict';
+/* ============================================================
+   Combination Reaction lab — single-file, offline, no storage
+   ============================================================ */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------------- router (#assignment hash) ---------------- */
+function route(){
+  const onAssign = location.hash === '#assignment';
+  $('#page-lab').classList.toggle('on', !onAssign);
+  $('#page-assign').classList.toggle('on', onAssign);
+  window.scrollTo(0,0);
+}
+addEventListener('hashchange', route);
+route();
+
+/* ---------------- simulation state ---------------- */
+const S = { playing:true, speed:1, progress:0, temp:25, sound:false, labels:true };
+const DUR = 42;                       // seconds at 1x for a full run
+const STEPS = [
+  {a:0,    b:0.15, x:56, y:46},       // water meets lime (surface)
+  {a:0.15, b:0.45, x:56, y:82},       // lattice breaks (pile)
+  {a:0.45, b:0.80, x:56, y:60},       // product forms (mid water)
+  {a:0.80, b:1.001,x:56, y:42},       // milky + boiling (surface)
+];
+const ease = t => 1-Math.pow(1-clamp(t,0,1),3);
+
+const elThermo = $('#thermoCol'), elGlow = $('#glow'), elMilk = $('#milk'),
+      elPile = $('#pile'), elLabels = $('#labels'),
+      elTemp = $('#readTemp'), elPct = $('#readPct'),
+      stepBtns = $$('.step'), card = $('#stageCard'), spot = $('#spotlight');
+
+/* ---------------- canvas over the SVG ---------------- */
+const cv = $('#fx'), ctx = cv.getContext('2d');
+const dpr = window.devicePixelRatio || 1;
+function resizeFx(){
+  const r = card.getBoundingClientRect();
+  if(!r.width) return;
+  cv.width = r.width*dpr; cv.height = r.height*dpr;
+  ctx.setTransform(dpr*r.width/640, 0, 0, dpr*r.width/640, 0, 0); // draw in viewBox coords
+}
+new ResizeObserver(resizeFx).observe(card);
+resizeFx();
+
+/* water region in viewBox coordinates */
+const W = {x0:270, x1:452, y0:218, y1:388, surf:214};
+
+function sphere(c,x,y,r,cols,alpha){
+  c.save(); c.globalAlpha = alpha==null?1:alpha;
+  const g = c.createRadialGradient(x-r*.35, y-r*.42, r*.12, x, y, r);
+  g.addColorStop(0, cols[0]); g.addColorStop(.55, cols[1]); g.addColorStop(1, cols[2]);
+  c.fillStyle = g; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); c.restore();
+}
+const COL = {
+  h2o :['#ffffff','#bfe2f2','#6fa3c2'],
+  ca  :['#ffe2b8','#e88f3c','#8a4c16'],
+  oh  :['#ffd6cc','#d64f38','#7a2417'],
+  prod:['#ffffff','#efece2','#a89f8a'],
+};
+
+const P = { h2o:[], ions:[], prod:[], bub:[], steam:[] };
+for(let i=0;i<24;i++){
+  P.h2o.push({ x:W.x0+Math.random()*(W.x1-W.x0), y:W.y0+Math.random()*(W.y1-W.y0-14),
+               vx:(Math.random()-.5)*16, vy:(Math.random()-.5)*16,
+               z:Math.random(), ph:Math.random()*6.28 });
+}
+function spawnIon(kind){
+  P.ions.push({ kind, x:330+Math.random()*80, y:360+Math.random()*20,
+                vx:(Math.random()-.5)*20, vy:-8-Math.random()*16, z:Math.random(), ph:Math.random()*6.28 });
+}
+function spawnProd(){
+  const src = P.ions.length ? P.ions[Math.floor(Math.random()*P.ions.length)] : null;
+  P.prod.push({ x:src?src.x:300+Math.random()*130, y:src?src.y:280+Math.random()*90,
+                vx:(Math.random()-.5)*6, vy:4+Math.random()*6, z:Math.random(), ph:Math.random()*6.28 });
+  ping();
+}
+
+/* ---------------- audio (Web Audio, generated) ---------------- */
+let AC=null, master=null, bubGain=null, lastPing=0, lastCrk=0;
+function ensureAudio(){
+  if(AC) return;
+  AC = new (window.AudioContext||window.webkitAudioContext)();
+  master = AC.createGain(); master.gain.value = .6; master.connect(AC.destination);
+  const len = AC.sampleRate*1.2, buf = AC.createBuffer(1,len,AC.sampleRate), d = buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+  const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+  const bp = AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=420; bp.Q.value=.7;
+  bubGain = AC.createGain(); bubGain.gain.value = 0;
+  src.connect(bp); bp.connect(bubGain); bubGain.connect(master); src.start();
+  const lfo = AC.createOscillator(); lfo.frequency.value = 5.2;
+  const lg = AC.createGain(); lg.gain.value = .02;
+  lfo.connect(lg); lg.connect(bubGain.gain); lfo.start();
+}
+function ping(){                                    // product formed
+  if(!S.sound || !AC) return;
+  const t = AC.currentTime;
+  if(t - lastPing < .14) return;                    // rate cap
+  lastPing = t;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(820+Math.random()*320, t);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.16,t+.015);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.22);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+.25);
+}
+function crackle(){                                 // solid dissolving
+  if(!S.sound || !AC) return;
+  const t = AC.currentTime;
+  if(t - lastCrk < .09) return;                     // rate cap
+  lastCrk = t;
+  const n = AC.createBufferSource();
+  const len = AC.sampleRate*.05, b = AC.createBuffer(1,len,AC.sampleRate), d = b.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/len,2);
+  n.buffer = b;
+  const hp = AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1400;
+  const g = AC.createGain(); g.gain.value = .12;
+  n.connect(hp); hp.connect(g); g.connect(master); n.start();
+}
+
+/* ---------------- main update ---------------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now-last)/1000); last = now;
+  update(dt); draw(now/1000);
+  requestAnimationFrame(frame);
+}
+
+function update(dt){
+  if(S.playing) S.progress = clamp(S.progress + dt*S.speed/DUR, 0, 1);
+  const p = S.progress;
+
+  /* temperature follows the reaction with a small lag */
+  const tTarget = p>=1 ? 34 : 25 + 62*ease(p/.9);
+  S.temp += (tTarget - S.temp)*clamp(dt*(p>=1?.12:.9),0,1);
+  const boil = clamp((S.temp-58)/30, 0, 1);
+
+  /* SVG bindings — one source of truth: S.progress */
+  const pileS = Math.max(.14, 1-.84*p);
+  elPile.setAttribute('transform', `translate(363 394) scale(${pileS.toFixed(3)}) translate(-363 -394)`);
+  elGlow.setAttribute('opacity', (clamp((S.temp-30)/60,0,1)*.85).toFixed(3));
+  elMilk.setAttribute('opacity', (.72*clamp((p-.45)/.5,0,1)).toFixed(3));
+  const h = clamp((S.temp-20)/80,0,1)*214;
+  elThermo.setAttribute('y', (366-h).toFixed(1)); elThermo.setAttribute('height', h.toFixed(1));
+  elTemp.textContent = S.temp.toFixed(1);
+  elPct.textContent = Math.round(p*100);
+  card.style.boxShadow = `var(--shadow), 0 0 ${Math.round(46*boil)}px -4px rgba(255,122,41,${(.5*boil).toFixed(2)})`;
+
+  /* step panel — driven by the same progress value */
+  STEPS.forEach((s,i)=>{
+    const btn = stepBtns[i];
+    const fill = clamp((p-s.a)/(s.b-s.a),0,1);
+    btn.querySelector('.bar i').style.width = (fill*100).toFixed(1)+'%';
+    btn.classList.toggle('active', p>=s.a && p<s.b || (i===3 && p>=1));
+    btn.classList.toggle('done', p>=s.b);
+  });
+
+  /* particle population targets derived from progress */
+  const ionTarget  = (p>.1 && p<.88) ? Math.round(14*Math.sin(Math.PI*clamp((p-.1)/.78,0,1))) : 0;
+  const prodTarget = Math.round(48*clamp((p-.42)/.58,0,1));
+  while(P.ions.length < ionTarget)  spawnIon(P.ions.length%2 ? 'ca' : 'oh');
+  while(P.ions.length > ionTarget)  P.ions.pop();
+  while(P.prod.length < prodTarget) spawnProd();
+  while(P.prod.length > prodTarget) P.prod.pop();
+  if(p>.12 && p<.85 && Math.random() < dt*6*S.speed) crackle();
+
+  const mv = RM ? .45 : 1;                          // calmer motion if reduced-motion
+  /* water molecules: brownian + convection when hot */
+  for(const m of P.h2o){
+    m.ph += dt*2;
+    const conv = boil * (Math.abs(m.x-360)<60 ? -34 : 16);
+    m.vx += (Math.random()-.5)*40*dt; m.vy += ((Math.random()-.5)*40 + conv*.6)*dt;
+    m.vx *= .985; m.vy *= .985;
+    m.x += m.vx*dt*mv; m.y += m.vy*dt*mv;
+    if(m.x<W.x0){m.x=W.x0;m.vx*=-1} if(m.x>W.x1){m.x=W.x1;m.vx*=-1}
+    if(m.y<W.y0){m.y=W.y0;m.vy*=-1} if(m.y>W.y1){m.y=W.y1;m.vy*=-1}
+  }
+  /* ions drift up & around */
+  for(const io of P.ions){
+    io.ph += dt*3;
+    io.vx += (Math.random()-.5)*36*dt; io.vy += ((Math.random()-.5)*30 - 6)*dt;
+    io.vx*=.98; io.vy*=.98;
+    io.x += io.vx*dt*mv; io.y += io.vy*dt*mv;
+    io.x = clamp(io.x, W.x0, W.x1); io.y = clamp(io.y, W.y0+8, W.y1-4);
+  }
+  /* product settles into suspension */
+  for(const pr of P.prod){
+    pr.ph += dt;
+    pr.x += (Math.sin(pr.ph)*4 + pr.vx)*dt*mv; pr.y += (pr.vy)*dt*mv;
+    if(pr.y > W.y1-8){ pr.y = W.y1-8; pr.vy = -2; } else pr.vy = Math.min(pr.vy+6*dt, 9);
+    pr.x = clamp(pr.x, W.x0, W.x1);
+  }
+  /* steam bubbles only when hot enough to boil */
+  if(boil>0 && P.bub.length<36 && Math.random() < dt*(4+26*boil)*S.speed){
+    P.bub.push({ x:320+Math.random()*90, y:376, r:1.4+Math.random()*2.2,
+                 v:26+Math.random()*30, ph:Math.random()*6.28, z:Math.random() });
+  }
+  for(let i=P.bub.length-1;i>=0;i--){
+    const b = P.bub[i];
+    b.ph += dt*5; b.y -= b.v*dt*(1+.4*b.z); b.x += RM?0:Math.sin(b.ph)*14*dt; b.r += dt*2.4;
+    if(b.y < W.surf+6){
+      P.bub.splice(i,1);
+      if(P.steam.length<20) P.steam.push({x:b.x, y:W.surf-4, r:3+Math.random()*3, a:.4, vy:-14-Math.random()*10});
+    }
+  }
+  for(let i=P.steam.length-1;i>=0;i--){
+    const st = P.steam[i];
+    st.y += st.vy*dt; st.r += dt*9; st.a -= dt*.35; st.x += Math.sin(st.y*.1)*6*dt;
+    if(st.a<=0) P.steam.splice(i,1);
+  }
+  /* bubbling audio bed follows boil intensity */
+  if(AC && bubGain) bubGain.gain.setTargetAtTime(S.sound ? .16*boil + (p>0&&p<1?.012:0) : 0, AC.currentTime, .25);
+}
+
+function draw(t){
+  ctx.clearRect(0,0,640,460);
+  const all = [];
+  for(const pr of P.prod) all.push({o:pr, k:'prod'});
+  for(const io of P.ions) all.push({o:io, k:io.kind});
+  for(const m of P.h2o)  all.push({o:m, k:'h2o'});
+  all.sort((A,B)=>A.o.z-B.o.z);                    // back-to-front by depth
+  for(const {o,k} of all){
+    const zs = .68 + .55*o.z, za = .45 + .5*o.z;
+    if(k==='h2o'){
+      const r = 5.2*zs;
+      sphere(ctx,o.x,o.y,r,COL.h2o, za*.8);
+      sphere(ctx,o.x-r*.62,o.y-r*.55,r*.42,['#ffffff','#eef7fb','#c6deeb'], za*.8);
+      sphere(ctx,o.x+r*.66,o.y-r*.4,r*.42,['#ffffff','#eef7fb','#c6deeb'], za*.8);
+    }else if(k==='ca'){
+      sphere(ctx,o.x,o.y,6*zs,COL.ca, za);
+    }else if(k==='oh'){
+      const r = 5*zs;
+      sphere(ctx,o.x,o.y,r,COL.oh, za);
+      sphere(ctx,o.x+r*.6,o.y-r*.6,r*.4,['#ffffff','#f2ece4','#cfc6b8'], za);
+    }else{                                          // Ca(OH)2 suspension
+      sphere(ctx,o.x,o.y,4.6*zs,COL.prod, .5+.4*o.z);
+    }
+  }
+  /* steam bubbles */
+  for(const b of P.bub){
+    ctx.save(); ctx.globalAlpha = .55+.3*b.z;
+    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.28)';
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(b.x-b.r*.35,b.y-b.r*.35,b.r*.28,0,7); ctx.fill();
+    ctx.restore();
+  }
+  for(const st of P.steam){
+    ctx.save(); ctx.globalAlpha = st.a;
+    ctx.fillStyle = '#eef2f4';
+    ctx.beginPath(); ctx.arc(st.x,st.y,st.r,0,7); ctx.fill(); ctx.restore();
+  }
+}
+requestAnimationFrame(frame);
+
+/* ---------------- controls ---------------- */
+$('#btnPlay').addEventListener('click', function(){
+  S.playing = !S.playing;
+  this.textContent = S.playing ? '⏸ Pause' : '▶ Play';
+  this.setAttribute('aria-pressed', S.playing);
+  if(S.playing && S.progress>=1){ S.progress = 0; P.prod.length = 0; P.ions.length = 0; }
+});
+$('#speedRange').addEventListener('input', function(){
+  S.speed = +this.value; $('#speedVal').textContent = S.speed.toFixed(2)+'×';
+});
+$('#btnLabels').addEventListener('click', function(){
+  S.labels = !S.labels;
+  elLabels.style.display = S.labels ? '' : 'none';
+  this.setAttribute('aria-pressed', S.labels);
+});
+$('#btnSound').addEventListener('click', function(){
+  S.sound = !S.sound;
+  this.textContent = S.sound ? '🔊 Sound' : '🔇 Sound';
+  this.setAttribute('aria-pressed', S.sound);
+  if(S.sound){ ensureAudio(); AC.resume(); master.gain.value=.6; }
+  else if(AC){ master.gain.value=0; }
+});
+$('#btnTeacher').addEventListener('click', function(){
+  const tv = $('#teacherView'), open = tv.hidden;
+  tv.hidden = !open;
+  this.setAttribute('aria-expanded', open);
+  if(open) tv.scrollIntoView({behavior: RM?'auto':'smooth', block:'nearest'});
+});
+
+/* step click → jump simulation + spotlight that region */
+let spotTimer = null;
+stepBtns.forEach((btn,i)=>btn.addEventListener('click', ()=>{
+  const s = STEPS[i];
+  S.progress = s.a + .004;
+  spot.style.left = s.x+'%'; spot.style.top = s.y+'%';
+  spot.classList.add('on');
+  clearTimeout(spotTimer);
+  spotTimer = setTimeout(()=>spot.classList.remove('on'), 1900);
+  if(!S.playing){ S.playing = true; $('#btnPlay').textContent='⏸ Pause'; $('#btnPlay').setAttribute('aria-pressed',true); }
+}));
+
+/* ============================================================
+   MOLECULE INSPECTOR — real collision physics
+   ============================================================ */
+const molModal = $('#molModal'), mcv = $('#molCanvas'), mctx = mcv.getContext('2d');
+let atoms = [], flashes = [], molRAF = null, molLast = 0;
+function molInit(){
+  atoms = []; flashes = [];
+  for(let i=0;i<7;i++) atoms.push({type:'cao', x:90+i*76, y:372, vx:0, vy:0, r:13, oh:0});
+  for(let i=0;i<18;i++) atoms.push({type:'h2o', x:40+Math.random()*560, y:30+Math.random()*280,
+    vx:(Math.random()-.5)*160, vy:(Math.random()-.5)*160, r:9, ph:Math.random()*6.28});
+}
+function molBoost(x,y,f){
+  for(const a of atoms){
+    const dx=a.x-x, dy=a.y-y, d=Math.hypot(dx,dy);
+    if(d<110 && d>1){ a.vx = a.vx*f + dx/d*30; a.vy = a.vy*f + dy/d*30; }
+  }
+  flashes.push({x,y,age:0});
+}
+function molStep(dt){
+  const tempF = (+$('#molTemp').value)/100;         // 0.4 .. 2.2
+  const target = 95*tempF;
+  for(const a of atoms){
+    a.ph = (a.ph||0)+dt*3;
+    if(a.type==='h2o' || a.type==='oh'){            // thermostat: liquid keeps its temperature
+      const sp = Math.hypot(a.vx,a.vy)||1;
+      const k = 1 + (target-sp)/sp * Math.min(1,dt*2.2);
+      a.vx*=k; a.vy*=k;
+    }
+    if(a.type==='cao' || a.type==='prod') a.vy += 260*dt;   // heavy solids settle
+    a.x += a.vx*dt; a.y += a.vy*dt;
+    if(a.x<a.r){a.x=a.r;a.vx*=-1} if(a.x>640-a.r){a.x=640-a.r;a.vx*=-1}
+    if(a.y<a.r){a.y=a.r;a.vy*=-1}
+    if(a.y>400-a.r-8){ a.y=400-a.r-8; a.vy*=(a.type==='cao'||a.type==='prod')?-.35:-1; a.vx*=.92; }
+  }
+  /* pairwise collisions + reactions */
+  for(let i=0;i<atoms.length;i++) for(let j=i+1;j<atoms.length;j++){
+    const A=atoms[i], B=atoms[j];
+    const dx=B.x-A.x, dy=B.y-A.y, d=Math.hypot(dx,dy), min=A.r+B.r;
+    if(d===0 || d>=min) continue;
+    const nx=dx/d, ny=dy/d;
+    /* reaction 1: H2O strikes a CaO unit hard → lattice breaks: Ca²⁺ + 2 OH⁻ */
+    const pair = (A.type==='h2o'&&B.type==='cao')||(A.type==='cao'&&B.type==='h2o');
+    const rel = Math.hypot(A.vx-B.vx, A.vy-B.vy);
+    if(pair && rel>105){
+      const cao = A.type==='cao'?A:B;
+      const x=cao.x, y=cao.y;
+      atoms.splice(j,1); atoms.splice(i,1);
+      atoms.push({type:'ca', x, y:y-6, vx:(Math.random()-.5)*140, vy:-80-Math.random()*80, r:8.5, oh:0});
+      atoms.push({type:'oh', x:x-10, y:y-14, vx:-90-Math.random()*60, vy:-60, r:7, ph:0});
+      atoms.push({type:'oh', x:x+10, y:y-14, vx: 90+Math.random()*60, vy:-60, r:7, ph:0});
+      molBoost(x,y,1.18);
+      return;                                        // arrays changed — resume next frame
+    }
+    /* reaction 2: OH⁻ meets Ca²⁺ → builds toward Ca(OH)₂ */
+    const ionPair = (A.type==='oh'&&B.type==='ca')||(A.type==='ca'&&B.type==='oh');
+    if(ionPair){
+      const ca = A.type==='ca'?A:B, oh = A.type==='oh'?A:B;
+      ca.oh++; atoms.splice(atoms.indexOf(oh),1);
+      if(ca.oh>=2){ ca.type='prod'; ca.r=13.5; ca.vx*=.35; ca.vy*=.35; molBoost(ca.x,ca.y,1.32); }
+      return;
+    }
+    /* otherwise: elastic collision (mass ∝ r²) */
+    const overlap = min-d;
+    A.x -= nx*overlap/2; A.y -= ny*overlap/2; B.x += nx*overlap/2; B.y += ny*overlap/2;
+    const mA=A.r*A.r, mB=B.r*B.r;
+    const va = A.vx*nx+A.vy*ny, vb = B.vx*nx+B.vy*ny;
+    const vaN = (va*(mA-mB)+2*mB*vb)/(mA+mB), vbN = (vb*(mB-mA)+2*mA*va)/(mA+mB);
+    A.vx += (vaN-va)*nx; A.vy += (vaN-va)*ny;
+    B.vx += (vbN-vb)*nx; B.vy += (vbN-vb)*ny;
+  }
+}
+function molDraw(t){
+  mctx.clearRect(0,0,640,400);
+  for(const a of atoms){
+    if(a.type==='h2o'){
+      const wob = Math.sin(a.ph)* .6;
+      sphere(mctx,a.x,a.y,a.r,COL.h2o);
+      sphere(mctx,a.x-a.r*.7,a.y-a.r*.55+wob,a.r*.45,['#ffffff','#eef7fb','#c6deeb']);
+      sphere(mctx,a.x+a.r*.72,a.y-a.r*.4-wob,a.r*.45,['#ffffff','#eef7fb','#c6deeb']);
+    }else if(a.type==='cao'){
+      sphere(mctx,a.x-5,a.y,a.r*.78,COL.ca);
+      sphere(mctx,a.x+7,a.y-3,a.r*.6,COL.oh);
+    }else if(a.type==='ca'){
+      sphere(mctx,a.x,a.y,a.r,COL.ca);
+      if(a.oh>0){ sphere(mctx,a.x-a.r*.9,a.y-a.r*.7,5.5,COL.oh); }
+    }else if(a.type==='oh'){
+      sphere(mctx,a.x,a.y,a.r,COL.oh);
+      sphere(mctx,a.x+a.r*.6,a.y-a.r*.6,a.r*.4,['#ffffff','#f2ece4','#cfc6b8']);
+    }else{ /* prod Ca(OH)2 */
+      sphere(mctx,a.x,a.y,a.r*.8,COL.ca);
+      sphere(mctx,a.x-a.r*.75,a.y-a.r*.6,a.r*.55,COL.prod);
+      sphere(mctx,a.x+a.r*.75,a.y-a.r*.6,a.r*.55,COL.prod);
+    }
+  }
+  for(let i=flashes.length-1;i>=0;i--){
+    const f = flashes[i]; f.age += 1/60;
+    if(f.age>.5){ flashes.splice(i,1); continue; }
+    mctx.save(); mctx.globalAlpha = 1-f.age*2; mctx.strokeStyle = '#ff9d47'; mctx.lineWidth = 3;
+    mctx.beginPath(); mctx.arc(f.x,f.y,8+f.age*180,0,7); mctx.stroke(); mctx.restore();
+  }
+  const n = {h2o:0, ca:0, oh:0, prod:0};
+  for(const a of atoms){ if(a.type==='cao') continue; n[a.type] = (n[a.type]||0)+1; }
+  $('#molCounts').textContent =
+    `H₂O ${n.h2o} · Ca²⁺ ${n.ca} · OH⁻ ${n.oh} · Ca(OH)₂ ${n.prod}`;
+}
+function molLoop(now){
+  const dt = Math.min(.033,(now-molLast)/1000); molLast = now;
+  molStep(dt); molDraw(now/1000);
+  molRAF = requestAnimationFrame(molLoop);
+}
+$('#btnMol').addEventListener('click', ()=>{
+  molModal.hidden = false;
+  if(!atoms.length) molInit();
+  molLast = performance.now();
+  molRAF = requestAnimationFrame(molLoop);
+  $('#molClose').focus();
+});
+function molCloseFn(){ molModal.hidden = true; cancelAnimationFrame(molRAF); }
+$('#molClose').addEventListener('click', molCloseFn);
+$('#molReset').addEventListener('click', molInit);
+molModal.addEventListener('click', e=>{ if(e.target===molModal) molCloseFn(); });
+addEventListener('keydown', e=>{ if(e.key==='Escape' && !molModal.hidden) molCloseFn(); });
+
+/* ============================================================
+   ASSIGNMENT
+   ============================================================ */
+const ANSWERS = { rim:'Beaker', liquid:'Water', base:'Calcium oxide' };
+const zones = $$('.dz'), chips = $$('.chip');
+let selChip = null;
+const q5state = { touched:false };
+
+function chipByName(n){ return chips.find(c=>c.dataset.chipName===n); }
+function place(zone, name){
+  if(!name) return;
+  zones.forEach(z=>{ if(z.dataset.filled===name) unplace(z); });   // one home per label
+  if(zone.dataset.filled) unplace(zone);
+  zone.dataset.filled = name;
+  zone.classList.add('filled');
+  zone.querySelector('.dzslot').textContent = name;
+  const c = chipByName(name); if(c){ c.classList.add('used'); c.classList.remove('sel'); }
+  selChip = null; chips.forEach(c2=>c2.classList.remove('sel'));
+  refreshAnswered();
+}
+function unplace(zone){
+  const name = zone.dataset.filled; if(!name) return;
+  delete zone.dataset.filled;
+  zone.classList.remove('filled');
+  zone.querySelector('.dzslot').textContent = 'place label here…';
+  const c = chipByName(name); if(c) c.classList.remove('used');
+  refreshAnswered();
+}
+chips.forEach(c=>{
+  c.draggable = true;
+  c.addEventListener('dragstart', e=>e.dataTransfer.setData('text/plain', c.dataset.chipName));
+  c.addEventListener('click', ()=>{
+    if(c.classList.contains('used')) return;
+    const was = c.classList.contains('sel');
+    chips.forEach(x=>x.classList.remove('sel'));
+    selChip = was ? null : c;
+    if(!was) c.classList.add('sel');
+  });
+});
+zones.forEach(z=>{
+  z.addEventListener('dragover', e=>{ e.preventDefault(); z.classList.add('over'); });
+  z.addEventListener('dragleave', ()=>z.classList.remove('over'));
+  z.addEventListener('drop', e=>{ e.preventDefault(); z.classList.remove('over'); place(z, e.dataTransfer.getData('text/plain')); });
+  const act = ()=>{ if(selChip) place(z, selChip.dataset.chipName); else if(z.dataset.filled) unplace(z); };
+  z.addEventListener('click', act);
+  z.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } });
+});
+
+/* accordion */
+function setAcc(acc, open){
+  acc.classList.toggle('open', open);
+  acc.querySelector('.acc-head').setAttribute('aria-expanded', open);
+  acc.querySelector('.acc-panel').hidden = !open;
+}
+$$('.acc').forEach(acc=>{
+  acc.querySelector('.acc-head').addEventListener('click', ()=>setAcc(acc, !acc.classList.contains('open')));
+});
+$('#btnExpand').addEventListener('click', ()=>$$('.acc').forEach(a=>setAcc(a,true)));
+$('#btnCollapse').addEventListener('click', ()=>$$('.acc').forEach(a=>setAcc(a,false)));
+$('#btnPrint').addEventListener('click', ()=>{ $$('.acc').forEach(a=>setAcc(a,true)); setTimeout(()=>window.print(), 80); });
+
+/* answered tracking */
+function isAnswered(q){
+  switch(q){
+    case 'q1': return zones.every(z=>z.dataset.filled);
+    case 'q2': return !!document.querySelector('input[name="q2"]:checked');
+    case 'q3': return !!document.querySelector('input[name="q3"]:checked');
+    case 'q4': return $$('input[name="q4"]:checked').length>0;
+    case 'q5': return q5state.touched;
+  }
+}
+function refreshAnswered(){
+  let n = 0;
+  ['q1','q2','q3','q4','q5'].forEach(q=>{
+    const on = isAnswered(q); if(on) n++;
+    const chip = $('#'+q+' [data-chip]');
+    if(!chip.classList.contains('ok') && !chip.classList.contains('bad')){
+      chip.textContent = on ? 'Answered' : 'Not answered';
+      chip.classList.toggle('ans', on);
+    }
+  });
+  $('#ansCount').textContent = n;
+}
+$$('input[name="q2"],input[name="q3"],input[name="q4"]').forEach(i=>i.addEventListener('change', refreshAnswered));
+
+/* Q5 parameter model — illustrative: ≈3.2 °C per gram of CaO in 100 mL */
+const q5T = m => Math.min(95, 25 + 3.2*m);
+function q5render(){
+  const m = +$('#paramSlider').value, T = q5T(m), inBand = T>=60 && T<=66;
+  $('#paramMass').textContent = m+' g';
+  $('#paramT').textContent = T.toFixed(1)+' °C';
+  $('#paramT').className = inBand ? 'in' : '';
+  $('#paramDT').textContent = '+'+(T-25).toFixed(1)+' °C';
+  $('#paramNote').textContent = inBand ? 'inside the target band ✓' : (T<60 ? 'below the target band' : 'above the target band — too hot!');
+  $('#tfill').style.height = (clamp((T-20)/80,0,1)*100).toFixed(1)+'%';
+}
+/* target band: 60–66 °C on a 20–100 °C track */
+$('#tband').style.bottom = '50%';
+$('#tband').style.height = '7.5%';
+$('#paramSlider').addEventListener('input', ()=>{ q5state.touched = true; q5render(); refreshAnswered(); });
+q5render();
+
+/* check answers */
+const FB = {
+  q1:{ good:'All three labels match Figure 1.3.',
+       poor:'Check the textbook figure: the vessel itself is the <b>beaker</b> (1), the liquid is <b>water</b> (2), and the white solid resting at the base is <b>calcium oxide</b> (3).' },
+  q2:{ good:'Warm — the reaction releases heat, which is what makes it exothermic.',
+       poor:'The beaker feels <b>warm</b>. The reaction gives out energy as new bonds form in Ca(OH)₂ — energy released to the surroundings is what "exothermic" means. It is the reaction, not stirring, that heats the water.' },
+  q3:{ good:'Right — no gas appears in equation 1.13; the heat boils the water and the bubbles are steam.',
+       poor:'Look at the equation: CaO + H₂O → Ca(OH)₂. There is <b>no gas on the product side</b>, so the bubbles cannot be hydrogen, oxygen or CO₂. The reaction releases enough heat to boil the water — the bubbles are steam.' },
+  q4:{ good:'All the true statements — and none of the traps.',
+       poor:'Three statements are true: the reaction <b>releases heat</b>, forms a <b>single product</b> (that is what makes it a combination reaction), and that product Ca(OH)₂ <b>is</b> slaked lime. No hydrogen is released (no gas in the equation), and the temperature <b>rises</b>, not falls.' },
+  q5:{ good:'The heat released scales with the amount of CaO that reacts — enough grams and the water crosses 60 °C.',
+       poor:'Each gram of CaO releases roughly the same amount of heat, so the temperature rise is proportional to the mass added. Too little barely warms the water; too much overshoots 66 °C. Slide until the final temperature lands inside the green band (60–66 °C).' },
+};
+function grade(){
+  const r = {};
+  r.q1 = zones.every(z=>z.dataset.filled===ANSWERS[z.dataset.zone]) ? 3 : 0;
+  const v2 = document.querySelector('input[name="q2"]:checked');
+  r.q2 = v2 && v2.value==='warm' ? 2 : 0;
+  const v3 = document.querySelector('input[name="q3"]:checked');
+  r.q3 = v3 && v3.value==='steam' ? 2 : 0;
+  const set = new Set($$('input[name="q4"]:checked').map(i=>i.value));
+  r.q4 = (set.size===3 && set.has('exo') && set.has('single') && set.has('slaked')) ? 3 : 0;
+  const T = q5T(+$('#paramSlider').value);
+  r.q5 = (T>=60 && T<=66) ? 3 : 0;
+  return r;
+}
+$('#btnCheck').addEventListener('click', ()=>{
+  const r = grade(), max = {q1:3,q2:2,q3:2,q4:3,q5:3};
+  let total = 0;
+  Object.keys(r).forEach(q=>{
+    total += r[q];
+    const acc = $('#'+q), chip = acc.querySelector('[data-chip]'), fb = acc.querySelector('[data-fb]');
+    const ok = r[q]>0;
+    chip.classList.remove('ans','ok','bad');
+    chip.classList.add(ok?'ok':'bad');
+    chip.textContent = ok ? `Correct ✓ +${r[q]}` : (isAnswered(q) ? 'Try again ✗' : 'Not answered ✗');
+    acc.classList.toggle('right', ok); acc.classList.toggle('wrong', !ok);
+    fb.classList.add('show'); fb.classList.toggle('good', ok); fb.classList.toggle('poor', !ok);
+    fb.innerHTML = ok ? FB[q].good : FB[q].poor;
+    setAcc(acc, !ok);                                // right ones collapse, wrong ones spring open
+  });
+  $('#scoreOut').innerHTML = `Score: <b>${total}</b> / 13`;
+});
+refreshAnswered();
+</script>
+</body>
+</html>

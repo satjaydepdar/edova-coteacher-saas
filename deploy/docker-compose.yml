@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: edtech_platform
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d edtech_platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      EDOVA_DB_DSN: postgresql://postgres:${DB_PASSWORD}@db:5432/edtech_platform
+      EDOVA_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (openssl rand -hex 32)}
+      EDOVA_ENVIRONMENT: ${ENVIRONMENT:-production}
+      EDOVA_CORS_ORIGINS: ${CORS_ORIGINS:-capacitor://localhost,http://localhost}
+      # S3: instance role on EC2 is preferred; these two only for explicit credentials
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      EDOVA_S3_BUCKET: ${EDOVA_S3_BUCKET:-innuxai-edova-coteacher}
+      EDOVA_S3_REGION: ${AWS_REGION:-ap-south-1}
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. api.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

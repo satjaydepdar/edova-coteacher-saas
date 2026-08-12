@@ -14,8 +14,8 @@ export default {
         ui: ['Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        hover: '0 12px 30px -10px rgba(0,0,0,0.18)',
-        panel: '0 8px 30px -12px rgba(0,0,0,0.15)',
+        card: '0 2px 10px -4px rgba(19,35,31,0.10)',
+        'card-hover': '0 12px 30px -10px rgba(19,35,31,0.18)',
         login:
           '0 20px 60px -20px rgba(19,35,31,0.18), 0 8px 20px -8px rgba(19,35,31,0.08)',
       },

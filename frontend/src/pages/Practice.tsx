@@ -56,7 +56,7 @@ export default function Practice() {
     <div className="p-4 lg:p-6 max-w-[1100px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-display text-[22px] font-bold tracking-tight flex items-center gap-3">
-          <span className="w-9 h-9 rounded-xl bg-ink text-white flex items-center justify-center">
+          <span className="w-9 h-9 rounded-xl bg-forest text-white flex items-center justify-center">
             <ListChecks className="w-5 h-5" />
           </span>
           Practice Questions
@@ -171,7 +171,7 @@ export default function Practice() {
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-[16px] p-4 text-white bg-ink">
+            <div className="rounded-[16px] p-4 text-white bg-forest">
               <div className="text-[12px] font-semibold flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-gold" /> Teacher preview
               </div>

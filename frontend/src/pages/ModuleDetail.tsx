@@ -232,7 +232,7 @@ function LabView({ moduleId }: { moduleId: string }) {
       <div className="bg-white rounded-[16px] border border-black/[0.06] p-5">
         <div className="text-[12px] font-semibold mb-2">Lab instructions</div>
         {instructions === null ? (
-          <span className="w-4 h-4 border-2 border-ink/20 border-t-ink rounded-full animate-spin inline-block" />
+          <span className="w-4 h-4 border-2 border-forest/20 border-t-forest rounded-full animate-spin inline-block" />
         ) : (
           <p className="text-[13px] leading-relaxed whitespace-pre-wrap opacity-80">
             {instructions || 'No instructions published.'}
@@ -282,7 +282,7 @@ export default function ModuleDetail() {
 
       {!mod && !notFound && (
         <div className="flex justify-center pt-24">
-          <span className="w-5 h-5 border-2 border-ink/20 border-t-ink rounded-full animate-spin" />
+          <span className="w-5 h-5 border-2 border-forest/20 border-t-forest rounded-full animate-spin" />
         </div>
       )}
 
@@ -293,7 +293,7 @@ export default function ModuleDetail() {
           {mod.type === 'QUIZ' && (
             <Link
               to={`/practice?module=${mod.module_id}`}
-              className="block bg-ink rounded-[18px] p-5 text-white hover:bg-inkLight transition-colors"
+              className="block bg-forest rounded-[18px] p-5 text-white hover:bg-inkLight transition-colors"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -320,7 +320,7 @@ export default function ModuleDetail() {
               <span className="text-[11px] px-2.5 py-1 rounded-full bg-cream border border-black/5">
                 {mod.chapter_name}
               </span>
-              <span className="text-[11px] px-2.5 py-1 rounded-full bg-ink text-white">
+              <span className="text-[11px] px-2.5 py-1 rounded-full bg-forest text-white">
                 {mod.type}
               </span>
             </div>

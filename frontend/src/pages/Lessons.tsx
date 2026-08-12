@@ -38,7 +38,7 @@ export default function Lessons() {
     return (
       <div className="p-4 lg:p-6 max-w-[1440px] mx-auto">
         <div className="bg-white rounded-2xl border border-black/[0.06] p-8 text-center">
-          <p className="text-[14px] font-medium text-ink">Could not load this shelf</p>
+          <p className="text-[14px] font-medium text-forest">Could not load this shelf</p>
           <p className="text-[12px] opacity-60 mt-1">{treeError}</p>
         </div>
       </div>
@@ -48,7 +48,7 @@ export default function Lessons() {
   if (!tree) {
     return (
       <div className="p-4 lg:p-6 flex justify-center pt-24">
-        <span className="w-5 h-5 border-2 border-ink/20 border-t-ink rounded-full animate-spin" />
+        <span className="w-5 h-5 border-2 border-forest/20 border-t-forest rounded-full animate-spin" />
       </div>
     )
   }
@@ -92,7 +92,7 @@ export default function Lessons() {
                   : 'hover:shadow-card-hover hover:-translate-y-[1px]'
               }`}
             >
-              <div className="aspect-[16/9] bg-ink relative overflow-hidden">
+              <div className="aspect-[16/9] bg-forest relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   {locked ? (

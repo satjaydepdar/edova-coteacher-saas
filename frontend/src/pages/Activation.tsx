@@ -56,18 +56,18 @@ export default function Activation() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 relative overflow-hidden bg-cream max-w-[100vw]">
-      <div className="absolute -top-32 -left-32 w-[380px] h-[380px] rounded-full opacity-[0.07] blur-3xl pointer-events-none bg-ink" />
+      <div className="absolute -top-32 -left-32 w-[380px] h-[380px] rounded-full opacity-[0.07] blur-3xl pointer-events-none bg-forest" />
       <div className="absolute -bottom-40 -right-32 w-[400px] h-[400px] rounded-full opacity-[0.09] blur-3xl pointer-events-none bg-gold" />
 
       <div className="w-full max-w-[440px] relative z-10">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-ink flex items-center justify-center shadow-card mb-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-forest flex items-center justify-center shadow-card mb-4">
             <BookOpen className="w-8 h-8 text-gold" />
           </div>
-          <h1 className="font-display text-[32px] font-bold tracking-tight text-ink">
+          <h1 className="font-display text-[32px] font-bold tracking-tight text-forest">
             EDOVA<span className="text-gold">.</span>
           </h1>
-          <p className="text-[14px] text-ink/60 mt-1">Interactive Learning for Classrooms</p>
+          <p className="text-[14px] text-forest/60 mt-1">Interactive Learning for Classrooms</p>
         </div>
 
         <form
@@ -76,11 +76,11 @@ export default function Activation() {
         >
           <div className="flex items-center gap-2.5 mb-1.5">
             <KeyRound className="w-4 h-4 text-gold" />
-            <h2 className="font-display font-semibold text-[16px] text-ink">
+            <h2 className="font-display font-semibold text-[16px] text-forest">
               Enter Activation Key
             </h2>
           </div>
-          <p className="text-[12.5px] text-ink/55 mb-5 leading-relaxed">
+          <p className="text-[12.5px] text-forest/55 mb-5 leading-relaxed">
             Your school received this one-time key after purchasing a subscription.
           </p>
 
@@ -92,7 +92,7 @@ export default function Activation() {
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full h-12 px-4 rounded-xl border bg-paper text-center text-[16px] font-mono font-semibold tracking-[0.12em] text-ink outline-none transition-all focus:border-gold"
+            className="w-full h-12 px-4 rounded-xl border bg-paper text-center text-[16px] font-mono font-semibold tracking-[0.12em] text-forest outline-none transition-all focus:border-gold"
             style={{ borderColor: error ? '#E5484D' : '#13231F14' }}
           />
           {error && <p className="text-[12.5px] text-[#E5484D] mt-2.5 leading-snug">{error}</p>}
@@ -100,7 +100,7 @@ export default function Activation() {
           <button
             type="submit"
             disabled={busy}
-            className="mt-5 w-full h-11 rounded-xl bg-ink text-white text-[14px] font-semibold flex items-center justify-center gap-2 transition-all hover:bg-black disabled:opacity-60"
+            className="mt-5 w-full h-11 rounded-xl bg-forest text-white text-[14px] font-semibold flex items-center justify-center gap-2 transition-all hover:bg-black disabled:opacity-60"
           >
             {busy ? (
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -111,7 +111,7 @@ export default function Activation() {
             )}
           </button>
 
-          <div className="flex items-center gap-2 mt-5 pt-4 border-t border-black/[0.06] text-[11.5px] text-ink/45">
+          <div className="flex items-center gap-2 mt-5 pt-4 border-t border-black/[0.06] text-[11.5px] text-forest/45">
             <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
             Already activated on this device? You won't be asked again.
           </div>

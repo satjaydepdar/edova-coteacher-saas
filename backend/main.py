@@ -1268,6 +1268,14 @@ def save_quiz_config(module_id: str, body: QuizConfigIn, authorization: str = He
 import shutil as _shutil
 import threading as _threading
 
+# ffmpeg/ffprobe location: PATH by default (Docker image installs them); on dev
+# machines without a system install, point EDOVA_FFMPEG_DIR at the bin folder.
+FFMPEG_DIR = os.getenv("EDOVA_FFMPEG_DIR", "")
+
+
+def _tool(name: str) -> str:
+    return os.path.join(FFMPEG_DIR, name) if FFMPEG_DIR else name
+
 
 def _transcode_worker(module_id: str, workdir: str) -> None:
     """ffmpeg -> S3 -> video_payloads row. Owns its DB connection; never raises
@@ -1276,12 +1284,12 @@ def _transcode_worker(module_id: str, workdir: str) -> None:
     try:
         src = tmp / "src.mp4"
         probe = _subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+            [_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration",
              "-of", "default=noprint_wrappers=1:nokey=1", str(src)],
             capture_output=True, text=True)
         duration = int(float(probe.stdout.strip() or 0))
         proc = _subprocess.run(
-            ["ffmpeg", "-y", "-i", str(src), "-c:v", "libx264", "-c:a", "aac",
+            [_tool("ffmpeg"), "-y", "-i", str(src), "-c:v", "libx264", "-c:a", "aac",
              "-preset", "veryfast", "-f", "hls", "-hls_time", str(int(HLS_SEGMENT_SECONDS)),
              "-hls_playlist_type", "vod",
              "-hls_segment_filename", str(tmp / "seg_%03d.ts"), str(tmp / "out.m3u8")],

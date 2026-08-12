@@ -4,6 +4,9 @@
 # they are NOT versioned. Copy them elsewhere if that changes.
 migration/
 
+# Local tool binaries (ffmpeg static build for the dev transcode pipeline, ~170MB)
+tools/
+
 # --- secrets ---
 .env
 .env.*

@@ -2467,40 +2467,47 @@ def admin_subject_tree(subject_id: str, authorization: str = Header(...)):
             raise HTTPException(404, "subject not found")
         if not admin["is_platform"] and subj[2] is not None and str(subj[2]) != str(admin["tenant_id"]):
             raise HTTPException(403, "cannot view content outside your tenant")
-        rows = q(conn, """
-SELECT c.id, c.name, c.sequence_order,
-       t.id, t.name, t.sequence_order,
-       m.id, m.title, m.module_type, m.sequence_order, m.is_published,
+        # Two queries, not one chapters->topics->modules join: that join can only
+        # attach an ungrouped module (topic_id NULL) to a topic row where t.id IS
+        # NULL, which never happens for a chapter that has any topic at all — so
+        # ungrouped modules silently vanished from every chapter with a topic.
+        chapter_rows = q(conn, """
+SELECT c.id, c.name, c.sequence_order, t.id, t.name, t.sequence_order
+FROM chapters c
+LEFT JOIN topics t ON t.chapter_id = c.id
+WHERE c.subject_id = %s
+ORDER BY c.sequence_order, t.sequence_order NULLS LAST
+""", (subject_id,)).fetchall()
+
+        module_rows = q(conn, """
+SELECT c.id, m.topic_id, m.id, m.title, m.module_type, m.sequence_order, m.is_published,
        (vp.s3_key_prefix IS NOT NULL OR vp.hls_master_url IS NOT NULL) AS video_ready,
        (lp.s3_file_key IS NOT NULL) AS lab_ready,
        (qc.module_id IS NOT NULL) AS quiz_ready
 FROM chapters c
-LEFT JOIN topics t ON t.chapter_id = c.id
-LEFT JOIN modules m ON m.chapter_id = c.id
-                   AND (m.topic_id = t.id OR (m.topic_id IS NULL AND t.id IS NULL))
+JOIN modules m ON m.chapter_id = c.id
 LEFT JOIN video_payloads vp ON vp.module_id = m.id
 LEFT JOIN lab_payloads lp ON lp.module_id = m.id
 LEFT JOIN quiz_configurations qc ON qc.module_id = m.id
 WHERE c.subject_id = %s
-ORDER BY c.sequence_order, t.sequence_order NULLS LAST, m.sequence_order
+ORDER BY m.sequence_order
 """, (subject_id,)).fetchall()
 
     chapters: dict = {}
-    for r in rows:
+    for r in chapter_rows:
         ch = chapters.setdefault(r[0], {"id": str(r[0]), "name": r[1], "sequence_order": r[2],
                                         "topics": {}, "modules": []})
         if r[3] is not None:
             ch["topics"].setdefault(r[3], {"id": str(r[3]), "name": r[4],
                                            "sequence_order": r[5], "modules": []})
-        if r[6] is None:
-            continue  # empty chapter or empty topic — no module row to add
-        mod = {"id": str(r[6]), "title": r[7], "module_type": r[8], "sequence_order": r[9],
-               "is_published": r[10], "topic_id": str(r[3]) if r[3] else None,
-               "content_ready": {"VIDEO": r[11], "LAB": r[12], "QUIZ": r[13]}[r[8]]}
-        if r[3] is not None:
-            tp = ch["topics"].setdefault(r[3], {"id": str(r[3]), "name": r[4],
-                                                "sequence_order": r[5], "modules": []})
-            tp["modules"].append(mod)
+
+    for r in module_rows:
+        ch = chapters[r[0]]
+        mod = {"id": str(r[2]), "title": r[3], "module_type": r[4], "sequence_order": r[5],
+               "is_published": r[6], "topic_id": str(r[1]) if r[1] else None,
+               "content_ready": {"VIDEO": r[7], "LAB": r[8], "QUIZ": r[9]}[r[4]]}
+        if r[1] is not None:
+            ch["topics"][r[1]]["modules"].append(mod)
         else:
             ch["modules"].append(mod)  # ungrouped bucket (topic_id NULL)
     return {

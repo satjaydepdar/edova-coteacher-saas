@@ -11,6 +11,12 @@ import {
 
 const TYPE_ICON = { VIDEO: Play, LAB: FlaskConical, QUIZ: ListChecks } as const
 
+/** modules.chapter_id+sequence_order is unique across the whole chapter, not per topic. */
+function nextModuleSeq(ch: AdminChapter): number {
+  const all = [...ch.modules, ...ch.topics.flatMap((t) => t.modules)]
+  return all.reduce((m, x) => Math.max(m, x.sequence_order), 0) + 1
+}
+
 interface UploadState { pct: number; phase: 'uploading' | 'transcoding' | 'done' | 'error'; message?: string }
 
 /** Inline rename: pencil -> input, check commits via PATCH. */
@@ -254,7 +260,7 @@ export default function AdminSubject() {
                 <AddRow indent readOnly={readOnly} run={run} placeholder={`Add module to “${tp.name}” (title)`}
                   onAdd={(title) => adminContent.createModule(ch.id, {
                     title, module_type: 'VIDEO', topic_id: tp.id,
-                    sequence_order: tp.modules.reduce((m, x) => Math.max(m, x.sequence_order), 0) + 1,
+                    sequence_order: nextModuleSeq(ch),
                   })} />
               </div>
             ))}
@@ -271,7 +277,7 @@ export default function AdminSubject() {
               <AddRow readOnly={readOnly} run={run} placeholder="Add ungrouped module (title)…"
                 onAdd={(title) => adminContent.createModule(ch.id, {
                   title, module_type: 'VIDEO',
-                  sequence_order: ch.modules.reduce((m, x) => Math.max(m, x.sequence_order), 0) + 1,
+                  sequence_order: nextModuleSeq(ch),
                 })} />
             </div>
           </div>

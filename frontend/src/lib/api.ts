@@ -106,6 +106,65 @@ export interface GeneratedQuiz {
   metadata: { total_requested: number; total_delivered: number; shortfall: boolean }
 }
 
+export interface PracticeOption {
+  key: string
+  text: string
+}
+
+export interface PracticeQuestion {
+  version_id: string
+  question_type: string
+  question_text: string
+  options: PracticeOption[]
+  marks: number
+}
+
+export interface PracticeSet {
+  questions: PracticeQuestion[]
+  metadata: { total_requested: number; total_delivered: number; shortfall: boolean }
+}
+
+export interface PracticeChapter {
+  chapter_id: string
+  chapter_name: string
+  sequence_order: number
+}
+
+export interface PracticeCheckResult {
+  version_id: string
+  correct: boolean
+  correct_key: string
+}
+
+export interface StudentTest {
+  test_id: string
+  title: string
+  timer_minutes: number
+  total_marks: number
+  question_count: number
+  chapter_name: string
+  subject_name: string
+  opens_at: string
+  closes_at: string
+  status: 'OPEN' | 'UPCOMING' | 'CLOSED'
+}
+
+export interface StudentTestQuestion {
+  question_type: string
+  question_text: string
+  options: PracticeOption[]
+  marks: number
+  passage: string | null
+}
+
+export interface StudentTestDetail {
+  test_id: string
+  title: string
+  timer_minutes: number
+  total_marks: number
+  questions: StudentTestQuestion[]
+}
+
 export interface ModuleProgress {
   module_id: string
   status: 'not_started' | 'in_progress' | 'completed'
@@ -113,6 +172,51 @@ export interface ModuleProgress {
   time_spent: number
   completed: boolean
   time_counted?: boolean
+}
+
+export interface SocraticChatRequest {
+  message: string
+  simulation_id: string
+  current_step?: number
+  current_slider_val?: number
+  chat_history?: Array<{ who: string; text: string }>
+  chapter_id?: string
+  concept_id?: string
+  mastered_concept_ids?: string[]
+}
+
+export interface SocraticChatResponse {
+  reply: string
+  pitfall_detected?: string | null
+  suggested_action?: string | null
+  llm_model?: string
+  concept_id?: string | null
+  is_ready?: boolean | null
+}
+
+export interface MathSolveRequest {
+  a: number
+  b: number
+  c: number
+  target_area?: number
+}
+
+export interface MathStepResponse {
+  step_number: number
+  title: string
+  formula?: string
+  explanation: string
+}
+
+export interface MathSolveResponse {
+  a: number
+  b: number
+  c: number
+  discriminant: number
+  factored_form: string
+  roots: number[]
+  valid_root: number
+  steps: MathStepResponse[]
 }
 
 // --- secure storage: Capacitor Preferences on device, localStorage in web dev ---
@@ -196,6 +300,33 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ module_id: moduleId }),
     }),
+  /** Ad-hoc practice set: subject + chapter + a caller-chosen count, drawn from the
+   *  Authoring Studio's versioned question bank. No admin pre-configuration needed. */
+  practiceGenerate: (subjectId: string, chapterId: string, count: number) =>
+    call<PracticeSet>(`${BASE}/api/student/practice/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ subject_id: subjectId, chapter_id: chapterId, count }),
+    }),
+  /** Practice Questions' own chapter list -- chapters with a live question bank.
+   *  Deliberately NOT api.tree()/subject_tree(): that endpoint is Content Shelf's
+   *  own concern (published video/lab/quiz modules only) and must never be
+   *  affected by what Practice Questions needs, or vice versa. */
+  practiceChapters: (subjectId: string) =>
+    call<{ chapters: PracticeChapter[] }>(`${BASE}/api/student/practice/chapters?subject_id=${subjectId}`),
+  /** Score selected answers for a generated practice set. Correct keys are only
+   *  revealed here, per question, after the caller has already picked an answer. */
+  practiceCheck: (answers: { version_id: string; selected_key: string }[]) =>
+    call<{ results: PracticeCheckResult[] }>(`${BASE}/api/student/practice/check`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
+  /** Tests a teacher has assigned -- tenant-wide or to the caller's own section
+   *  (device-token sessions have no section identity, so they only ever see the
+   *  tenant-wide ones). Status is precomputed server-side from the window. */
+  studentTests: () => call<{ tests: StudentTest[] }>(`${BASE}/api/student/tests`),
+  /** Full content for one test, correct answers withheld -- 403 if its window
+   *  hasn't opened yet, 404 if it isn't assigned to the caller at all. */
+  studentTestDetail: (testId: string) => call<StudentTestDetail>(`${BASE}/api/student/tests/${testId}`),
   moduleProgress: (moduleId: string) =>
     call<ModuleProgress>(`${BASE}/api/student/progress/${moduleId}`),
   /** Heartbeat: pct = position/duration*100; delta = seconds since previous beat;
@@ -226,4 +357,51 @@ export const api = {
     }
     return res.text()
   },
+  /** Socratic AI Co-Teacher dialogue */
+  socraticChat: (payload: SocraticChatRequest) =>
+    call<SocraticChatResponse>(`${BASE}/api/socratic/chat`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  /** Symbolic quadratic and math derivation solver */
+  socraticSolve: (payload: MathSolveRequest) =>
+    call<MathSolveResponse>(`${BASE}/api/socratic/solve`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  /** Knowledge Graph: List all compiled chapters */
+  kgChapters: () => call<any[]>(`${BASE}/api/kg/chapters`),
+  /** Knowledge Graph: Get specific chapter graph */
+  kgChapter: (chapterId: string) => call<any>(`${BASE}/api/kg/chapter/${chapterId}`),
+  /** Knowledge Graph: Check student prerequisite readiness */
+  kgCheckPrerequisites: (payload: { chapter_id: string; target_concept_id: string; mastered_concept_ids: string[] }) =>
+    call<any>(`${BASE}/api/kg/check-prerequisites`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  /** Knowledge Graph: Recompile all markdown files */
+  kgRecompile: () =>
+    call<{ status: string; loaded_chapters: string[]; total_chapters: number }>(`${BASE}/api/kg/recompile`, {
+      method: 'POST',
+    }),
+  /** Teacher Analytics: Get classroom chapter heatmap */
+  classroomHeatmap: (classroomId: string, chapterId: string) =>
+    call<any>(`${BASE}/api/teacher/classroom/${classroomId}/heatmap/${chapterId}`),
+  /** Teacher Analytics: Record student concept mastery or struggle */
+  recordMastery: (payload: {
+    classroom_id: string
+    student_id: string
+    student_name?: string
+    chapter_id: string
+    concept_id: string
+    event_type: 'mastery' | 'struggle' | 'attempt'
+    error_detail?: string
+  }) =>
+    call<{ status: string; student_id: string; concept_id: string }>(`${BASE}/api/teacher/telemetry/record-mastery`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  /** Teacher Analytics: Dashboard summary */
+  teacherDashboardSummary: () => call<any>(`${BASE}/api/teacher/dashboard/summary`),
 }
+

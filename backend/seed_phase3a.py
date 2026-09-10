@@ -6,7 +6,11 @@ PASSWORD = "testpass"
 
 with psycopg.connect(DB_DSN, autocommit=True) as conn:
     pw = hash_password(PASSWORD)
-    conn.execute("UPDATE users SET password_hash = %s", (pw,))
+    # Scope to fixture accounts ONLY — an unscoped UPDATE would silently reset
+    # every real account's password to the test password.
+    conn.execute(
+        "UPDATE users SET password_hash = %s "
+        "WHERE email LIKE '%%@springfield.dev' OR email LIKE '%%@tc3.dev'", (pw,))
 
     # Alice: STUDENT in TWO active tenants (TC1 School tier-1 + TC2 Individual tier-2)
     row = conn.execute(

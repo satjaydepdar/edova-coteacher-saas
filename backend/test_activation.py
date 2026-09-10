@@ -6,19 +6,7 @@ import httpx
 import psycopg
 from main import DB_DSN
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
-
-
-def login(email):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": "testpass"})
-    r.raise_for_status()
-    return r.json()["access_token"]
+from testutil import BASE, check, finish, login
 
 
 PLAT = {"Authorization" : f"Bearer {login('admin@edova.dev')}"}
@@ -145,7 +133,4 @@ r = activate("EDOVA-EXP0-RED0-TEST", DEV_A)
 ok = r.status_code == 403 and r.json()["detail"] == "key_expired"
 check("TC11 expired key rejected", ok, f"{r.status_code} {r.json()}")
 
-print()
-failed = [n for n, ok in results if not ok]
-print(f"{len(results) - len(failed)}/{len(results)} passed")
-raise SystemExit(1 if failed else 0)
+finish()

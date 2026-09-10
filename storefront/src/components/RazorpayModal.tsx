@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import type { Order } from '../lib/api'
+import { formatInr } from '../lib/ui'
 
 /** Simulated Razorpay checkout modal. Mirrors the wireframe's test-mode dialog:
  *  explicit "no real money" framing, success/failure simulation buttons. */
@@ -10,7 +11,7 @@ export default function RazorpayModal({ order, schoolName, onSuccess, onFailure,
   onFailure: () => void
   onClose: () => void
 }) {
-  const inr = (order.amount_paise / 100).toLocaleString('en-IN')
+  const amount = formatInr(order.amount_paise / 100)
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-[8px] flex items-center justify-center px-6">
       <div className="w-full max-w-[400px] rounded-[16px] bg-white text-zinc-900 shadow-modal overflow-hidden">
@@ -28,7 +29,7 @@ export default function RazorpayModal({ order, schoolName, onSuccess, onFailure,
           </div>
           <div className="flex justify-between items-baseline mt-2">
             <span className="text-[12px] text-sage">Order {order.order_id.slice(-12)}</span>
-            <span className="text-[20px] font-semibold">₹{inr}</span>
+            <span className="text-[20px] font-semibold">{amount}</span>
           </div>
         </div>
 

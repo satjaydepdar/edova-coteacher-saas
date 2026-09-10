@@ -4,6 +4,7 @@ import Hls from 'hls.js'
 import { ArrowLeft, ExternalLink, ListChecks, Lock, Maximize, Minimize } from 'lucide-react'
 import { api, ApiError, type Module, type ModuleType } from '../lib/api'
 import { useApp } from '../store'
+import SocraticLabEmbed, { LAB_CATALOG } from '../components/SocraticLabEmbed'
 
 interface Located extends Module {
   chapter_name: string
@@ -185,6 +186,7 @@ function LabView({ moduleId }: { moduleId: string }) {
   const [instructions, setInstructions] = useState<string | null>(null)
   const [simUrl, setSimUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const features = useApp((s) => s.features)
 
   useEffect(() => {
     api
@@ -203,25 +205,36 @@ function LabView({ moduleId }: { moduleId: string }) {
       .catch(() => {}) // no simulation file uploaded — instructions still render
   }, [moduleId])
 
-  if (error) {
+  if (error && !features?.allow_lab) {
     return (
-      <div className="bg-white rounded-[16px] border border-black/[0.06] p-8 text-center">
-        <p className="text-[14px] font-medium">{error}</p>
+      <div className="bg-[#121216] text-white rounded-[20px] border border-zinc-800 p-8 text-center">
+        <Lock className="w-6 h-6 text-[#d4ff3a] mx-auto mb-3" />
+        <p className="text-[15px] font-bold">Virtual Labs require Tier 3 or Tier 4</p>
+        <p className="text-zinc-400 text-[12px] mt-1">Upgrade your subscription to access interactive STEM lab experiments.</p>
       </div>
     )
   }
 
+  // Find relevant simulation from catalog or default to quad-park / projectile
+  const matchedSim = LAB_CATALOG.find((s) => moduleId.toLowerCase().includes(s.id.split('-')[1] ?? '')) || LAB_CATALOG[0]
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Socratic Lab Dark Mode Container */}
+      <SocraticLabEmbed
+        initialSimId={matchedSim.id}
+        tierLevel={features?.allow_quiz ? 4 : 3}
+      />
+
       {simUrl && (
-        <div className="bg-white rounded-[16px] border border-black/[0.06] overflow-hidden">
-          <div className="h-10 px-4 flex items-center justify-between border-b border-black/5 bg-paper">
-            <span className="text-[13px] font-semibold">Simulation</span>
+        <div className="bg-[#121216] rounded-[20px] border border-zinc-800 overflow-hidden">
+          <div className="h-10 px-4 flex items-center justify-between border-b border-zinc-800 bg-[#16161a]">
+            <span className="text-[13px] font-semibold text-white">Classic Lab Simulation Asset</span>
             <a
               href={simUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-[11px] font-medium flex items-center gap-1 opacity-70 hover:opacity-100"
+              className="text-[11px] font-medium text-[#d4ff3a] flex items-center gap-1 hover:underline"
             >
               Open in new tab <ExternalLink className="w-3 h-3" />
             </a>
@@ -229,13 +242,16 @@ function LabView({ moduleId }: { moduleId: string }) {
           <iframe title="Lab simulation" src={simUrl} className="w-full aspect-[16/10] bg-white" />
         </div>
       )}
-      <div className="bg-white rounded-[16px] border border-black/[0.06] p-5">
-        <div className="text-[12px] font-semibold mb-2">Lab instructions</div>
+
+      <div className="bg-[#121216] rounded-[20px] border border-zinc-800 p-6 text-white">
+        <div className="text-[13px] font-bold text-[#d4ff3a] font-mono uppercase tracking-wider mb-2">
+          Lab Protocol & Notes
+        </div>
         {instructions === null ? (
-          <span className="w-4 h-4 border-2 border-forest/20 border-t-forest rounded-full animate-spin inline-block" />
+          <span className="w-4 h-4 border-2 border-[#d4ff3a]/20 border-t-[#d4ff3a] rounded-full animate-spin inline-block" />
         ) : (
-          <p className="text-[13px] leading-relaxed whitespace-pre-wrap opacity-80">
-            {instructions || 'No instructions published.'}
+          <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-zinc-300 font-mono">
+            {instructions || 'Follow the on-screen Socratic experiment prompts above to test hypotheses and record data.'}
           </p>
         )}
       </div>

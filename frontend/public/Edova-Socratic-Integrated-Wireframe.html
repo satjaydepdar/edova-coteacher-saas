@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edova Co-Teacher — Socratic AI & Interactive Canvas Student Wireframe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #0a0b0e;
+      --bg-surface: #111318;
+      --bg-card: #171a22;
+      --bg-elevated: #1e222d;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: #d4ff3a;
+      --lime: #d4ff3a;
+      --lime-glow: rgba(212, 255, 58, 0.25);
+      --gold: #ffb627;
+      --forest: #103322;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-base);
+      color: #e5e7eb;
+      overflow: hidden;
+      user-select: none;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glow-lime {
+      box-shadow: 0 0 24px rgba(212, 255, 58, 0.18), 0 0 0 1px rgba(212, 255, 58, 0.3);
+    }
+    .glow-subtle {
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle);
+    }
+    .glow-active {
+      box-shadow: 0 0 16px rgba(212, 255, 58, 0.35), 0 0 0 1px #d4ff3a;
+    }
+    .tile {
+      box-shadow: 0 4px 0 rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08) inset;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 rgba(0,0,0,0.6), 0 0 0 1px rgba(212,255,58,0.3) inset;
+    }
+    .scroll-dark::-webkit-scrollbar {
+      width: 5px;
+    }
+    .scroll-dark::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .scroll-dark::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    .scroll-dark::-webkit-scrollbar-thumb:hover {
+      background: rgba(212, 255, 58, 0.4);
+    }
+    .pulse-dot {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.25); opacity: 1; filter: drop-shadow(0 0 6px #d4ff3a); }
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col antialiased">
+
+  <!-- ================= TOP SAAS STUDENT APP HEADER ================= -->
+  <header class="h-14 border-b border-white/[0.08] bg-[#0d0f14] px-4 sm:px-6 flex items-center justify-between z-30 shrink-0">
+    <!-- Left: Branding & Breadcrumbs -->
+    <div class="flex items-center gap-3.5">
+      <a href="#" class="flex items-center gap-2 group">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#103322] to-[#184f34] border border-[#d4ff3a]/30 flex items-center justify-center shadow-[0_0_12px_rgba(212,255,58,0.2)]">
+          <span class="text-[#d4ff3a] font-black text-sm">E</span>
+        </div>
+        <span class="font-extrabold text-sm tracking-tight text-white group-hover:text-[#d4ff3a] transition">EDOVA<span class="text-[#d4ff3a]">.</span></span>
+      </a>
+
+      <div class="h-4 w-[1px] bg-white/10 hidden sm:block"></div>
+
+      <!-- Context Breadcrumb -->
+      <div class="hidden sm:flex items-center gap-2 text-xs">
+        <span class="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-zinc-400 font-medium">Grade 10 Math</span>
+        <span class="text-zinc-600">/</span>
+        <span class="text-zinc-400 font-medium">Chapter 4: Quadratic Equations</span>
+        <span class="text-zinc-600">/</span>
+        <span class="text-[#d4ff3a] font-semibold flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#d4ff3a] pulse-dot"></span>
+          Lab: Park 528 m² Problem
+        </span>
+      </div>
+    </div>
+
+    <!-- Center: Interactive Progress Bar & Session Streak -->
+    <div class="hidden md:flex items-center gap-3 w-72">
+      <div class="flex-1">
+        <div class="flex justify-between text-[11px] mb-1">
+          <span class="text-zinc-400 font-medium">Concept Mastery (QUAD-02)</span>
+          <span id="masteryPctLabel" class="font-mono text-[#d4ff3a] font-bold">85%</span>
+        </div>
+        <div class="h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
+          <div id="masteryProgressBar" class="h-full bg-gradient-to-r from-emerald-500 via-[#d4ff3a] to-[#d4ff3a] rounded-full transition-all duration-500" style="width: 85%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Actions & Student Profile -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Knowledge Graph Roadmap Modal Trigger -->
+      <button onclick="toggleRoadmap()" class="h-8 px-3 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-semibold text-zinc-300 flex items-center gap-1.5 transition">
+        <svg class="w-3.5 h-3.5 text-[#d4ff3a]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+        </svg>
+        <span>Knowledge Graph</span>
+      </button>
+
+      <!-- Tenant / Device Indicator -->
+      <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-white/10 text-xs">
+        <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+        <span class="text-zinc-400">Springfield High</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#d4ff3a]/15 text-[#d4ff3a] font-bold">TIER 4</span>
+      </div>
+
+      <!-- Quick Back / Exit -->
+      <button class="w-8 h-8 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN SPLIT WORKSPACE ================= -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+    <!-- ──────────────── LEFT PANE: INTERACTIVE LAB SIMULATION (62% width) ──────────────── -->
+    <section class="flex-1 lg:w-[62%] bg-[#0c0e12] flex flex-col overflow-y-auto scroll-dark p-4 sm:p-6 lg:p-7 relative">
+      
+      <!-- Top Step Tabs -->
+      <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <div class="flex items-center gap-1.5 p-1 bg-white/[0.04] rounded-xl border border-white/[0.06]">
+          <button onclick="setStep(1)" id="stepTab1" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-[#d4ff3a] text-black shadow-sm">
+            1. Formulate Equation
+          </button>
+          <button onclick="setStep(2)" id="stepTab2" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition text-zinc-400 hover:text-white">
+            2. AC Method Factorization
+          </button>
+          <button onclick="setStep(3)" id="stepTab3" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition text-zinc-400 hover:text-white">
+            3. Physical Geometry Test
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-zinc-500 font-medium">Auto-save:</span>
+          <span class="text-emerald-400 font-mono flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Synced
+          </span>
+        </div>
+      </div>
+
+      <!-- Problem Statement Card -->
+      <div class="p-4 sm:p-5 rounded-2xl bg-[#141820] border border-white/[0.08] shadow-lg mb-6 relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 w-32 h-32 rounded-full bg-[#d4ff3a]/5 blur-2xl pointer-events-none"></div>
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-[#d4ff3a]/15 text-[#d4ff3a] flex items-center justify-center shrink-0 font-mono font-bold text-sm">
+            Q1
+          </div>
+          <div>
+            <h1 class="text-base sm:text-lg font-bold text-white tracking-tight leading-snug">
+              Rectangular Park Problem — Dimensions & Quadratic Formulation
+            </h1>
+            <p class="text-xs sm:text-[13.5px] text-zinc-300 mt-1.5 leading-relaxed">
+              The area of a rectangular park is <span class="text-[#d4ff3a] font-semibold font-mono">528 m²</span>. The length of the park (in metres) is <span class="text-amber-300 font-medium">one more than twice its breadth</span>. Formulate the quadratic equation to find the length and breadth of the park.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Interactive Canvas / Sandbox Block -->
+      <div class="flex-1 min-h-[380px] rounded-2xl bg-[#11141b] border border-white/[0.08] p-5 sm:p-7 flex flex-col justify-between relative glow-subtle">
+        
+        <!-- Canvas Status Badges -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
+              Interactive Algebra Canvas
+            </span>
+            <span class="text-xs text-zinc-500">Live Equation Sandbox</span>
+          </div>
+          
+          <button onclick="resetCanvas()" class="text-xs text-zinc-400 hover:text-white flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Reset
+          </button>
+        </div>
+
+        <!-- Tile Visualizer & Dynamic Dimension Scaling -->
+        <div class="my-6 flex flex-col items-center justify-center">
+          
+          <!-- Park Graphic Container -->
+          <div class="relative p-6 rounded-2xl bg-[#090b0e] border border-white/[0.06] flex items-center justify-center w-full max-w-lg transition-all duration-300" id="parkVisualBox">
+            
+            <!-- Breadth (Height) Indicator -->
+            <div class="absolute -left-3 sm:left-2 flex flex-col items-center text-xs font-mono font-bold text-emerald-400">
+              <span id="canvasBreadthDisplay">x = 16m</span>
+              <span class="text-[10px] text-zinc-500 font-normal">Breadth</span>
+            </div>
+
+            <!-- Main Geometric Tiles -->
+            <div class="flex items-center gap-2">
+              
+              <!-- 2x Tiles (Two 16m width blocks) -->
+              <div class="flex gap-1.5">
+                <div class="tile w-16 sm:w-24 h-24 sm:h-28 rounded-xl bg-gradient-to-b from-zinc-700 to-zinc-800 flex flex-col items-center justify-center font-mono border border-white/10" id="tile1">
+                  <span class="text-xs text-zinc-400">Tile 1</span>
+                  <span class="text-sm sm:text-base font-bold text-white" id="tileVal1">16</span>
+                </div>
+                <div class="tile w-16 sm:w-24 h-24 sm:h-28 rounded-xl bg-gradient-to-b from-zinc-700 to-zinc-800 flex flex-col items-center justify-center font-mono border border-white/10" id="tile2">
+                  <span class="text-xs text-zinc-400">Tile 2</span>
+                  <span class="text-sm sm:text-base font-bold text-white" id="tileVal2">16</span>
+                </div>
+              </div>
+
+              <!-- +1 Tile (One unit width addition) -->
+              <div class="flex flex-col gap-1">
+                <div class="tile w-7 sm:w-8 h-24 sm:h-28 rounded-xl bg-gradient-to-b from-amber-600/40 to-amber-800/40 border border-amber-500/30 flex flex-col items-center justify-center font-mono text-amber-300">
+                  <span class="text-[10px] uppercase font-bold">+1</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Length (Top) Indicator -->
+            <div class="absolute -top-3.5 flex items-center gap-1.5 text-xs font-mono font-bold text-amber-300 bg-[#171a22] px-3 py-0.5 rounded-full border border-white/10">
+              Length = 2x + 1 = <span id="canvasLengthDisplay" class="text-white">33m</span>
+            </div>
+          </div>
+
+          <!-- Computed Area Callout -->
+          <div class="mt-5 flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-[#171a22] border border-white/10 rounded-xl px-4 py-2 text-xs sm:text-sm">
+              <span class="text-zinc-400 font-medium">Computed Area:</span>
+              <span class="font-mono text-white">x · (2x + 1) =</span>
+              <span id="canvasAreaDisplay" class="font-mono font-bold px-2 py-0.5 rounded bg-[#d4ff3a]/20 border border-[#d4ff3a] text-[#d4ff3a]">
+                528 m²
+              </span>
+              <span id="canvasMatchCheck" class="text-[#d4ff3a] font-bold text-sm">✓ Matches Target!</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Sliders & Presets Controls -->
+        <div class="pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <label for="breadthSlider" class="text-xs font-medium text-zinc-300 shrink-0">Breadth (x):</label>
+            <input type="range" id="breadthSlider" min="8" max="24" value="16" step="1" oninput="updateBreadth(this.value)" class="w-full sm:w-44 accent-[#d4ff3a] cursor-pointer">
+            <span id="sliderValDisplay" class="font-mono text-xs font-bold text-[#d4ff3a] w-8">16m</span>
+          </div>
+
+          <!-- Quick Preset Selector Buttons -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] text-zinc-500 mr-1">Try values:</span>
+            <button onclick="updateBreadth(10)" class="px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-mono text-zinc-300 transition">x = 10</button>
+            <button onclick="updateBreadth(16)" class="px-2.5 py-1 rounded-lg bg-[#d4ff3a]/20 hover:bg-[#d4ff3a]/30 border border-[#d4ff3a] text-xs font-mono text-[#d4ff3a] font-bold transition">x = 16</button>
+            <button onclick="updateBreadth(20)" class="px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-mono text-zinc-300 transition">x = 20</button>
+            <button onclick="simulateNegative()" class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-xs font-mono text-red-300 transition">x = -16.5</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Derivation Formula Sheet Footer -->
+      <div class="mt-4 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between text-xs text-zinc-400">
+        <div class="flex items-center gap-2 font-mono">
+          <span class="text-zinc-500">Standard Quadratic:</span>
+          <span class="text-white font-semibold">2x² + x − 528 = 0</span>
+          <span class="text-zinc-600">|</span>
+          <span class="text-[#d4ff3a]">a = 2, b = 1, c = -528</span>
+        </div>
+        <button onclick="openDerivationModal()" class="text-[#d4ff3a] hover:underline font-semibold flex items-center gap-1">
+          <span>View 5-Step Derivation</span>
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ──────────────── RIGHT PANE: SOCRATIC AI CO-TEACHER (HERMES) (38% width) ──────────────── -->
+    <aside class="w-full lg:w-[38%] border-t lg:border-t-0 lg:border-l border-white/[0.08] bg-[#0e1015] flex flex-col justify-between shrink-0 h-[480px] lg:h-auto">
+      
+      <!-- AI Header & Personality Badge -->
+      <div class="p-3.5 sm:p-4 border-b border-white/[0.08] bg-[#12151d] flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#103322] to-[#184f34] border border-[#d4ff3a]/40 flex items-center justify-center shadow-[0_0_12px_rgba(212,255,58,0.25)]">
+            <span class="text-base">🤖</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs sm:text-sm font-bold text-white">Hermes AI Co-Teacher</span>
+              <span class="px-1.5 py-0.2 text-[10px] font-bold rounded bg-[#d4ff3a]/15 text-[#d4ff3a]">Socratic Mode</span>
+            </div>
+            <p class="text-[11px] text-zinc-400">Guiding you step-by-step without giving answers</p>
+          </div>
+        </div>
+
+        <button onclick="clearChat()" class="text-xs text-zinc-500 hover:text-zinc-300 transition">
+          Clear
+        </button>
+      </div>
+
+      <!-- Pitfall / Misconception Warning Banner (Dynamic) -->
+      <div id="pitfallBanner" class="hidden mx-3 mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-200 flex items-start gap-2.5 transition-all">
+        <span class="text-red-400 text-sm">⚠️</span>
+        <div>
+          <span class="font-bold block text-red-300">Misconception Detected: Physical Dimension Constraint</span>
+          <span id="pitfallText">Negative dimensions cannot exist in physical geometry. Distance must always be greater than 0!</span>
+        </div>
+      </div>
+
+      <!-- Socratic Message Stream -->
+      <div id="chatStream" class="flex-1 overflow-y-auto scroll-dark p-4 space-y-4 text-xs sm:text-[13px] leading-relaxed">
+        
+        <!-- Hermes Initial Socratic Welcome Message -->
+        <div class="flex items-start gap-2.5">
+          <div class="w-6 h-6 rounded-lg bg-[#143825] text-[#d4ff3a] flex items-center justify-center shrink-0 font-bold text-[11px]">H</div>
+          <div class="flex-1 p-3.5 rounded-2xl rounded-tl-sm bg-[#161a23] border border-white/[0.08] text-zinc-200 shadow-sm space-y-2">
+            <p>
+              👋 Welcome! Let's solve the <strong class="text-white">Park Problem</strong> together.
+            </p>
+            <p class="text-zinc-300">
+              If we assign the unknown breadth as <span class="font-mono bg-black/40 px-1.5 py-0.5 rounded text-[#d4ff3a]">x</span>, and the length is "one more than twice its breadth", how would you write the algebraic expression for length?
+            </p>
+          </div>
+        </div>
+
+        <!-- Suggestion Chips for Fast Socratic Inquiries -->
+        <div id="suggestionChips" class="space-y-1.5 pt-1">
+          <div class="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Suggested Questions:</div>
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="sendPrompt('How do we form length from twice the breadth?')" class="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-zinc-300 text-left transition">
+              💡 Why is Length = 2x + 1?
+            </button>
+            <button onclick="sendPrompt('Why did we discard x = -16.5 in the final solution?')" class="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-zinc-300 text-left transition">
+              📐 Why discard negative root?
+            </button>
+            <button onclick="sendPrompt('Explain the AC Method step-by-step')" class="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-zinc-300 text-left transition">
+              🧩 How does AC Method split the middle term?
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Chat Input Field with Microphone & Send -->
+      <div class="p-3 sm:p-4 border-t border-white/[0.08] bg-[#12151d]">
+        <form onsubmit="handleChatSubmit(event)" class="relative flex items-center">
+          <input 
+            type="text" 
+            id="chatInput" 
+            placeholder="Ask Hermes a question or enter your reasoning..." 
+            class="w-full h-11 pl-4 pr-20 rounded-xl bg-[#090a0e] border border-white/10 focus:border-[#d4ff3a] text-xs sm:text-sm text-white placeholder-zinc-500 outline-none transition"
+          >
+          <div class="absolute right-1.5 flex items-center gap-1">
+            <button type="button" onclick="voiceInputMock()" title="Speech Input" class="w-8 h-8 rounded-lg text-zinc-400 hover:text-white flex items-center justify-center transition">
+              🎤
+            </button>
+            <button type="submit" class="w-8 h-8 rounded-lg bg-[#d4ff3a] hover:brightness-110 text-black flex items-center justify-center transition font-bold">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </button>
+          </div>
+        </form>
+        <p class="text-[10px] text-zinc-500 text-center mt-2">Hermes uses validated knowledge graph telemetry & Socratic pitfall analysis.</p>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- ================= KNOWLEDGE GRAPH ROADMAP MODAL ================= -->
+  <div id="roadmapModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 sm:p-6">
+    <div class="w-full max-w-2xl bg-[#13161f] border border-white/10 rounded-2xl p-6 shadow-2xl relative">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🗺️</span>
+          <h2 class="text-base font-bold text-white">Curriculum Concept Map & Prerequisite Roadmap</h2>
+        </div>
+        <button onclick="toggleRoadmap()" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 flex items-center justify-center">✕</button>
+      </div>
+
+      <p class="text-xs text-zinc-300 mb-6">Hermes tracks your cross-session concept mastery and recalls prior lessons during tricky questions.</p>
+
+      <!-- Nodes Roadmap Visualization -->
+      <div class="space-y-4">
+        
+        <!-- Node 1: Mastered Prerequisite -->
+        <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs">✓</div>
+            <div>
+              <div class="text-xs font-bold text-white">LINEAR-01: Linear Equations in Two Variables</div>
+              <div class="text-[11px] text-emerald-300">Mastered • 100% Score</div>
+            </div>
+          </div>
+          <span class="text-[11px] text-zinc-400 font-mono">Prerequisite Passed</span>
+        </div>
+
+        <!-- Node 2: Current Active Focus -->
+        <div class="p-3.5 rounded-xl bg-[#d4ff3a]/10 border border-[#d4ff3a] flex items-center justify-between glow-lime">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#d4ff3a] text-black font-bold flex items-center justify-center text-xs">●</div>
+            <div>
+              <div class="text-xs font-bold text-white">QUAD-02: Quadratic Standard Form (ax² + bx + c = 0)</div>
+              <div class="text-[11px] text-[#d4ff3a]">Active Session • 85% Mastery</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-[#d4ff3a] bg-[#d4ff3a]/20 px-2 py-0.5 rounded">IN PROGRESS</span>
+        </div>
+
+        <!-- Node 3: Next Concept Target -->
+        <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between opacity-60">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-zinc-800 text-zinc-400 font-bold flex items-center justify-center text-xs">3</div>
+            <div>
+              <div class="text-xs font-bold text-zinc-300">QUAD-05: Quadratic Formula & Nature of Roots</div>
+              <div class="text-[11px] text-zinc-500">Locked • Complete QUAD-02 to unlock</div>
+            </div>
+          </div>
+          <span class="text-[11px] text-zinc-500">Upcoming</span>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-white/10 flex justify-end">
+        <button onclick="toggleRoadmap()" class="px-4 py-2 rounded-xl bg-[#d4ff3a] text-black text-xs font-bold hover:brightness-110 transition">
+          Return to Lab
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 5-STEP DERIVATION MODAL ================= -->
+  <div id="derivationModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 sm:p-6">
+    <div class="w-full max-w-xl bg-[#13161f] border border-white/10 rounded-2xl p-6 shadow-2xl relative">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+        <h2 class="text-base font-bold text-white">Symbolic Math Solver — 5-Step Algebraic Derivation</h2>
+        <button onclick="closeDerivationModal()" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 flex items-center justify-center">✕</button>
+      </div>
+
+      <div class="space-y-3.5 text-xs text-zinc-200">
+        <div class="p-3 rounded-lg bg-black/40 border border-white/5 font-mono">
+          <span class="text-zinc-400 block mb-1">Step 1: Assign variable & Length</span>
+          Breadth = <strong class="text-emerald-400">x</strong>, Length = <strong class="text-amber-400">2x + 1</strong>
+        </div>
+        <div class="p-3 rounded-lg bg-black/40 border border-white/5 font-mono">
+          <span class="text-zinc-400 block mb-1">Step 2: Area formulation</span>
+          Area = Breadth · Length → <strong class="text-white">x · (2x + 1) = 528</strong>
+        </div>
+        <div class="p-3 rounded-lg bg-black/40 border border-white/5 font-mono">
+          <span class="text-zinc-400 block mb-1">Step 3: Standard Quadratic Form</span>
+          <strong class="text-[#d4ff3a]">2x² + x − 528 = 0</strong>
+        </div>
+        <div class="p-3 rounded-lg bg-black/40 border border-white/5 font-mono">
+          <span class="text-zinc-400 block mb-1">Step 4: Split middle term (AC Method: 2 · -528 = -1056; 33 · -32 = -1056)</span>
+          2x² + 33x − 32x − 528 = 0 → <strong class="text-white">(2x + 33)(x − 16) = 0</strong>
+        </div>
+        <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 font-mono text-emerald-300">
+          <span class="text-emerald-400 font-bold block mb-1">Step 5: Physical Root Selection</span>
+          x = 16 (Accepted) or x = -16.5 (Discarded — distance cannot be negative).<br>
+          <strong>Breadth = 16 m, Length = 33 m</strong>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-white/10 flex justify-end">
+        <button onclick="closeDerivationModal()" class="px-4 py-2 rounded-xl bg-white/10 text-white text-xs font-semibold hover:bg-white/15 transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT SIMULATION & HERMES ENGINE ================= -->
+  <script>
+    let currentX = 16;
+    let currentStep = 1;
+
+    function updateBreadth(val) {
+      currentX = parseFloat(val);
+      const length = 2 * currentX + 1;
+      const area = currentX * length;
+
+      document.getElementById('sliderValDisplay').innerText = currentX + 'm';
+      document.getElementById('canvasBreadthDisplay').innerText = 'x = ' + currentX + 'm';
+      document.getElementById('canvasLengthDisplay').innerText = length + 'm';
+      document.getElementById('canvasAreaDisplay').innerText = area + ' m²';
+      document.getElementById('tileVal1').innerText = currentX;
+      document.getElementById('tileVal2').innerText = currentX;
+
+      const matchCheck = document.getElementById('canvasMatchCheck');
+      const box = document.getElementById('parkVisualBox');
+      const pitfall = document.getElementById('pitfallBanner');
+
+      if (currentX < 0) {
+        pitfall.classList.remove('hidden');
+        matchCheck.innerText = '✕ Invalid dimension!';
+        matchCheck.className = 'text-red-400 font-bold text-sm';
+      } else if (area === 528) {
+        pitfall.classList.add('hidden');
+        matchCheck.innerText = '✓ Matches Target 528 m²!';
+        matchCheck.className = 'text-[#d4ff3a] font-bold text-sm';
+        box.classList.add('glow-lime');
+        triggerAIPraise();
+      } else {
+        pitfall.classList.add('hidden');
+        matchCheck.innerText = (area < 528 ? '↑ Too small' : '↓ Too large') + ' (' + area + ' m²)';
+        matchCheck.className = 'text-amber-400 font-medium text-xs';
+        box.classList.remove('glow-lime');
+      }
+    }
+
+    function simulateNegative() {
+      currentX = -16.5;
+      document.getElementById('breadthSlider').value = 8;
+      document.getElementById('sliderValDisplay').innerText = '-16.5m';
+      document.getElementById('canvasBreadthDisplay').innerText = 'x = -16.5m';
+      document.getElementById('canvasLengthDisplay').innerText = '-32m';
+      document.getElementById('canvasAreaDisplay').innerText = '528 m²';
+      
+      const pitfall = document.getElementById('pitfallBanner');
+      document.getElementById('pitfallText').innerText = 'Algebra gives -16.5 as a root of 2x² + x - 528 = 0, but a physical park breadth cannot be negative!';
+      pitfall.classList.remove('hidden');
+
+      appendAIMessage("⚠️ <strong>Misconception Check:</strong> While <em>x = -16.5</em> mathematically solves the equation <code>2x² + x − 528 = 0</code>, in physical real-world geometry a length or width cannot be negative. Therefore, we <strong>discard the negative root</strong> and accept <strong>x = 16 m</strong>.");
+    }
+
+    function setStep(step) {
+      currentStep = step;
+      for (let i = 1; i <= 3; i++) {
+        const tab = document.getElementById('stepTab' + i);
+        if (i === step) {
+          tab.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-[#d4ff3a] text-black shadow-sm';
+        } else {
+          tab.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition text-zinc-400 hover:text-white';
+        }
+      }
+
+      if (step === 1) {
+        appendAIMessage("<strong>Step 1:</strong> Look at the tiles. We have 2 tiles of width <em>x</em> giving <em>2x</em>, plus 1 extra unit tile giving length = <em>2x + 1</em>. The equation is <code>x(2x + 1) = 528</code>.");
+      } else if (step === 2) {
+        appendAIMessage("<strong>Step 2 (AC Method):</strong> To factor <code>2x² + x − 528 = 0</code>, we multiply <em>a · c = 2 × (-528) = -1056</em>. The two factors summing to +1 are <strong>+33</strong> and <strong>-32</strong>!");
+      } else if (step === 3) {
+        appendAIMessage("<strong>Step 3:</strong> Always check physical constraints! Can a garden or park have a negative breadth? Try clicking the <code>x = -16.5</code> button above to see what happens.");
+      }
+    }
+
+    function resetCanvas() {
+      document.getElementById('breadthSlider').value = 16;
+      updateBreadth(16);
+    }
+
+    function toggleRoadmap() {
+      const modal = document.getElementById('roadmapModal');
+      modal.classList.toggle('hidden');
+    }
+
+    function openDerivationModal() {
+      document.getElementById('derivationModal').classList.remove('hidden');
+    }
+
+    function closeDerivationModal() {
+      document.getElementById('derivationModal').classList.add('hidden');
+    }
+
+    function triggerAIPraise() {
+      appendAIMessage("🌟 <strong>Perfect Discovery!</strong> At Breadth <em>x = 16 m</em>, the Length is <em>2(16) + 1 = 33 m</em>. Multiplying <code>16 × 33 = 528 m²</code> exactly matches our target park area!");
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      sendPrompt(text);
+      input.value = '';
+    }
+
+    function sendPrompt(text) {
+      appendUserMessage(text);
+      
+      // Simulate intelligent Socratic Co-Teacher response
+      setTimeout(() => {
+        const lower = text.toLowerCase();
+        if (lower.includes('negative') || lower.includes('discard') || lower.includes('-16.5')) {
+          appendAIMessage("Great question! When solving <code>2x² + x − 528 = 0</code>, pure algebra produces two roots: <em>x = 16</em> and <em>x = -16.5</em>.<br><br>However, <strong>x represents the physical breadth of a real park</strong>. In real-world geometry, a width or distance cannot be negative! That is why we discard <em>x = -16.5</em> and keep <strong>x = 16 m</strong>.");
+        } else if (lower.includes('ac method') || lower.includes('split') || lower.includes('factor')) {
+          appendAIMessage("The <strong>AC Method</strong> factors quadratic trinomials <code>ax² + bx + c = 0</code>:<br>1. Multiply <em>a · c = 2 × (-528) = -1056</em>.<br>2. Find two factors whose product is -1056 and sum is +1 (the middle coefficient b). Those are <strong>+33</strong> and <strong>-32</strong>.<br>3. Rewrite: <code>2x² + 33x − 32x − 528 = 0</code> → <code>(2x + 33)(x − 16) = 0</code>.");
+        } else if (lower.includes('twice') || lower.includes('length') || lower.includes('2x + 1')) {
+          appendAIMessage("Let's break down the word clues:<br>• 'Twice its breadth' = <code>2x</code><br>• 'One more than twice' = <code>2x + 1</code><br>Since Area = Breadth × Length, we get <code>x · (2x + 1) = 528</code> → <code>2x² + x − 528 = 0</code>.");
+        } else {
+          appendAIMessage("Let's look at the algebra canvas. If we set breadth to <em>x</em>, what expression represents the length according to the problem? Try adjusting the slider on the left!");
+        }
+      }, 500);
+    }
+
+    function appendUserMessage(msg) {
+      const stream = document.getElementById('chatStream');
+      const div = document.createElement('div');
+      div.className = 'flex items-start justify-end gap-2.5';
+      div.innerHTML = `
+        <div class="p-3 rounded-2xl rounded-tr-sm bg-[#1e222d] border border-white/10 text-white max-w-[85%]">
+          ${msg}
+        </div>
+        <div class="w-6 h-6 rounded-lg bg-zinc-700 text-white flex items-center justify-center shrink-0 font-bold text-[10px]">You</div>
+      `;
+      stream.appendChild(div);
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    function appendAIMessage(html) {
+      const stream = document.getElementById('chatStream');
+      const div = document.createElement('div');
+      div.className = 'flex items-start gap-2.5';
+      div.innerHTML = `
+        <div class="w-6 h-6 rounded-lg bg-[#143825] text-[#d4ff3a] flex items-center justify-center shrink-0 font-bold text-[11px]">H</div>
+        <div class="flex-1 p-3.5 rounded-2xl rounded-tl-sm bg-[#161a23] border border-white/[0.08] text-zinc-200 shadow-sm space-y-2">
+          ${html}
+        </div>
+      `;
+      stream.appendChild(div);
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    function clearChat() {
+      const stream = document.getElementById('chatStream');
+      stream.innerHTML = `
+        <div class="flex items-start gap-2.5">
+          <div class="w-6 h-6 rounded-lg bg-[#143825] text-[#d4ff3a] flex items-center justify-center shrink-0 font-bold text-[11px]">H</div>
+          <div class="flex-1 p-3.5 rounded-2xl rounded-tl-sm bg-[#161a23] border border-white/[0.08] text-zinc-200 shadow-sm">
+            <p>Chat cleared. Ask me any question about formulating or solving this problem!</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function voiceInputMock() {
+      const input = document.getElementById('chatInput');
+      input.value = "Why did we discard the negative root?";
+    }
+  </script>
+</body>
+</html>

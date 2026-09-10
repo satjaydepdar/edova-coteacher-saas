@@ -1,24 +1,11 @@
 """Phase 7 test runner: generate -> submit -> review, attempts cap, gates, progress machine."""
-import sys
 import uuid
 
 import httpx
 import psycopg
 from main import DB_DSN
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
-
-
-def login(email):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": "testpass"})
-    r.raise_for_status()
-    return r.json()["access_token"]
+from testutil import BASE, check, finish, login
 
 
 def auth(t):
@@ -132,6 +119,4 @@ ok = (s95["status"] == "completed" and s95["progress_pct"] == 95
       and s40["status"] == "completed" and s40["progress_pct"] == 95)
 check("progress: 95% completes, 40% never regresses", ok, f"95->{s95} 40->{s40}")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed")
-sys.exit(1 if failed else 0)
+finish()

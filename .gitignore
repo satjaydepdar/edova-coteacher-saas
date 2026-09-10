@@ -21,6 +21,17 @@ venv/
 # --- node / frontend ---
 node_modules/
 frontend/dist/
+storefront/dist/
+
+# --- playwright (e2e test artifacts) ---
+edova-authoring-app/test-results/
+edova-authoring-app/playwright-report/
+frontend/test-results/
+frontend/playwright-report/
+
+# --- dev server logs ---
+backend/*.log
+frontend/*.log
 
 # --- android / capacitor build output ---
 frontend/android/app/build/

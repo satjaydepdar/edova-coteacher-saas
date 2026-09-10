@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: { '/api': 'http://127.0.0.1:8000', '/auth': 'http://127.0.0.1:8000', '/student': 'http://127.0.0.1:8000', '/admin': 'http://127.0.0.1:8000' },
+    proxy: { '/api': 'http://127.0.0.1:8001', '/auth': 'http://127.0.0.1:8001', '/student': 'http://127.0.0.1:8001', '/admin': 'http://127.0.0.1:8001' },
   },
 })

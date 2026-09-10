@@ -4,19 +4,7 @@ import httpx
 import psycopg
 from main import DB_DSN
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
-
-
-def login(email):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": "testpass"})
-    r.raise_for_status()
-    return r.json()["access_token"]
+from testutil import BASE, check, finish, login
 
 
 PLAT = {"Authorization": f"Bearer {login('admin@edova.dev')}"}
@@ -112,7 +100,4 @@ r2 = httpx.patch(f"{BASE}/admin/topics/{T1}", json={"name": "Nope"}, headers=SPR
 ok = r1.status_code == 403 and r2.status_code == 403
 check("TC8 cross-tenant topic writes -> 403", ok, f"{r1.status_code} {r2.status_code}")
 
-print()
-failed = [n for n, ok in results if not ok]
-print(f"{len(results) - len(failed)}/{len(results)} passed")
-raise SystemExit(1 if failed else 0)
+finish()

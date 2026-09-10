@@ -1,6 +1,8 @@
 """Video pipeline test runner (migration 013 + async transcode):
 device-principal progress (heartbeat/resume/90% completion), async upload
 202 -> poll -> READY/FAILED, manifest during processing. Requires API on :8000."""
+import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -11,19 +13,7 @@ import httpx
 import psycopg
 from main import DB_DSN
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
-
-
-def login(email, password="testpass"):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": password})
-    r.raise_for_status()
-    return r.json()["access_token"]
+from testutil import BASE, check, finish, login
 
 
 PLAT = {"Authorization": f"Bearer {login('admin@edova.dev')}"}
@@ -87,11 +77,15 @@ r = httpx.get(f"{BASE}/api/student/progress/{module}", headers=DEV)
 check("resume read returns saved pct", r.status_code == 200 and r.json()["progress_pct"] == 92
       and r.json()["status"] == "completed", f"body={r.json()}")
 
-with psycopg.connect(DB_DSN) as conn:
-    row = conn.execute("SELECT student_id, activation_key_id FROM student_progress WHERE module_id = %s",
-                       (module,)).fetchone()
-check("row keyed by activation key", row is not None and row[0] is None and row[1] is not None,
-      f"row={row}")
+# Device-principal behavior: a second device on the SAME activation key sees the
+# same progress (key allows 2 devices) — progress is shared per key, not per student.
+r = httpx.post(f"{BASE}/api/activation/activate", json={"key_code": key, "device_id": "vp-dev-2"})
+check("second device activates on same key", r.status_code == 200, f"status={r.status_code}")
+if r.status_code == 200:
+    DEV2 = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    r = httpx.get(f"{BASE}/api/student/progress/{module}", headers=DEV2)
+    check("second device reads shared progress", r.status_code == 200 and r.json()["progress_pct"] == 92
+          and r.json()["status"] == "completed" and r.json()["time_spent"] == 50, f"body={r.json()}")
 
 r = httpx.post(f"{BASE}/api/student/progress", headers=DEV,
                json={"module_id": module, "progress_pct": 50, "time_spent_delta": 10,
@@ -99,45 +93,54 @@ r = httpx.post(f"{BASE}/api/student/progress", headers=DEV,
 check("non-uuid event id -> 422", r.status_code == 422, f"status={r.status_code}")
 
 # --- Async transcode: 202 -> poll -> READY ---
-clip = Path(tempfile.gettempdir()) / "vp_test.mp4"
-subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc=duration=3:size=320x240:rate=15",
-                "-f", "lavfi", "-i", "sine=frequency=440:duration=3",
-                "-c:v", "libx264", "-c:a", "aac", "-shortest", str(clip)],
-               capture_output=True, check=True)
+# ffmpeg resolution mirrors main.py's _tool(): EDOVA_FFMPEG_DIR bin folder, else PATH.
+def _tool(name: str) -> str:
+    d = os.getenv("EDOVA_FFMPEG_DIR", "")
+    return os.path.join(d, name) if d else name
 
-r = httpx.post(f"{BASE}/admin/modules/{module}/video-upload",
-               files={"file": ("vp_test.mp4", clip.read_bytes(), "video/mp4")}, headers=PLAT)
-check("upload returns 202 PROCESSING", r.status_code == 202 and r.json()["status"] == "PROCESSING",
-      f"status={r.status_code} body={r.json()}")
 
-deadline = time.time() + 90
-status = None
-while time.time() < deadline:
-    status = httpx.get(f"{BASE}/admin/modules/{module}/video-status", headers=PLAT).json()
-    if status["status"] != "PROCESSING":
-        break
-    time.sleep(2)
-check("transcode reaches READY", status and status["status"] == "READY"
-      and status["duration_seconds"] >= 2 and status["s3_key_prefix"], f"status={status}")
+FFMPEG = _tool("ffmpeg")
+if shutil.which(FFMPEG) is None:
+    print(f"SKIP transcode checks: ffmpeg not found "
+          f"(set EDOVA_FFMPEG_DIR to the ffmpeg bin dir or put ffmpeg on PATH)")
+else:
+    clip = Path(tempfile.gettempdir()) / "vp_test.mp4"
+    subprocess.run([FFMPEG, "-y", "-f", "lavfi", "-i", "testsrc=duration=3:size=320x240:rate=15",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=3",
+                    "-c:v", "libx264", "-c:a", "aac", "-shortest", str(clip)],
+                   capture_output=True, check=True)
 
-r = httpx.get(f"{BASE}/api/student/video/{module}/manifest", headers=DEV)
-check("manifest serves presigned segments", r.status_code == 200
-      and "#EXTM3U" in r.text and "X-Amz-Signature" in r.text,
-      f"status={r.status_code} lines={len(r.text.splitlines())}")
+    r = httpx.post(f"{BASE}/admin/modules/{module}/video-upload",
+                   files={"file": ("vp_test.mp4", clip.read_bytes(), "video/mp4")}, headers=PLAT)
+    check("upload returns 202 PROCESSING", r.status_code == 202 and r.json()["status"] == "PROCESSING",
+          f"status={r.status_code} body={r.json()}")
 
-# --- FAILED path: garbage bytes ---
-r = httpx.post(f"{BASE}/admin/modules/{module}/video-upload",
-               files={"file": ("junk.mp4", b"not a video at all", "video/mp4")}, headers=PLAT)
-deadline = time.time() + 60
-status = None
-while time.time() < deadline:
-    status = httpx.get(f"{BASE}/admin/modules/{module}/video-status", headers=PLAT).json()
-    if status["status"] != "PROCESSING":
-        break
-    time.sleep(2)
-check("garbage upload lands FAILED with error", status and status["status"] == "FAILED"
-      and status["error"], f"status={status}")
+    deadline = time.time() + 90
+    status = None
+    while time.time() < deadline:
+        status = httpx.get(f"{BASE}/admin/modules/{module}/video-status", headers=PLAT).json()
+        if status["status"] != "PROCESSING":
+            break
+        time.sleep(2)
+    check("transcode reaches READY", status and status["status"] == "READY"
+          and status["duration_seconds"] >= 2 and status["s3_key_prefix"], f"status={status}")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed" + (f" — FAILED: {failed}" if failed else ""))
-raise SystemExit(1 if failed else 0)
+    r = httpx.get(f"{BASE}/api/student/video/{module}/manifest", headers=DEV)
+    check("manifest serves presigned segments", r.status_code == 200
+          and "#EXTM3U" in r.text and "X-Amz-Signature" in r.text,
+          f"status={r.status_code} lines={len(r.text.splitlines())}")
+
+    # --- FAILED path: garbage bytes ---
+    r = httpx.post(f"{BASE}/admin/modules/{module}/video-upload",
+                   files={"file": ("junk.mp4", b"not a video at all", "video/mp4")}, headers=PLAT)
+    deadline = time.time() + 60
+    status = None
+    while time.time() < deadline:
+        status = httpx.get(f"{BASE}/admin/modules/{module}/video-status", headers=PLAT).json()
+        if status["status"] != "PROCESSING":
+            break
+        time.sleep(2)
+    check("garbage upload lands FAILED with error", status and status["status"] == "FAILED"
+          and status["error"], f"status={status}")
+
+finish()

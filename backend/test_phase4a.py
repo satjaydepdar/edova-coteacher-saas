@@ -1,15 +1,9 @@
 """Phase 4A tests: real bucket round-trips — list, put, exists, presign+GET, delete."""
-import sys
 
 import httpx
 import s3_client
 
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
+from testutil import check, finish
 
 
 BIO_PREFIX = "Class-10/Semester-01/Biology/Chapter-01/"
@@ -40,6 +34,4 @@ check("presign on missing key -> S3 404", r2.status_code == 404, f"GET={r2.statu
 s3_client.delete_key(PROBE)
 check("cleanup: probe deleted", not s3_client.object_exists(PROBE), "")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed")
-sys.exit(1 if failed else 0)
+finish()

@@ -19,7 +19,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 /** Auto-formats to EDOVA-XXXX-XXXX-XXXX as the user types. */
 function formatKey(raw: string): string {
   let v = raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
-  if (v.startsWith('EDOVA')) v = v.slice(5)
+  while (v.startsWith('EDOVA')) {
+    v = v.slice(5)
+  }
   v = v.slice(0, 12)
   const groups = v.match(/.{1,4}/g) ?? []
   return 'EDOVA' + (groups.length ? '-' + groups.join('-') : '')

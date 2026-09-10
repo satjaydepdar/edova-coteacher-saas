@@ -1,0 +1,71 @@
+{
+  "questions": [
+    {
+      "version_id": "dc486181-9eae-4b44-aca4-fc608d67fd32",
+      "question_type": "MCQ",
+      "question_text": "The length of a tangent drawn to a circle of radius 9 cm from a point at a distance of 41cm from the centre of the circle is",
+      "options": [
+        {
+          "key": "A",
+          "text": "40cm"
+        },
+        {
+          "key": "B",
+          "text": "9cm"
+        },
+        {
+          "key": "C",
+          "text": "41cm"
+        },
+        {
+          "key": "D",
+          "text": "50cm"
+        }
+      ],
+      "marks": 1.0
+    },
+    {
+      "version_id": "8bdea66c-0687-4855-b939-edc7af23edb9",
+      "question_type": "SHORT_ANSWER",
+      "question_text": "A ΔABC is drawn to circumscribe a circle of radius 4 cm such that the segments BD and DC are of lengths 10 cm and 8 cm respectively. Find the lengths of the sides AB and AC, if it is given that ar(ΔABC) = 90cm²",
+      "options": [],
+      "marks": 2.0
+    },
+    {
+      "version_id": "e007dad0-7c84-4540-8829-ed738d55cbf0",
+      "question_type": "SHORT_ANSWER",
+      "question_text": "In Figure, XY and XY' are two parallel tangents to a circle with centre O and another tangent AB with point of contact C intersecting XY at A and XY' at B. Prove that ∠AOB = 90°",
+      "options": [],
+      "marks": 3.0
+    },
+    {
+      "version_id": "085ad3b5-9ff8-4eac-8e31-b0d56f237932",
+      "question_type": "MCQ",
+      "question_text": "A quadrilateral ABCD is drawn to circumscribe a circle. If BC=7cm, CD=4cm and AD=3cm, then the length of AB is",
+      "options": [
+        {
+          "key": "A",
+          "text": "3cm"
+        },
+        {
+          "key": "B",
+          "text": "4cm"
+        },
+        {
+          "key": "C",
+          "text": "6cm"
+        },
+        {
+          "key": "D",
+          "text": "7cm"
+        }
+      ],
+      "marks": 1.0
+    }
+  ],
+  "metadata": {
+    "total_requested": 4,
+    "total_delivered": 4,
+    "shortfall": false
+  }
+}

@@ -10,6 +10,7 @@ from contextvars import ContextVar
 from uuid import UUID
 
 import bcrypt
+import bleach
 import jwt
 import psycopg
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -130,7 +131,8 @@ ENTITLEMENT_SQL = """
 SELECT t.id AS tenant_id, t.name AS tenant_name, t.type AS tenant_type,
        bool_or(sp.allow_video) AS allow_video,
        bool_or(sp.allow_lab)   AS allow_lab,
-       bool_or(sp.allow_quiz)  AS allow_quiz
+       bool_or(sp.allow_quiz)  AS allow_quiz,
+       coalesce(max(sp.tier_level), 1) AS tier_level
 FROM users u
 JOIN user_tenant_mappings utm ON u.id = utm.user_id
 JOIN tenants t ON utm.tenant_id = t.id
@@ -240,7 +242,7 @@ def single_tenant_or_raise(user_id: str, roles=STUDENT_ONLY):
 @app.get("/api/student/session")
 def student_session(authorization: str = Header(...)):
     uid = current_user_id(authorization)
-    tenant_id, tenant_name, tenant_type, allow_video, allow_lab, allow_quiz = single_tenant_or_raise(uid)
+    tenant_id, tenant_name, tenant_type, allow_video, allow_lab, allow_quiz, _tier = single_tenant_or_raise(uid)
     with db() as conn:
         user = q(conn, "SELECT id, full_name, email FROM users WHERE id = %s", (uid,)).fetchone()
     return {
@@ -254,7 +256,7 @@ def student_session(authorization: str = Header(...)):
 @app.get("/api/teacher/session")
 def teacher_session(authorization: str = Header(...)):
     uid = current_user_id(authorization)
-    tenant_id, tenant_name, tenant_type, allow_video, allow_lab, allow_quiz = \
+    tenant_id, tenant_name, tenant_type, allow_video, allow_lab, allow_quiz, _tier = \
         single_tenant_or_raise(uid, ("TEACHER",))
     with db() as conn:
         user = q(conn, "SELECT id, full_name, email FROM users WHERE id = %s", (uid,)).fetchone()
@@ -270,13 +272,62 @@ def teacher_session(authorization: str = Header(...)):
 @app.get("/api/teacher/subjects")
 def teacher_subjects(authorization: str = Header(...)):
     uid = current_user_id(authorization)
-    tenant_id, _, _, allow_video, allow_lab, allow_quiz = single_tenant_or_raise(uid, CLASSROOM)
+    tenant_id, _, _, allow_video, allow_lab, allow_quiz, _tier = single_tenant_or_raise(uid, CLASSROOM)
     with db() as conn:
         rows = q(conn, "SELECT id, name, standard_grade, thumbnail_url, sequence_order FROM subjects "
                        "WHERE tenant_id IS NULL OR tenant_id = %s ORDER BY sequence_order", (tenant_id,)).fetchall()
     return {"subjects": [{"id": str(r[0]), "name": r[1], "standard_grade": r[2],
                           "thumbnail_url": r[3], "sequence_order": r[4]} for r in rows],
             "features": {"allow_video": allow_video, "allow_lab": allow_lab, "allow_quiz": allow_quiz}}
+
+
+# --- Teacher class sections (migration 021): read-only listing for the analytics dashboard ---
+@app.get("/api/teacher/sections")
+def teacher_sections(authorization: str = Header(...)):
+    uid = current_user_id(authorization)
+    tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+    with db() as conn:
+        rows = q(conn, "SELECT id, name, grade FROM sections WHERE tenant_id = %s ORDER BY name",
+                 (tenant_id,)).fetchall()
+    return [{"id": str(r[0]), "name": r[1], "grade": r[2]} for r in rows]
+
+
+class SectionIn(BaseModel):
+    name: str
+    grade: str | None = None
+
+
+@app.post("/api/teacher/sections", status_code=201)
+def create_section(body: SectionIn, authorization: str = Header(...)):
+    uid = current_user_id(authorization)
+    tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+    with db() as conn:
+        if q(conn, "SELECT 1 FROM sections WHERE tenant_id = %s AND name = %s",
+             (tenant_id, body.name)).fetchone() is not None:
+            raise HTTPException(409, "a section with this name already exists")
+        section_id = q(conn, "INSERT INTO sections (tenant_id, name, grade) VALUES (%s, %s, %s) RETURNING id",
+                       (tenant_id, body.name, body.grade)).fetchone()[0]
+    return {"id": str(section_id), "name": body.name, "grade": body.grade}
+
+
+class SectionStudentIn(BaseModel):
+    student_user_id: str
+
+
+@app.post("/api/teacher/sections/{section_id}/students")
+def assign_student_to_section(section_id: str, body: SectionStudentIn, authorization: str = Header(...)):
+    uid = current_user_id(authorization)
+    tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+    with db() as conn:
+        if q(conn, "SELECT 1 FROM sections WHERE id = %s AND tenant_id = %s",
+             (section_id, tenant_id)).fetchone() is None:
+            raise HTTPException(404, "section not found")
+        if q(conn, "SELECT 1 FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s AND role = 'STUDENT'",
+             (body.student_user_id, tenant_id)).fetchone() is None:
+            raise HTTPException(404, "student not found in your tenant")
+        q(conn, "UPDATE user_tenant_mappings SET section_id = %s WHERE user_id = %s AND tenant_id = %s",
+          (section_id, body.student_user_id, tenant_id))
+    return {"section_id": section_id, "student_user_id": body.student_user_id}
 
 
 # ============================================================
@@ -318,7 +369,8 @@ DEVICE_ENTITLEMENT_SQL = """
 SELECT t.id AS tenant_id, t.name AS tenant_name, t.type AS tenant_type,
        bool_or(sp.allow_video) AS allow_video,
        bool_or(sp.allow_lab)   AS allow_lab,
-       bool_or(sp.allow_quiz)  AS allow_quiz
+       bool_or(sp.allow_quiz)  AS allow_quiz,
+       coalesce(max(sp.tier_level), 1) AS tier_level
 FROM device_activations da
 JOIN activation_keys k ON k.id = da.key_id
 JOIN tenants t ON t.id = k.tenant_id
@@ -342,12 +394,12 @@ def current_principal(authorization: str, roles=CLASSROOM) -> dict:
         if row is None:
             raise HTTPException(403, "activation invalid or subscription expired")
         return {"kind": "device", "tenant_id": row[0], "tenant_name": row[1], "tenant_type": row[2],
-                "features": {"allow_video": row[3], "allow_lab": row[4], "allow_quiz": row[5]},
+                "features": {"allow_video": row[3], "allow_lab": row[4], "allow_quiz": row[5], "tier_level": row[6] if len(row) > 6 else 1},
                 "user_id": None, "key_id": payload["kid"], "device_id": payload["did"]}
     uid = payload["sub"]
-    tenant_id, name, ttype, av, al, aq = single_tenant_or_raise(uid, roles)
+    tenant_id, name, ttype, av, al, aq, tier = single_tenant_or_raise(uid, roles)
     return {"kind": "user", "tenant_id": tenant_id, "tenant_name": name, "tenant_type": ttype,
-            "features": {"allow_video": av, "allow_lab": al, "allow_quiz": aq},
+            "features": {"allow_video": av, "allow_lab": al, "allow_quiz": aq, "tier_level": tier},
             "user_id": uid, "key_id": None, "device_id": None}
 
 
@@ -377,7 +429,7 @@ def activate(body: ActivateIn):
         # Doc §14 order: subscription validity before key expiry — an expired subscription
         # must tell the school to renew, not misreport as a key problem.
         sub = q(conn, "SELECT bool_or(sp.allow_video), bool_or(sp.allow_lab), bool_or(sp.allow_quiz), "
-                      "max(s.end_date) FROM subscriptions s "
+                      "max(s.end_date), coalesce(max(sp.tier_level), 1) FROM subscriptions s "
                       "JOIN subscription_plans sp ON sp.id = s.plan_id "
                       "WHERE s.tenant_id = %s AND s.end_date >= CURRENT_DATE "
                       "GROUP BY s.tenant_id", (tenant_id,)).fetchone()
@@ -402,7 +454,7 @@ def activate(body: ActivateIn):
         "access_token": issue_device_token(str(key_id), device_id),
         "token_type": "bearer",
         "tenant": {"name": t_name, "type": t_type},
-        "features": {"allow_video": sub[0], "allow_lab": sub[1], "allow_quiz": sub[2]},
+        "features": {"allow_video": sub[0], "allow_lab": sub[1], "allow_quiz": sub[2], "tier_level": sub[4]},
         "expires_at": sub[3].isoformat(),
     }
 
@@ -420,7 +472,7 @@ def activation_session(authorization: str = Header(...)):
         exp = q(conn, "SELECT expires_at FROM activation_keys WHERE id = %s",
                 (payload["kid"],)).fetchone()[0]
     return {"tenant": {"name": row[1], "type": row[2]},
-            "features": {"allow_video": row[3], "allow_lab": row[4], "allow_quiz": row[5]},
+            "features": {"allow_video": row[3], "allow_lab": row[4], "allow_quiz": row[5], "tier_level": row[6] if len(row) > 6 else 1},
             "expires_at": exp.isoformat()}
 
 
@@ -546,7 +598,9 @@ def subject_tree(subject_id: str, authorization: str = Header(...)):
             "locked": not flags.get(mod_type, False),
         })
 
-    # Flatten topic maps; strip chapters with zero published modules (empty shells)
+    # Flatten topic maps; strip chapters with zero published modules (empty shells).
+    # Content Shelf's own concern only -- Practice Questions has its own chapter list
+    # (GET /api/student/practice/chapters) so it never needs this endpoint at all.
     visible = []
     for c in chapters.values():
         topics = sorted(c["topics"].values(),
@@ -608,6 +662,15 @@ def guarded_module(conn, module_id: str, tenant_id):
     if row is None:
         raise HTTPException(404, "module not found")  # also cross-tenant (IDOR-safe)
     return row  # (module_type, chapter_id)
+
+
+def guarded_chapter(conn, chapter_id: str, tenant_id):
+    row = q(conn, "SELECT s.id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                  "WHERE c.id = %s AND (s.tenant_id IS NULL OR s.tenant_id = %s)",
+            (chapter_id, tenant_id)).fetchone()
+    if row is None:
+        raise HTTPException(404, "chapter not found")  # also cross-tenant (IDOR-safe)
+    return row[0]  # subject_id
 
 
 def _principal_clause(student_id, key_id):
@@ -672,6 +735,109 @@ def record_time_event(conn, module_id: str, delta_seconds: int, event_id: str,
     q(conn, f"UPDATE student_progress SET time_spent = time_spent + %s WHERE {where} AND module_id = %s",
       (delta_seconds, pid, module_id))
     return True
+
+
+# --- Practice Questions: fully independent of Content Shelf's subject_tree(). That
+# endpoint's chapter list is scoped to published VIDEO/LAB/QUIZ modules only (its own
+# concern); Practice Questions needs chapters that have a live question bank instead,
+# which is a different, unrelated condition -- hence its own endpoint rather than a
+# shared/overloaded one, so a change to either page can never leak into the other. ---
+@app.get("/api/student/practice/chapters")
+def practice_chapters(subject_id: str, authorization: str = Header(...)):
+    p = current_principal(authorization)
+    if not p["features"]["allow_quiz"]:
+        raise HTTPException(403, "quiz access not included in your plan")
+    with db() as conn:
+        subj = q(conn, "SELECT tenant_id FROM subjects WHERE id = %s", (subject_id,)).fetchone()
+        if subj is None or (subj[0] is not None and str(subj[0]) != str(p["tenant_id"])):
+            raise HTTPException(404, "subject not found")
+        rows = q(conn,
+            "SELECT DISTINCT c.id, c.name, c.sequence_order FROM chapters c "
+            "JOIN authored_questions aq ON aq.chapter_id = c.id AND aq.status != 'ARCHIVED' "
+            "WHERE c.subject_id = %s ORDER BY c.sequence_order", (subject_id,)).fetchall()
+    return {"chapters": [{"chapter_id": str(r[0]), "chapter_name": r[1], "sequence_order": r[2]} for r in rows]}
+
+
+# --- Practice Questions: ad-hoc generation from authored_questions (the versioned
+# Authoring Studio bank), scoped to subject+chapter with a caller-chosen count. No
+# admin pre-configuration step needed, unlike the legacy quiz_configurations engine
+# below. Ungraded/stateless by design -- nothing is persisted since there's no
+# submit/grade flow for practice sets (unlike quiz_generated_sets). ---
+class PracticeGenerateIn(BaseModel):
+    subject_id: str
+    chapter_id: str
+    count: int
+
+
+@app.post("/api/student/practice/generate")
+def practice_generate(body: PracticeGenerateIn, authorization: str = Header(...)):
+    p = current_principal(authorization)
+    if not p["features"]["allow_quiz"]:
+        raise HTTPException(403, "quiz access not included in your plan")
+    if body.count <= 0:
+        raise HTTPException(422, "count must be positive")
+
+    with db() as conn:
+        actual_subject_id = guarded_chapter(conn, body.chapter_id, p["tenant_id"])
+        if str(actual_subject_id) != body.subject_id:
+            raise HTTPException(404, "chapter not found")
+
+        rows = q(conn,
+            "SELECT v.id, v.question_type, v.question_text, v.options, v.marks, v.passage "
+            "FROM authored_questions aq JOIN authored_question_versions v ON v.id = aq.current_version_id "
+            "WHERE aq.chapter_id = %s AND aq.status != 'ARCHIVED' "
+            "ORDER BY RANDOM() LIMIT %s",
+            (body.chapter_id, body.count)).fetchall()
+
+    delivered = len(rows)
+    return {
+        "questions": [
+            {"version_id": str(r[0]), "question_type": r[1], "question_text": r[2],
+             "options": [{"key": o["key"], "text": o["text"]} for o in r[3]], "marks": float(r[4]),
+             "passage": r[5]}
+            # correct flag and explanation deliberately withheld here -- explanation is
+            # only released by practice_check, once the student has actually answered.
+            for r in rows
+        ],
+        "metadata": {"total_requested": body.count, "total_delivered": delivered, "shortfall": delivered < body.count},
+    }
+
+
+class PracticeCheckIn(BaseModel):
+    answers: list[dict]  # [{"version_id": str, "selected_key": str}, ...]
+
+
+@app.post("/api/student/practice/check")
+def practice_check(body: PracticeCheckIn, authorization: str = Header(...)):
+    p = current_principal(authorization)
+    if not p["features"]["allow_quiz"]:
+        raise HTTPException(403, "quiz access not included in your plan")
+
+    version_ids = [a["version_id"] for a in body.answers]
+    info_by_id = {}
+    if version_ids:
+        with db() as conn:
+            rows = q(conn,
+                "SELECT v.id, v.options, s.tenant_id, v.explanation FROM authored_question_versions v "
+                "JOIN authored_questions aq ON aq.current_version_id = v.id "
+                "JOIN chapters c ON c.id = aq.chapter_id JOIN subjects s ON s.id = c.subject_id "
+                "WHERE v.id = ANY(%s)", (version_ids,)).fetchall()
+        for vid, options, tenant_id, explanation in rows:
+            if tenant_id is not None and str(tenant_id) != str(p["tenant_id"]):
+                continue  # cross-tenant version_id -- drop silently, never leak its answer key
+            correct_key = next((o["key"] for o in options if o.get("correct")), None)
+            if correct_key is not None:
+                info_by_id[str(vid)] = (correct_key, explanation)
+
+    results = []
+    for a in body.answers:
+        info = info_by_id.get(a["version_id"])
+        if info is None:
+            continue
+        correct_key, explanation = info
+        results.append({"version_id": a["version_id"], "correct": a["selected_key"] == correct_key,
+                        "correct_key": correct_key, "explanation": explanation})
+    return {"results": results}
 
 
 # --- Quiz generation (Phase 4 writer side: persists the served set) ---
@@ -834,7 +1000,7 @@ class LabSubmitIn(BaseModel):
 @app.post("/api/student/lab/submit")
 def lab_submit(body: LabSubmitIn, authorization: str = Header(...)):
     uid = current_user_id(authorization)
-    tenant_id, _, _, _, allow_lab, _ = single_tenant_or_raise(uid)
+    tenant_id, _, _, _, allow_lab, _, _ = single_tenant_or_raise(uid)
     if not allow_lab:
         raise HTTPException(403, "lab access not included in your plan")
     with db() as conn:
@@ -1211,6 +1377,594 @@ def pyq_pool(chapter_id: str = Query(...), year: int | None = Query(None),
                            "options": r[4], "correct_answer": r[5], "explanation": r[6]} for r in rows]}
 
 
+# --- Authored Questions (migration 018): versioned Question Bank for the Authoring
+# Studio. Coexists with question_bank/pyq above (that feeds the quiz engine, untouched).
+# Editing always creates a new version — it never mutates one in place. ---
+QUESTION_TYPES = {
+    "MCQ", "MCQ_COMBINATION", "ASSERTION_REASONING", "SHORT_ANSWER", "LONG_ANSWER",
+    "FILL_IN_THE_BLANKS", "MATCH_THE_FOLLOWING", "NUMERICAL", "CASE_STUDY",
+}
+
+# Rich-text fields (question_text, option text, passage, explanation) are stored as
+# HTML from the Authoring Studio's editor and later rendered client-side, so they're
+# sanitized to this fixed allowlist on every write -- every consumer gets safe content
+# by construction rather than trusting each render site to sanitize. Math is stored as
+# an empty <span class="qmath" data-latex="..."> the editor's KaTeX renderer fills in
+# client-side, never as KaTeX's own generated markup (too large/fragile to allowlist).
+_RICH_TEXT_TAGS = ["p", "br", "strong", "em", "u", "ul", "ol", "li", "a", "img", "span"]
+_RICH_TEXT_ATTRS = {"a": ["href"], "img": ["src", "alt"], "span": ["class", "data-latex"]}
+
+
+def sanitize_rich_text(html: str | None) -> str | None:
+    if html is None:
+        return None
+    return bleach.clean(html, tags=_RICH_TEXT_TAGS, attributes=_RICH_TEXT_ATTRS,
+                         protocols=["http", "https"], strip=True)
+
+
+def sanitize_plain_text(text: str) -> str:
+    """For short classification tags (source paper names) — no formatting at all,
+    just strips any markup down to bare text."""
+    return bleach.clean(text, tags=[], attributes={}, strip=True).strip()
+
+
+class OptionIn(BaseModel):
+    key: str
+    text: str
+    correct: bool = False
+
+
+class QuestionCreateIn(BaseModel):
+    chapter_id: str
+    question_type: str
+    question_text: str
+    marks: float = 1
+    difficulty: str | None = None
+    options: list[OptionIn] = []
+    passage: str | None = None
+    explanation: str | None = None
+    topic_id: str | None = None
+    source_papers: list[str] = []
+    save_as_draft: bool = False
+
+
+def _validate_topic_in_chapter(conn, topic_id: str, chapter_id: str):
+    row = q(conn, "SELECT chapter_id FROM topics WHERE id = %s", (topic_id,)).fetchone()
+    if row is None or str(row[0]) != str(chapter_id):
+        raise HTTPException(422, "topic_id does not belong to this question's chapter")
+
+
+@app.post("/admin/questions", status_code=201)
+def create_authored_question(body: QuestionCreateIn, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    if body.question_type not in QUESTION_TYPES:
+        raise HTTPException(422, f"invalid question_type: {body.question_type}")
+    if body.difficulty is not None and body.difficulty not in DIFFICULTIES:
+        raise HTTPException(422, f"invalid difficulty: {body.difficulty}")
+    if not body.save_as_draft and not body.question_text.strip():
+        raise HTTPException(422, "question_text is required")
+
+    question_text = sanitize_rich_text(body.question_text)
+    passage = sanitize_rich_text(body.passage)
+    explanation = sanitize_rich_text(body.explanation)
+    options = [{**o.model_dump(), "text": sanitize_rich_text(o.text)} for o in body.options]
+    source_papers = [sanitize_plain_text(s) for s in body.source_papers if sanitize_plain_text(s)]
+
+    with db() as conn:
+        row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                      "WHERE c.id = %s", (body.chapter_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "chapter not found")
+        authorize_subject_tenant(admin, row[0])
+        if body.topic_id is not None:
+            _validate_topic_in_chapter(conn, body.topic_id, body.chapter_id)
+
+        qid = q(conn, "INSERT INTO authored_questions (chapter_id, created_by, topic_id, source_papers) "
+                      "VALUES (%s, %s, %s, %s) RETURNING id",
+                (body.chapter_id, admin["user_id"], body.topic_id, Jsonb(source_papers))).fetchone()[0]
+        vid = q(conn, "INSERT INTO authored_question_versions "
+                      "(question_id, version_no, question_type, question_text, marks, difficulty, options, "
+                      " passage, explanation, created_by) "
+                      "VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (qid, body.question_type, question_text, body.marks, body.difficulty,
+                 Jsonb(options), passage, explanation, admin["user_id"])).fetchone()[0]
+        q(conn, "UPDATE authored_questions SET current_version_id = %s WHERE id = %s", (vid, qid))
+
+    return {"question_id": str(qid), "version_id": str(vid), "version_no": 1, "status": "DRAFT"}
+
+
+@app.get("/admin/questions")
+def list_authored_questions(chapter_id: str = Query(...), authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                      "WHERE c.id = %s", (chapter_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "chapter not found")
+        authorize_subject_tenant(admin, row[0])
+
+        rows = q(conn,
+            "SELECT aq.id, aq.status, v.id, v.version_no, v.question_type, v.question_text, "
+            "       v.marks, v.difficulty, v.options, v.passage, v.explanation, "
+            "       aq.topic_id, t.name, aq.source_papers "
+            "FROM authored_questions aq JOIN authored_question_versions v ON v.id = aq.current_version_id "
+            "LEFT JOIN topics t ON t.id = aq.topic_id "
+            "WHERE aq.chapter_id = %s AND aq.status != 'ARCHIVED' ORDER BY aq.created_at DESC",
+            (chapter_id,)).fetchall()
+
+    return {"questions": [
+        {"question_id": str(r[0]), "status": r[1], "version_id": str(r[2]), "version_no": r[3],
+         "question_type": r[4], "question_text": r[5], "marks": float(r[6]), "difficulty": r[7],
+         "options": r[8], "passage": r[9], "explanation": r[10],
+         "topic_id": str(r[11]) if r[11] else None, "topic_name": r[12], "source_papers": r[13]}
+        for r in rows
+    ]}
+
+
+class QuestionEditIn(BaseModel):
+    question_type: str | None = None
+    question_text: str | None = None
+    marks: float | None = None
+    difficulty: str | None = None
+    options: list[OptionIn] | None = None
+    passage: str | None = None
+    explanation: str | None = None
+    topic_id: str | None = None
+    source_papers: list[str] | None = None
+
+
+def _authored_question_or_404(conn, admin: dict, question_id: str):
+    row = q(conn,
+        "SELECT aq.chapter_id, s.tenant_id, v.version_no, v.question_type, v.question_text, "
+        "       v.marks, v.difficulty, v.options, v.id, v.passage, v.explanation, "
+        "       aq.topic_id, aq.source_papers "
+        "FROM authored_questions aq "
+        "JOIN chapters c ON c.id = aq.chapter_id JOIN subjects s ON s.id = c.subject_id "
+        "JOIN authored_question_versions v ON v.id = aq.current_version_id "
+        "WHERE aq.id = %s", (question_id,)).fetchone()
+    if row is None:
+        raise HTTPException(404, "question not found")
+    authorize_subject_tenant(admin, row[1])
+    return row  # (chapter_id, tenant_id, version_no, question_type, question_text, marks, difficulty, options, version_id, passage, explanation, topic_id, source_papers)
+
+
+@app.patch("/admin/questions/{question_id}")
+def edit_authored_question(question_id: str, body: QuestionEditIn, authorization: str = Header(...)):
+    """Content fields (text/marks/difficulty/options/passage/explanation) always
+    create a new version — never mutate a published/prior version in place, so
+    anything already pinned to the current version keeps its content. topic_id and
+    source_papers are classification metadata on the question shell itself (same
+    tier as chapter_id): updated in place, no version bump, and skipped entirely
+    when nothing else changed either."""
+    admin = get_admin(authorization)
+    if body.question_type is not None and body.question_type not in QUESTION_TYPES:
+        raise HTTPException(422, f"invalid question_type: {body.question_type}")
+    if body.difficulty is not None and body.difficulty not in DIFFICULTIES:
+        raise HTTPException(422, f"invalid difficulty: {body.difficulty}")
+
+    content_changed = any(f is not None for f in (
+        body.question_type, body.question_text, body.marks, body.difficulty, body.options,
+        body.passage, body.explanation))
+
+    with db() as conn:
+        current = _authored_question_or_404(conn, admin, question_id)
+        chapter_id = current[0]
+
+        if body.topic_id is not None:
+            _validate_topic_in_chapter(conn, body.topic_id, chapter_id)
+            q(conn, "UPDATE authored_questions SET topic_id = %s WHERE id = %s", (body.topic_id, question_id))
+        if body.source_papers is not None:
+            source_papers = [sanitize_plain_text(s) for s in body.source_papers if sanitize_plain_text(s)]
+            q(conn, "UPDATE authored_questions SET source_papers = %s WHERE id = %s",
+              (Jsonb(source_papers), question_id))
+
+        if not content_changed:
+            return {"question_id": question_id, "version_id": str(current[8]), "version_no": current[2]}
+
+        next_version_no = current[2] + 1
+        question_type = body.question_type or current[3]
+        question_text = sanitize_rich_text(body.question_text) if body.question_text is not None else current[4]
+        marks = body.marks if body.marks is not None else current[5]
+        difficulty = body.difficulty if body.difficulty is not None else current[6]
+        options = [{**o.model_dump(), "text": sanitize_rich_text(o.text)} for o in body.options] \
+            if body.options is not None else current[7]
+        passage = sanitize_rich_text(body.passage) if body.passage is not None else current[9]
+        explanation = sanitize_rich_text(body.explanation) if body.explanation is not None else current[10]
+
+        vid = q(conn, "INSERT INTO authored_question_versions "
+                      "(question_id, version_no, question_type, question_text, marks, difficulty, options, "
+                      " passage, explanation, created_by) "
+                      "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (question_id, next_version_no, question_type, question_text, marks, difficulty,
+                 Jsonb(options), passage, explanation, admin["user_id"])).fetchone()[0]
+        q(conn, "UPDATE authored_questions SET current_version_id = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+          (vid, question_id))
+
+    return {"question_id": question_id, "version_id": str(vid), "version_no": next_version_no}
+
+
+@app.get("/admin/questions/{question_id}/versions")
+def list_authored_question_versions(question_id: str, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        _authored_question_or_404(conn, admin, question_id)
+        rows = q(conn,
+            "SELECT id, version_no, question_type, question_text, marks, difficulty, options, created_at, "
+            "       passage, explanation "
+            "FROM authored_question_versions WHERE question_id = %s ORDER BY version_no",
+            (question_id,)).fetchall()
+    return {"versions": [
+        {"version_id": str(r[0]), "version_no": r[1], "question_type": r[2], "question_text": r[3],
+         "marks": float(r[4]), "difficulty": r[5], "options": r[6], "created_at": r[7].isoformat(),
+         "passage": r[8], "explanation": r[9]}
+        for r in rows
+    ]}
+
+
+@app.delete("/admin/questions/{question_id}")
+def delete_authored_question(question_id: str, authorization: str = Header(...)):
+    """Soft-delete: archives the question rather than removing rows, so version
+    history and anything already pinned to a version survive."""
+    admin = get_admin(authorization)
+    with db() as conn:
+        _authored_question_or_404(conn, admin, question_id)
+        q(conn, "UPDATE authored_questions SET status = 'ARCHIVED', updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+          (question_id,))
+    return {"question_id": question_id, "status": "ARCHIVED"}
+
+
+# --- Ingestion: bulk-create DRAFT questions from raw PDF-extracted records
+# (llamaextract pipeline's questions_with_images.json shape). Best-effort
+# classification: AI (OpenRouter) when requested, regex heuristic otherwise or
+# on any AI failure — AI can never block ingestion. Reviewer cleanup happens
+# afterwards through the normal DRAFT status. ---
+import logging as _logging
+import re as _re
+from ai_classifier import AIClassificationError, AI_MODEL, classify_with_ai
+
+_MCQ_OPTION_RE = _re.compile(r"\(([A-D])\)\s*([^()]*?)(?=\s*\([A-D]\)|$)", _re.DOTALL)
+
+
+def _classify_heuristic(text: str) -> dict:
+    options = [
+        {"key": key, "text": value.strip(), "correct": False}
+        for key, value in _MCQ_OPTION_RE.findall(text)
+        if value.strip()
+    ]
+    question_type = "MCQ" if len(options) >= 2 else "SHORT_ANSWER"
+    return {
+        "question_type": question_type, "question_text": text, "difficulty": None,
+        "options": options if question_type == "MCQ" else [], "method": "heuristic",
+    }
+
+
+def _classify_for_ingestion(text: str, use_ai: bool) -> dict:
+    if use_ai:
+        try:
+            result = classify_with_ai(text)
+            result["method"] = "ai"
+            result["model"] = AI_MODEL
+            return result
+        except AIClassificationError as exc:
+            _logging.getLogger("edova.ingestion").warning(
+                "AI classification failed, falling back to heuristic: %s", exc)
+    return _classify_heuristic(text)
+
+
+class IngestQuestionIn(BaseModel):
+    question_no: int
+    text: str
+    images: list[str] = []
+
+
+class IngestIn(BaseModel):
+    chapter_id: str
+    use_ai: bool = False
+    questions: list[IngestQuestionIn]
+
+
+@app.post("/admin/questions/ingest")
+def ingest_questions(body: IngestIn, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                      "WHERE c.id = %s", (body.chapter_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "chapter not found")
+        authorize_subject_tenant(admin, row[0])
+
+        created, skipped = [], []
+        for item in body.questions:
+            text = item.text.strip()
+            if not text:
+                skipped.append(item.question_no)
+                continue
+
+            classification = _classify_for_ingestion(text, body.use_ai)
+            options = classification["options"]
+
+            qid = q(conn, "INSERT INTO authored_questions (chapter_id, created_by) VALUES (%s, %s) RETURNING id",
+                    (body.chapter_id, admin["user_id"])).fetchone()[0]
+            vid = q(conn, "INSERT INTO authored_question_versions "
+                          "(question_id, version_no, question_type, question_text, marks, difficulty, options, created_by) "
+                          "VALUES (%s, 1, %s, %s, 1, %s, %s, %s) RETURNING id",
+                    (qid, classification["question_type"], classification["question_text"],
+                     classification["difficulty"], Jsonb(options), admin["user_id"])).fetchone()[0]
+            q(conn, "UPDATE authored_questions SET current_version_id = %s WHERE id = %s", (vid, qid))
+
+            created.append({
+                "question_no": item.question_no, "question_id": str(qid), "version_id": str(vid),
+                "question_type": classification["question_type"], "option_count": len(options),
+                "classification_method": classification["method"],
+                "confidence": classification.get("confidence"),
+            })
+
+    return {"created": created, "skipped_question_numbers": skipped}
+
+
+# --- Question media (migration 019): diagrams/images on a question's current
+# version. Binary bytes go to S3 (s3_client.py, same bucket the CMS video/image
+# uploads already use) — never into Postgres. ---
+import s3_client as _s3_client
+
+
+@app.post("/admin/questions/{question_id}/media", status_code=201)
+async def upload_question_media(question_id: str, file: UploadFile, caption: str | None = Form(None),
+                                 authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        current = _authored_question_or_404(conn, admin, question_id)
+        version_id = current[8]
+
+        data = await file.read()
+        if not data:
+            raise HTTPException(422, "empty file")
+
+        ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "bin"
+        key = f"question-media/{version_id}/{secrets.token_hex(16)}.{ext}"
+        content_type = file.content_type or "application/octet-stream"
+        _s3_client.put_bytes(key, data, content_type)
+
+        seq = q(conn, "SELECT count(*) FROM authored_question_media WHERE question_version_id = %s",
+                (version_id,)).fetchone()[0]
+        mid = q(conn, "INSERT INTO authored_question_media "
+                      "(question_version_id, storage_key, file_name, mime_type, file_size, caption, "
+                      " sequence_order, uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                (version_id, key, file.filename or "upload", content_type, len(data), caption, seq,
+                 admin["user_id"])).fetchone()[0]
+
+    return {"media_id": str(mid), "storage_key": key, "url": _s3_client.presign_get(key)}
+
+
+@app.get("/admin/questions/{question_id}/media")
+def list_question_media(question_id: str, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        current = _authored_question_or_404(conn, admin, question_id)
+        version_id = current[8]
+        rows = q(conn, "SELECT id, storage_key, file_name, mime_type, file_size, caption, sequence_order "
+                       "FROM authored_question_media WHERE question_version_id = %s ORDER BY sequence_order",
+                 (version_id,)).fetchall()
+    return {"media": [
+        {"media_id": str(r[0]), "file_name": r[2], "mime_type": r[3], "file_size": r[4],
+         "caption": r[5], "sequence_order": r[6], "url": _s3_client.presign_get(r[1])}
+        for r in rows
+    ]}
+
+
+# --- Published mock tests (migration 020): Create Test page's "Publish" action.
+# Each question is pinned to the specific authored_question_versions row shown at
+# publish time, so a later edit to that question never changes an already-published
+# test — the same immutability guarantee as authored_questions itself. ---
+class TestQuestionIn(BaseModel):
+    version_id: str
+    marks: float
+
+
+from datetime import datetime as _datetime, timezone as _timezone  # noqa: E402 -- local import, matches `date as _date` below
+
+
+class TestAssignmentIn(BaseModel):
+    section_id: str | None = None  # None = tenant-wide (the device-token fallback -- no section identity)
+    opens_at: _datetime
+    closes_at: _datetime
+
+
+class TestCreateIn(BaseModel):
+    chapter_id: str
+    title: str
+    timer_minutes: int
+    questions: list[TestQuestionIn]
+    assignments: list[TestAssignmentIn] = []
+
+
+@app.post("/admin/tests", status_code=201)
+def publish_test(body: TestCreateIn, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    if not body.title.strip():
+        raise HTTPException(422, "title is required")
+    if not body.questions:
+        raise HTTPException(422, "at least one question is required")
+    for a in body.assignments:
+        if a.closes_at <= a.opens_at:
+            raise HTTPException(422, "closes_at must be after opens_at")
+
+    with db() as conn:
+        row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                      "WHERE c.id = %s", (body.chapter_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "chapter not found")
+        authorize_subject_tenant(admin, row[0])
+        tenant_id = row[0]
+
+        version_ids = [item.version_id for item in body.questions]
+        rows = q(conn, "SELECT v.id FROM authored_question_versions v "
+                       "JOIN authored_questions aq ON aq.id = v.question_id "
+                       "WHERE v.id = ANY(%s) AND aq.chapter_id = %s",
+                 (version_ids, body.chapter_id)).fetchall()
+        valid_ids = {str(r[0]) for r in rows}
+        for vid in version_ids:
+            if vid not in valid_ids:
+                raise HTTPException(422, f"question version not found in this chapter: {vid}")
+
+        section_ids = [a.section_id for a in body.assignments if a.section_id is not None]
+        if section_ids:
+            rows = q(conn, "SELECT id FROM sections WHERE id = ANY(%s) AND tenant_id = %s",
+                     (section_ids, tenant_id)).fetchall()
+            valid_section_ids = {str(r[0]) for r in rows}
+            for sid in section_ids:
+                if sid not in valid_section_ids:
+                    raise HTTPException(422, f"section not found in this tenant: {sid}")
+
+        total_marks = sum(item.marks for item in body.questions)
+        tid = q(conn, "INSERT INTO authored_tests (chapter_id, title, timer_minutes, total_marks, created_by) "
+                      "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                (body.chapter_id, body.title, body.timer_minutes, total_marks, admin["user_id"])).fetchone()[0]
+        for i, item in enumerate(body.questions):
+            q(conn, "INSERT INTO authored_test_questions (test_id, question_version_id, sequence_order, marks) "
+                    "VALUES (%s, %s, %s, %s)", (tid, item.version_id, i, item.marks))
+        for a in body.assignments:
+            q(conn, "INSERT INTO authored_test_assignments (test_id, section_id, opens_at, closes_at) "
+                    "VALUES (%s, %s, %s, %s)", (tid, a.section_id, a.opens_at, a.closes_at))
+
+    return {"test_id": str(tid), "total_marks": total_marks, "question_count": len(body.questions)}
+
+
+def caller_section_id(p: dict) -> str | None:
+    """None for device-token callers (no individual identity at all) and for
+    logged-in students with no section assigned yet -- both fall back to
+    tenant-wide assignment visibility only."""
+    if p["user_id"] is None:
+        return None
+    with db() as conn:
+        row = q(conn, "SELECT section_id FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s",
+                (p["user_id"], p["tenant_id"])).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
+def _test_status(opens_at, closes_at, now) -> str:
+    if now < opens_at:
+        return "UPCOMING"
+    if now > closes_at:
+        return "CLOSED"
+    return "OPEN"
+
+
+@app.get("/api/student/tests")
+def list_student_tests(authorization: str = Header(...)):
+    p = current_principal(authorization)
+    section_id = caller_section_id(p)
+    with db() as conn:
+        rows = q(conn,
+            "SELECT DISTINCT ON (t.id) t.id, t.title, t.timer_minutes, t.total_marks, "
+            "       (SELECT count(*) FROM authored_test_questions tq WHERE tq.test_id = t.id), "
+            "       c.name, s.name, ta.opens_at, ta.closes_at "
+            "FROM authored_test_assignments ta "
+            "JOIN authored_tests t ON t.id = ta.test_id "
+            "JOIN chapters c ON c.id = t.chapter_id "
+            "JOIN subjects s ON s.id = c.subject_id "
+            "WHERE (s.tenant_id = %s OR s.tenant_id IS NULL) "
+            "  AND (ta.section_id IS NULL OR ta.section_id = %s) "
+            "ORDER BY t.id, (ta.section_id IS NULL) ASC, ta.opens_at DESC",
+            (p["tenant_id"], section_id)).fetchall()
+
+    now = _datetime.now(_timezone.utc)
+    return {"tests": [
+        {"test_id": str(r[0]), "title": r[1], "timer_minutes": r[2], "total_marks": float(r[3]),
+         "question_count": r[4], "chapter_name": r[5], "subject_name": r[6],
+         "opens_at": r[7].isoformat(), "closes_at": r[8].isoformat(),
+         "status": _test_status(r[7], r[8], now)}
+        for r in rows
+    ]}
+
+
+@app.get("/api/student/tests/{test_id}")
+def get_student_test(test_id: str, authorization: str = Header(...)):
+    p = current_principal(authorization)
+    section_id = caller_section_id(p)
+    with db() as conn:
+        test = q(conn, "SELECT t.title, t.timer_minutes, t.total_marks, s.tenant_id "
+                       "FROM authored_tests t JOIN chapters c ON c.id = t.chapter_id "
+                       "JOIN subjects s ON s.id = c.subject_id WHERE t.id = %s", (test_id,)).fetchone()
+        if test is None:
+            raise HTTPException(404, "test not found")
+        if test[3] is not None and str(test[3]) != str(p["tenant_id"]):
+            raise HTTPException(404, "test not found")  # IDOR-safe: 404, not 403
+
+        assignment = q(conn,
+            "SELECT opens_at, closes_at FROM authored_test_assignments "
+            "WHERE test_id = %s AND (section_id IS NULL OR section_id = %s) "
+            "ORDER BY (section_id IS NULL) ASC, opens_at DESC LIMIT 1",
+            (test_id, section_id)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "test not found")  # not assigned to this caller at all
+
+        now = _datetime.now(_timezone.utc)
+        if now < assignment[0]:
+            raise HTTPException(403, "test not open yet")
+
+        rows = q(conn, "SELECT v.question_type, v.question_text, v.options, tq.marks, v.passage "
+                       "FROM authored_test_questions tq JOIN authored_question_versions v ON v.id = tq.question_version_id "
+                       "WHERE tq.test_id = %s ORDER BY tq.sequence_order", (test_id,)).fetchall()
+
+    return {
+        "test_id": test_id, "title": test[0], "timer_minutes": test[1], "total_marks": float(test[2]),
+        "questions": [
+            {"question_type": r[0], "question_text": r[1],
+             "options": [{"key": o["key"], "text": o["text"]} for o in r[2]],
+             "marks": float(r[3]), "passage": r[4]}
+            # correct flag and explanation deliberately withheld -- same principle as practice_generate
+            for r in rows
+        ],
+    }
+
+
+@app.get("/admin/tests")
+def list_tests(chapter_id: str = Query(...), authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                      "WHERE c.id = %s", (chapter_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "chapter not found")
+        authorize_subject_tenant(admin, row[0])
+
+        rows = q(conn, "SELECT t.id, t.title, t.timer_minutes, t.total_marks, t.created_at, "
+                       "       (SELECT count(*) FROM authored_test_questions tq WHERE tq.test_id = t.id) "
+                       "FROM authored_tests t WHERE t.chapter_id = %s ORDER BY t.created_at DESC",
+                 (chapter_id,)).fetchall()
+    return {"tests": [
+        {"test_id": str(r[0]), "title": r[1], "timer_minutes": r[2], "total_marks": float(r[3]),
+         "created_at": r[4].isoformat(), "question_count": r[5]}
+        for r in rows
+    ]}
+
+
+@app.get("/admin/tests/{test_id}")
+def get_test(test_id: str, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        test = q(conn, "SELECT t.title, t.timer_minutes, t.total_marks, s.tenant_id, t.chapter_id "
+                       "FROM authored_tests t JOIN chapters c ON c.id = t.chapter_id "
+                       "JOIN subjects s ON s.id = c.subject_id WHERE t.id = %s", (test_id,)).fetchone()
+        if test is None:
+            raise HTTPException(404, "test not found")
+        authorize_subject_tenant(admin, test[3])
+
+        rows = q(conn, "SELECT v.question_type, v.question_text, v.options, tq.marks, v.passage, v.explanation "
+                       "FROM authored_test_questions tq JOIN authored_question_versions v ON v.id = tq.question_version_id "
+                       "WHERE tq.test_id = %s ORDER BY tq.sequence_order", (test_id,)).fetchall()
+    return {
+        "test_id": test_id, "title": test[0], "timer_minutes": test[1], "total_marks": float(test[2]),
+        "chapter_id": str(test[4]),
+        "questions": [
+            {"question_type": r[0], "question_text": r[1], "options": r[2], "marks": float(r[3]),
+             "passage": r[4], "explanation": r[5]}
+            for r in rows
+        ],
+    }
+
+
 # --- Endpoint 3: quiz config with dry-run COUNT (informational, never blocks) ---
 class SelectionRulesIn(BaseModel):
     years: list = []          # loosely typed on purpose: handler validates and returns 400
@@ -1265,16 +2019,28 @@ def save_quiz_config(module_id: str, body: QuizConfigIn, authorization: str = He
 # the upload streams to disk, queues a daemon thread, and the CMS polls
 # /admin/modules/{id}/video-status. Single-process thread queue is deliberate for
 # MVP; the seam for a real worker (SQS/Celery) is _transcode_worker's signature.
+import re as _re
 import shutil as _shutil
 import threading as _threading
 
 # ffmpeg/ffprobe location: PATH by default (Docker image installs them); on dev
-# machines without a system install, point EDOVA_FFMPEG_DIR at the bin folder.
+# machines without a system install, point EDOVA_FFMPEG_DIR at the bin folder or
+# auto-detect via imageio_ffmpeg.
 FFMPEG_DIR = os.getenv("EDOVA_FFMPEG_DIR", "")
 
 
 def _tool(name: str) -> str:
-    return os.path.join(FFMPEG_DIR, name) if FFMPEG_DIR else name
+    if FFMPEG_DIR:
+        return os.path.join(FFMPEG_DIR, name)
+    if _shutil.which(name) is not None:
+        return name
+    if name == "ffmpeg":
+        try:
+            import imageio_ffmpeg
+            return imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            pass
+    return name
 
 
 def _transcode_worker(module_id: str, workdir: str) -> None:
@@ -1283,11 +2049,26 @@ def _transcode_worker(module_id: str, workdir: str) -> None:
     tmp = _Path(workdir)
     try:
         src = tmp / "src.mp4"
-        probe = _subprocess.run(
-            [_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", str(src)],
-            capture_output=True, text=True)
-        duration = int(float(probe.stdout.strip() or 0))
+        duration = 0
+        try:
+            probe = _subprocess.run(
+                [_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", str(src)],
+                capture_output=True, text=True)
+            if probe.returncode == 0 and probe.stdout.strip():
+                duration = int(float(probe.stdout.strip()))
+        except Exception:
+            pass
+
+        if duration <= 0:
+            # Fallback duration probing using ffmpeg -i info banner
+            probe_ff = _subprocess.run(
+                [_tool("ffmpeg"), "-i", str(src)],
+                capture_output=True, text=True, errors="replace")
+            m = _re.search(r"Duration:\s*(\d+):(\d+):(\d+\.?\d*)", probe_ff.stderr)
+            if m:
+                duration = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(float(m.group(3)))
+
         proc = _subprocess.run(
             [_tool("ffmpeg"), "-y", "-i", str(src), "-c:v", "libx264", "-c:a", "aac",
              "-preset", "veryfast", "-f", "hls", "-hls_time", str(int(HLS_SEGMENT_SECONDS)),
@@ -1300,6 +2081,19 @@ def _transcode_worker(module_id: str, workdir: str) -> None:
         prefix = f"uploads/hls/{module_id}/"
         for seg in segments:
             s3_client.put_bytes(prefix + seg.name, seg.read_bytes(), "video/mp2t")
+
+        # Extract a preview thumbnail at 2s if possible
+        thumb_path = tmp / "thumbnail.jpg"
+        _subprocess.run(
+            [_tool("ffmpeg"), "-y", "-ss", "00:00:02", "-i", str(src),
+             "-vframes", "1", "-q:v", "2", str(thumb_path)],
+            capture_output=True)
+        if thumb_path.exists() and thumb_path.stat().st_size > 0:
+            try:
+                s3_client.put_bytes(prefix + "thumbnail.jpg", thumb_path.read_bytes(), "image/jpeg")
+            except Exception:
+                pass
+
         # NOTE: raw conn.execute, not q() — the query-count ContextVar only exists
         # in request threads; this worker runs outside any request context.
         with db() as conn:
@@ -1456,6 +2250,26 @@ def create_module(chapter_id: str, body: ModuleIn, authorization: str = Header(.
                 (chapter_id, body.topic_id, body.title, body.module_type,
                  body.sequence_order, body.is_published)).fetchone()[0]
     return {"id": str(mid)}
+
+
+# --- Sections available for a chapter's tenant (Feature B Phase 1's Publish
+# picker: which section(s) can a test in this chapter be assigned to). A chapter
+# under a global (tenant_id NULL) subject has no single tenant's sections. ---
+@app.get("/admin/chapters/{chapter_id}/sections")
+def admin_chapter_sections(chapter_id: str, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    with db() as conn:
+        row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                      "WHERE c.id = %s", (chapter_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "chapter not found")
+        authorize_subject_tenant(admin, row[0])
+        tenant_id = row[0]
+        if tenant_id is None:
+            return {"sections": []}
+        rows = q(conn, "SELECT id, name, grade FROM sections WHERE tenant_id = %s ORDER BY name",
+                 (tenant_id,)).fetchall()
+    return {"sections": [{"id": str(r[0]), "name": r[1], "grade": r[2]} for r in rows]}
 
 
 # --- Topics (requirement §3: Subject -> Chapter -> Topic -> Assets) ---
@@ -1889,17 +2703,16 @@ def public_signup(body: SignupIn):
 def public_plans():
     """Storefront pricing cards — only plans with a public price."""
     with db() as conn:
-        rows = q(conn, "SELECT id, name, tier_level, allow_video, allow_lab, allow_quiz, price_inr, blurb "
+        rows = q(conn, "SELECT id, name, tier_level, allow_video, allow_lab, allow_quiz, price_inr, blurb, included_seats "
                        "FROM subscription_plans WHERE price_inr > 0 ORDER BY tier_level").fetchall()
     return {"plans": [{"id": str(r[0]), "name": r[1], "tier_level": r[2],
                        "allow_video": r[3], "allow_lab": r[4], "allow_quiz": r[5],
-                       "price_inr": r[6], "blurb": r[7]} for r in rows]}
+                       "price_inr": r[6], "blurb": r[7], "included_seats": r[8]} for r in rows]}
 
 
 class OnboardIn(BaseModel):
     school_name: str
-    address: str = ""
-    seat_count: int = 25
+    # Seat count is plan-fixed (migration 017) and resolved at order time — not collected here.
 
 
 def _purchaser_tenant(conn, uid: str):
@@ -1908,13 +2721,18 @@ def _purchaser_tenant(conn, uid: str):
                    "WHERE m.user_id = %s AND m.role = 'ADMIN' AND t.type = 'SCHOOL'", (uid,)).fetchone()
 
 
+def _require_tenant_admin(conn, uid: str, tenant_id) -> None:
+    """403 unless uid holds the ADMIN role for tenant_id. Guards tenant-scoped public writes."""
+    if q(conn, "SELECT 1 FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s AND role = 'ADMIN'",
+         (uid, tenant_id)).fetchone() is None:
+        raise HTTPException(403, "not your school")
+
+
 @app.post("/api/public/schools/onboard", status_code=201)
 def public_onboard(body: OnboardIn, authorization: str = Header(...)):
     uid = current_user_id(authorization)
     if not body.school_name.strip():
         raise HTTPException(400, "school_name must not be empty")
-    if body.seat_count <= 0:
-        raise HTTPException(400, "seat_count must be positive")
     with db() as conn:
         existing = _purchaser_tenant(conn, uid)
         if existing is not None:  # idempotent: re-entering details updates the draft school
@@ -1936,32 +2754,27 @@ _sim_orders: dict = {}
 class OrderIn(BaseModel):
     plan_id: str
     tenant_id: str
-    seat_count: int = 25
 
 
 @app.post("/api/public/checkout/create-order", status_code=201)
 def public_create_order(body: OrderIn, authorization: str = Header(...)):
     uid = current_user_id(authorization)
     with db() as conn:
-        if q(conn, "SELECT 1 FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s AND role = 'ADMIN'",
-             (uid, body.tenant_id)).fetchone() is None:
-            raise HTTPException(403, "not your school")
-        plan = q(conn, "SELECT name, price_inr FROM subscription_plans WHERE id = %s AND price_inr > 0",
-                 (body.plan_id,)).fetchone()
+        _require_tenant_admin(conn, uid, body.tenant_id)
+        plan = q(conn, "SELECT name, price_inr, included_seats FROM subscription_plans "
+                       "WHERE id = %s AND price_inr > 0", (body.plan_id,)).fetchone()
         if plan is None:
             raise HTTPException(404, "plan not found")
-    if body.seat_count <= 0:
-        raise HTTPException(400, "seat_count must be positive")
     order_id = f"order_sim_{secrets.token_hex(8)}"
     _sim_orders[order_id] = {"tenant_id": body.tenant_id, "plan_id": body.plan_id,
-                             "amount_paise": plan[1] * 100, "seat_count": body.seat_count}
+                             "amount_paise": plan[1] * 100, "seat_count": plan[2]}
     return {"order_id": order_id, "amount_paise": plan[1] * 100, "currency": "INR",
             "plan_name": plan[0], "mode": RAZORPAY_MODE}
 
 
 class VerifyIn(BaseModel):
     order_id: str
-    payment_id: str = ""
+    # Live Razorpay mode will add payment_id + signature here; simulated mode needs neither.
 
 
 @app.post("/api/public/checkout/verify")
@@ -1974,25 +2787,486 @@ def public_verify_checkout(body: VerifyIn, authorization: str = Header(...)):
     if order is None:
         raise HTTPException(400, "unknown or already-consumed order")
     with db() as conn:
-        if q(conn, "SELECT 1 FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s AND role = 'ADMIN'",
-             (uid, order["tenant_id"])).fetchone() is None:
-            raise HTTPException(403, "not your school")
+        _require_tenant_admin(conn, uid, order["tenant_id"])
         start = _date.today()
-        end = start.replace(year=start.year + 1)
+        try:
+            end = start.replace(year=start.year + 1)
+        except ValueError:  # Feb 29 checkout -> Feb 28 of the following non-leap year
+            end = start.replace(year=start.year + 1, day=28)
         q(conn, "INSERT INTO subscriptions (tenant_id, plan_id, start_date, end_date, seat_count) "
                 "VALUES (%s, %s, %s, %s, %s)",
           (order["tenant_id"], order["plan_id"], start, end, order["seat_count"]))
         key_code = None
         for _ in range(5):
-            key_code = generate_key_code()
+            candidate = generate_key_code()
             row = q(conn, "INSERT INTO activation_keys (key_code, tenant_id, max_devices, expires_at) "
                           "VALUES (%s, %s, %s, %s) ON CONFLICT (key_code) DO NOTHING RETURNING id",
-                    (key_code, order["tenant_id"], order["seat_count"], end)).fetchone()
+                    (candidate, order["tenant_id"], order["seat_count"], end)).fetchone()
             if row is not None:
+                key_code = candidate
                 break
-        if key_code is None:
+        if key_code is None:  # all 5 inserts collided: raising rolls back the subscription too
             raise HTTPException(500, "key generation collision; retry")
         school = q(conn, "SELECT name FROM tenants WHERE id = %s", (order["tenant_id"],)).fetchone()[0]
     return {"activated": True, "tenant_id": order["tenant_id"], "school_name": school,
             "key_code": key_code, "max_devices": order["seat_count"],
             "subscription_start": start.isoformat(), "subscription_end": end.isoformat()}
+
+
+# =====================================================================
+# Socratic AI Co-Teacher, Knowledge Graph & Teacher Analytics Endpoints
+# =====================================================================
+try:
+    from socratic_service import (
+        SocraticChatRequest,
+        SocraticChatResponse,
+        MathSolveRequest,
+        MathSolveResponse,
+        gemini_socratic_service,
+        math_solver_service,
+    )
+    from kg_service import router as kg_router, COMPILED_GRAPHS, find_and_load_all_graphs
+    from teacher_schemas import (
+        ClassroomHeatmapResponse,
+        RecordMasteryRequest,
+    )
+    from teacher_analytics import teacher_analytics_service
+
+    # Mount Knowledge Graph router (/api/kg/*)
+    app.include_router(kg_router)
+
+    # Socratic dialogue & solver endpoints
+    @app.post("/api/socratic/chat", response_model=SocraticChatResponse, tags=["Socratic AI Co-Teacher"])
+    async def socratic_dialogue(req: SocraticChatRequest):
+        """Socratic Co-Teacher Chat endpoint powered by Gemini LLM & heuristic Socratic engine."""
+        res = await gemini_socratic_service.get_socratic_response(
+            message=req.message,
+            simulation_id=req.simulation_id,
+            current_step=req.current_step,
+            current_slider_val=req.current_slider_val,
+            chat_history=req.chat_history,
+            chapter_id=req.chapter_id,
+            concept_id=req.concept_id,
+            mastered_concept_ids=req.mastered_concept_ids,
+        )
+        return res
+
+    @app.post("/api/socratic/solve", response_model=MathSolveResponse, tags=["Socratic AI Co-Teacher"])
+    async def solve_quadratic_math(req: MathSolveRequest):
+        """Runtime symbolic quadratic equation solver generating pedagogical derivations."""
+        res = math_solver_service.solve_quadratic(
+            a=req.a,
+            b=req.b,
+            c=req.c,
+            target_area=req.target_area,
+        )
+        return res
+
+    @app.post("/api/telemetry/event", tags=["Socratic AI Telemetry"])
+    async def record_telemetry_event(body: dict):
+        """Telemetry recording endpoint for student interactions."""
+        return {"status": "recorded", "timestamp": body.get("timestamp")}
+
+    # Teacher & Classroom Real-Time Analytics
+    @app.get("/api/teacher/classroom/{classroom_id}/heatmap/{chapter_id}", response_model=ClassroomHeatmapResponse, tags=["Teacher & Classroom Analytics"])
+    async def get_classroom_chapter_heatmap(classroom_id: str, chapter_id: str):
+        """Returns real-time concept mastery heatmaps, bottleneck alerts, and student intervention queue."""
+        result = teacher_analytics_service.get_classroom_heatmap(classroom_id, chapter_id)
+        try:
+            UUID(classroom_id)
+        except ValueError:
+            pass
+        else:
+            with db() as conn:
+                row = q(conn, "SELECT name FROM sections WHERE id = %s", (classroom_id,)).fetchone()
+                if row is not None:
+                    result.classroom_name = row[0]
+                    roster_row = q(conn, "SELECT count(*) FROM user_tenant_mappings "
+                                         "WHERE section_id = %s AND role = 'STUDENT'", (classroom_id,)).fetchone()
+                    result.section_roster_size = roster_row[0]
+        return result
+
+    @app.post("/api/teacher/telemetry/record-mastery", tags=["Teacher & Classroom Analytics"])
+    async def record_student_mastery_event(req: RecordMasteryRequest):
+        """High-throughput ingestion endpoint for student concept mastery and struggling events."""
+        teacher_analytics_service.record_student_event(req)
+        # Durable copy for DuckDB/OLAP rollups (migration 022). Best-effort: never let a
+        # persistence hiccup break the in-memory recording path this endpoint already guarantees.
+        try:
+            with db() as conn:
+                q(conn, "INSERT INTO mastery_events "
+                       "(classroom_id, student_id, student_name, chapter_id, concept_id, event_type, error_detail) "
+                       "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                  (req.classroom_id, req.student_id, req.student_name, req.chapter_id, req.concept_id,
+                   req.event_type, req.error_detail))
+        except Exception:
+            import logging as _mastery_events_logging
+            _mastery_events_logging.getLogger("edova.teacher_analytics").exception("mastery_events persistence failed")
+        return {"status": "recorded", "student_id": req.student_id, "concept_id": req.concept_id}
+
+    def _compute_dashboard_rollup(section_rows):
+        """Shared core for both the tenant-wide overview (Level 1) and the single-section
+        rollup (Level 2's subject/chapter filter): mastery/bottleneck/intervention counts
+        pooled across whichever sections are passed in, built from the durable
+        mastery_events table (migration 022) via DuckDB, not the in-memory engine (that
+        engine only ever answers for one classroom_id at a time -- see the heatmap
+        endpoint above). section_rows is [(id, name, grade, roster_size), ...], already
+        scoped to the caller's tenant by the route handler. Kept as one function, called
+        by two thin routes, so this math is never duplicated or allowed to drift."""
+        section_meta = {str(r[0]): {"name": r[1], "grade": r[2], "roster_size": r[3]} for r in section_rows}
+
+        empty = {"overall_mastery_pct": 0.0, "active_students": 0, "concepts_flagged": 0,
+                 "students_needing_intervention": 0, "sections": [], "chapters": []}
+        if not section_meta:
+            return empty
+
+        import duckdb
+        con = duckdb.connect()
+        con.execute("INSTALL postgres")
+        con.execute("LOAD postgres")
+        con.execute(f"ATTACH '{DB_DSN}' AS pg (TYPE POSTGRES, READ_ONLY)")
+        placeholders = ", ".join("?" for _ in section_meta)
+        latest_rows = con.execute(
+            f"""
+            WITH ranked AS (
+                SELECT classroom_id, chapter_id, concept_id, student_id, event_type,
+                       row_number() OVER (
+                           PARTITION BY classroom_id, chapter_id, concept_id, student_id
+                           ORDER BY created_at DESC
+                       ) AS rn
+                FROM pg.mastery_events
+                WHERE classroom_id IN ({placeholders})
+            )
+            SELECT classroom_id, chapter_id, concept_id, student_id, event_type
+            FROM ranked WHERE rn = 1
+            """,
+            list(section_meta.keys()),
+        ).fetchall()
+
+        if not COMPILED_GRAPHS:
+            find_and_load_all_graphs()
+
+        # Mirror teacher_analytics_service's own mastered/struggling-set semantics, just
+        # pooled across many classroom_ids (sections) at once instead of one at a time.
+        per_section_concepts = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(set))))  # section -> chapter -> concept -> {"mastered"/"struggling": {student_ids}}
+        pooled_concepts = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))  # chapter -> concept -> {...}
+        all_active_students = set()
+        struggling_students = set()
+
+        for classroom_id, chapter_id, concept_id, student_id, event_type in latest_rows:
+            all_active_students.add(student_id)
+            key = "mastered" if event_type == "mastery" else "struggling" if event_type == "struggle" else None
+            if key is None:
+                continue
+            per_section_concepts[classroom_id][chapter_id][concept_id][key].add(student_id)
+            pooled_concepts[chapter_id][concept_id][key].add(student_id)
+            if key == "struggling":
+                struggling_students.add(student_id)
+
+        def concept_stats(sets_by_key):
+            mastered = len(sets_by_key.get("mastered", set()))
+            struggling = len(sets_by_key.get("struggling", set()))
+            engaged = max(1, mastered + struggling)
+            mastery_pct = mastered / engaged * 100
+            struggling_pct = struggling / engaged * 100
+            is_mastered = mastery_pct >= 70.0
+            is_hotspot = struggling_pct >= 30.0 and struggling > 0
+            return is_mastered, is_hotspot, struggling_pct, struggling
+
+        def chapter_total_concepts(chapter_id):
+            graph = COMPILED_GRAPHS.get(chapter_id)
+            return len(graph.nodes) if graph else 1
+
+        # Pooled, across whichever sections were passed in: concepts flagged + overall
+        # mastery across every touched chapter.
+        concepts_flagged = 0
+        total_mastered_points = 0
+        total_curriculum_concepts = 0
+        for chapter_id, concepts in pooled_concepts.items():
+            total_curriculum_concepts += chapter_total_concepts(chapter_id)
+            for concept_id, sets_by_key in concepts.items():
+                is_mastered, is_hotspot, _, _ = concept_stats(sets_by_key)
+                if is_mastered:
+                    total_mastered_points += 1
+                if is_hotspot:
+                    concepts_flagged += 1
+        overall_mastery_pct = round(total_mastered_points / max(1, total_curriculum_concepts) * 100, 1)
+
+        # Per-chapter pooled rollup (the "Chapters" table), tagged with subject_name --
+        # real data from the compiled knowledge graph, needed for Level 2's Subject filter.
+        chapters = []
+        for chapter_id, concepts in pooled_concepts.items():
+            mastered_points = sum(1 for c in concepts.values() if concept_stats(c)[0])
+            total_concepts = chapter_total_concepts(chapter_id)
+            graph = COMPILED_GRAPHS.get(chapter_id)
+            chapters.append({
+                "chapter_id": chapter_id,
+                "chapter_title": graph.chapter_title if graph else chapter_id,
+                "subject_name": graph.subject_name if graph else "Unknown",
+                "mastery_pct": round(mastered_points / max(1, total_concepts) * 100, 1),
+            })
+
+        # Per-section rollup (the "Sections" cards / Level 2's own KPI strip).
+        sections = []
+        for section_id, meta in section_meta.items():
+            section_chapters = per_section_concepts.get(section_id, {})
+            mastered_points = 0
+            curriculum_total = 0
+            active_in_section = set()
+            for chapter_id, concepts in section_chapters.items():
+                curriculum_total += chapter_total_concepts(chapter_id)
+                for concept_id, sets_by_key in concepts.items():
+                    if concept_stats(sets_by_key)[0]:
+                        mastered_points += 1
+                    active_in_section |= sets_by_key.get("mastered", set()) | sets_by_key.get("struggling", set())
+            sections.append({
+                "id": section_id,
+                "name": meta["name"],
+                "grade": meta["grade"],
+                "mastery_pct": round(mastered_points / max(1, curriculum_total) * 100, 1) if curriculum_total else 0.0,
+                "active_students": len(active_in_section),
+                "roster_size": meta["roster_size"],
+            })
+
+        return {
+            "overall_mastery_pct": overall_mastery_pct,
+            "active_students": len(all_active_students),
+            "concepts_flagged": concepts_flagged,
+            "students_needing_intervention": len(struggling_students),
+            "sections": sections,
+            "chapters": chapters,
+        }
+
+    @app.get("/api/teacher/analytics/overview", tags=["Teacher & Classroom Analytics"])
+    async def get_teacher_analytics_overview(authorization: str = Header(...)):
+        """Level-1 dashboard rollup: every section, every touched chapter, for the
+        caller's tenant. Thin route -- all the math lives in _compute_dashboard_rollup."""
+        uid = current_user_id(authorization)
+        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+
+        with db() as conn:
+            section_rows = q(conn,
+                "SELECT s.id, s.name, s.grade, "
+                "       (SELECT count(*) FROM user_tenant_mappings utm "
+                "        WHERE utm.section_id = s.id AND utm.role = 'STUDENT') AS roster_size "
+                "FROM sections s WHERE s.tenant_id = %s", (tenant_id,)).fetchall()
+        return _compute_dashboard_rollup(section_rows)
+
+    @app.get("/api/teacher/analytics/section/{section_id}", tags=["Teacher & Classroom Analytics"])
+    async def get_teacher_analytics_section(section_id: str, authorization: str = Header(...)):
+        """Level-2 rollup for the Subject filter: which subjects/chapters does this ONE
+        section actually have activity in. Same shared math as the overview endpoint,
+        scoped to a single section -- a small, fast query for frequent drill-down
+        navigation, independent of the tenant-wide rollup's cost as a school grows."""
+        uid = current_user_id(authorization)
+        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+
+        with db() as conn:
+            section_rows = q(conn,
+                "SELECT s.id, s.name, s.grade, "
+                "       (SELECT count(*) FROM user_tenant_mappings utm "
+                "        WHERE utm.section_id = s.id AND utm.role = 'STUDENT') AS roster_size "
+                "FROM sections s WHERE s.id = %s AND s.tenant_id = %s", (section_id, tenant_id)).fetchall()
+        if not section_rows:
+            raise HTTPException(404, "section not found")
+        rollup = _compute_dashboard_rollup(section_rows)
+        return {"section": rollup["sections"][0] if rollup["sections"] else None, "chapters": rollup["chapters"]}
+
+    @app.get("/api/teacher/analytics/student/{student_id}", tags=["Teacher & Classroom Analytics"])
+    async def get_teacher_analytics_student_profile(student_id: str, authorization: str = Header(...)):
+        """Level-3 per-student rollup across every chapter this student has touched, scoped
+        to the caller's own tenant (via its sections) so one teacher can't pull another
+        school's student by guessing an id. Honest about the data model: mastery_events only
+        records a binary mastered/struggling/attempted status per concept (from event_type),
+        never a graded percentage -- so per-topic status is categorical here, not a fabricated
+        percentage; only the aggregate mastery_pct (mastered concepts / curriculum size) is a
+        real percentage, same rollup style as the Level-1 overview endpoint above."""
+        uid = current_user_id(authorization)
+        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+
+        # Engagement is independent of sections/mastery_events entirely -- computed first so
+        # a tenant with zero sections still gets real engagement data in the early return below.
+        # Only wired for a real users.id belonging to this tenant as a STUDENT; mastery
+        # telemetry's student_id is often a free-form demo string with no such row, so this
+        # degrades to zeros rather than erroring (see gap #1's non-UUID test above).
+        engagement = {"time_spent_seconds_week": 0, "modules_touched_week": 0,
+                      "quiz_attempts_week": 0, "last_active": None}
+        try:
+            student_uuid = str(UUID(student_id))
+        except ValueError:
+            student_uuid = None
+        if student_uuid is not None:
+            with db() as conn:
+                is_tenant_student = q(
+                    conn, "SELECT 1 FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s AND role = 'STUDENT'",
+                    (student_uuid, tenant_id)
+                ).fetchone() is not None
+                if is_tenant_student:
+                    row = q(conn,
+                        "SELECT coalesce(sum(delta_seconds), 0), count(DISTINCT module_id) "
+                        "FROM progress_events WHERE student_id = %s AND created_at >= now() - interval '7 days'",
+                        (student_uuid,)).fetchone()
+                    engagement["time_spent_seconds_week"] = row[0]
+                    engagement["modules_touched_week"] = row[1]
+                    quiz_row = q(conn,
+                        "SELECT count(*) FROM student_quiz_attempts "
+                        "WHERE student_id = %s AND submitted_at >= now() - interval '7 days'",
+                        (student_uuid,)).fetchone()
+                    engagement["quiz_attempts_week"] = quiz_row[0]
+                    last_active_row = q(conn,
+                        "SELECT greatest("
+                        "  (SELECT max(last_accessed) FROM student_progress WHERE student_id = %s),"
+                        "  (SELECT max(submitted_at) FROM student_quiz_attempts WHERE student_id = %s)"
+                        ")", (student_uuid, student_uuid)).fetchone()
+                    engagement["last_active"] = last_active_row[0].isoformat() if last_active_row[0] else None
+
+        with db() as conn:
+            section_rows = q(conn, "SELECT id FROM sections WHERE tenant_id = %s", (tenant_id,)).fetchall()
+        section_ids = [str(r[0]) for r in section_rows]
+
+        empty = {"student_id": student_id, "mastery_pct": 0.0, "concepts_stuck": 0,
+                 "topics": [], "subjects": [], "engagement": engagement, "misconception_pattern": None,
+                 "suggested_next_steps": [], "strengths": [], "struggling": []}
+        if not section_ids:
+            return empty
+
+        import duckdb
+        con = duckdb.connect()
+        con.execute("INSTALL postgres")
+        con.execute("LOAD postgres")
+        con.execute(f"ATTACH '{DB_DSN}' AS pg (TYPE POSTGRES, READ_ONLY)")
+        placeholders = ", ".join("?" for _ in section_ids)
+        rows = con.execute(
+            f"""
+            WITH scoped AS (
+                SELECT * FROM pg.mastery_events
+                WHERE student_id = ? AND classroom_id IN ({placeholders})
+            ),
+            ranked AS (
+                SELECT chapter_id, concept_id, event_type, error_detail,
+                       row_number() OVER (
+                           PARTITION BY chapter_id, concept_id ORDER BY created_at DESC
+                       ) AS rn,
+                       count(*) OVER (PARTITION BY chapter_id, concept_id) AS attempts_count
+                FROM scoped
+            )
+            SELECT chapter_id, concept_id, event_type, error_detail, attempts_count
+            FROM ranked WHERE rn = 1
+            """,
+            [student_id, *section_ids],
+        ).fetchall()
+
+        if not COMPILED_GRAPHS:
+            find_and_load_all_graphs()
+
+        topics = []
+        touched_chapters = set()
+        for chapter_id, concept_id, event_type, error_detail, attempts_count in rows:
+            touched_chapters.add(chapter_id)
+            status = "mastered" if event_type == "mastery" else "struggling" if event_type == "struggle" else "attempted"
+            graph = COMPILED_GRAPHS.get(chapter_id)
+            node = graph.nodes.get(concept_id) if graph else None
+            topics.append({
+                "chapter_id": chapter_id,
+                "chapter_title": graph.chapter_title if graph else chapter_id,
+                "concept_id": concept_id,
+                "concept_name": node.name if node else concept_id,
+                "status": status,
+                "attempts_count": attempts_count,
+                "last_error_detail": error_detail if status == "struggling" else None,
+            })
+
+        mastered_points = sum(1 for t in topics if t["status"] == "mastered")
+        curriculum_total = sum(
+            len(COMPILED_GRAPHS[c].nodes) if c in COMPILED_GRAPHS else 1 for c in touched_chapters
+        )
+        mastery_pct = round(mastered_points / max(1, curriculum_total) * 100, 1) if touched_chapters else 0.0
+        concepts_stuck = sum(1 for t in topics if t["status"] == "struggling")
+
+        # Subject -> Chapter breakdown, additive alongside the blended mastery_pct above
+        # (that field stays as-is for existing callers/tests). Chapters whose graph
+        # never loaded fall back to an "Unknown" subject bucket rather than erroring.
+        per_chapter_mastered = defaultdict(int)
+        for t in topics:
+            if t["status"] == "mastered":
+                per_chapter_mastered[t["chapter_id"]] += 1
+
+        subjects_map = defaultdict(lambda: {"mastered": 0, "curriculum": 0, "chapters": {}})
+        for chapter_id in touched_chapters:
+            graph = COMPILED_GRAPHS.get(chapter_id)
+            subject_name = graph.subject_name if graph else "Unknown"
+            chapter_curriculum = len(graph.nodes) if graph else 1
+            chapter_mastered = per_chapter_mastered.get(chapter_id, 0)
+            agg = subjects_map[subject_name]
+            agg["mastered"] += chapter_mastered
+            agg["curriculum"] += chapter_curriculum
+            agg["chapters"][chapter_id] = {
+                "chapter_id": chapter_id,
+                "chapter_title": graph.chapter_title if graph else chapter_id,
+                "mastery_pct": round(chapter_mastered / max(1, chapter_curriculum) * 100, 1),
+            }
+        subjects = [
+            {"subject_name": name, "mastery_pct": round(agg["mastered"] / max(1, agg["curriculum"]) * 100, 1),
+             "chapters": list(agg["chapters"].values())}
+            for name, agg in subjects_map.items()
+        ]
+
+        struggling_topics = [t for t in topics if t["status"] == "struggling"]
+        misconception_pattern = gemini_socratic_service.classify_misconception_pattern([
+            {"concept_name": t["concept_name"], "error_detail": t["last_error_detail"]}
+            for t in struggling_topics if t["last_error_detail"]
+        ])
+
+        # Ranked, deterministic -- no LLM call. Most attempts with no mastery yet is the
+        # most urgent; each action reuses the concept's real curriculum-authored guiding
+        # question (same hermes_guiding_question field Level-2's bottleneck alerts use),
+        # falling back to a generic prompt only when a concept has none authored.
+        ranked_struggling = sorted(struggling_topics, key=lambda t: t["attempts_count"], reverse=True)
+        suggested_next_steps = []
+        for t in ranked_struggling[:2]:
+            graph = COMPILED_GRAPHS.get(t["chapter_id"])
+            node = graph.nodes.get(t["concept_id"]) if graph else None
+            guidance = (node.hermes_guiding_question if node else None) or \
+                f"Review {t['concept_name']} with {student_id} 1:1."
+            suggested_next_steps.append({
+                "concept_id": t["concept_id"],
+                "concept_name": t["concept_name"],
+                "chapter_title": t["chapter_title"],
+                "attempts_count": t["attempts_count"],
+                "action": guidance,
+            })
+
+        return {
+            "student_id": student_id,
+            "mastery_pct": mastery_pct,
+            "concepts_stuck": concepts_stuck,
+            "topics": topics,
+            "subjects": subjects,
+            "engagement": engagement,
+            "misconception_pattern": misconception_pattern,
+            "suggested_next_steps": suggested_next_steps,
+            "strengths": [t for t in topics if t["status"] == "mastered"],
+            "struggling": struggling_topics,
+        }
+
+    @app.get("/api/teacher/dashboard/summary", tags=["Teacher & Classroom Analytics"])
+    async def get_teacher_classroom_summary():
+        """Real-time aggregated classroom learning telemetry summary for teacher monitoring."""
+        heatmap = teacher_analytics_service.get_classroom_heatmap(
+            "class-10a",
+            "chapter-05-arithmetic-progressions"
+        )
+        return {
+            "active_students_count": heatmap.total_active_students,
+            "active_chapter": heatmap.chapter_title,
+            "overall_chapter_mastery": f"{heatmap.overall_chapter_mastery}%",
+            "bottleneck_count": len(heatmap.bottleneck_alerts),
+            "bottleneck_alerts": [b.model_dump() for b in heatmap.bottleneck_alerts],
+            "top_interventions": [i.model_dump() for i in heatmap.intervention_queue[:5]]
+        }
+
+except Exception as ex:
+    import logging
+    logging.warning(f"Could not initialize Socratic router: {ex}")
+
+

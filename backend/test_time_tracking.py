@@ -1,24 +1,11 @@
 """Time-tracking tests: cumulative rollup + heartbeat idempotency."""
-import sys
 import uuid
 
 import httpx
 import psycopg
 from main import DB_DSN
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
-
-
-def login(email):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": "testpass"})
-    r.raise_for_status()
-    return r.json()["access_token"]
+from testutil import BASE, check, finish, login
 
 
 with psycopg.connect(DB_DSN) as conn:
@@ -92,6 +79,4 @@ ok = (r5.status_code == 200 and ev is not None and ev[0] == 180
 check("attempt time rolled up exactly once (event id = attempt id)", ok,
       f"status={r5.status_code} event={ev} rollup={rollup}")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed")
-sys.exit(1 if failed else 0)
+finish()

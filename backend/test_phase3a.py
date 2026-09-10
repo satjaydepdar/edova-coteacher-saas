@@ -1,5 +1,4 @@
 """Phase 3A test runner: multi-tenant rejection, expired JWT, direct API bypass."""
-import sys
 import time
 
 import httpx
@@ -7,20 +6,52 @@ import jwt
 import psycopg
 from main import DB_DSN, JWT_ALG, JWT_SECRET
 
-BASE = "http://127.0.0.1:8000"
-results = []
+from testutil import BASE, check, finish, login
 
 
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
+def ensure_lab_fixture():
+    """Idempotent seed for the 'Heat Transfer Virtual Lab' module + VIRTUAL_LAB payload the
+    TC3/CTRL checks exercise. The shared 'Global Physics' curriculum came from a wiped demo
+    seed, so the suite recreates the slice it needs. Existence-checked inserts only, aligned
+    with the other suites' seeds (double-seeding is a no-op); shared rows are NOT cleaned up
+    because test_phase3b/7/teacher reference them too."""
+    with psycopg.connect(DB_DSN, autocommit=True) as conn:
+        physics = conn.execute(
+            "SELECT id FROM subjects WHERE name = 'Global Physics' AND tenant_id IS NULL"
+        ).fetchone()
+        if physics is None:
+            physics = conn.execute(
+                "INSERT INTO subjects (tenant_id, name, standard_grade, sequence_order) "
+                "VALUES (NULL, 'Global Physics', '10th Grade', 9) RETURNING id").fetchone()
+        ch4 = conn.execute(
+            "SELECT id FROM chapters WHERE subject_id = %s AND sequence_order = 4",
+            (physics[0],)).fetchone()
+        if ch4 is None:
+            ch4 = conn.execute(
+                "INSERT INTO chapters (subject_id, name, sequence_order) "
+                "VALUES (%s, 'Chapter 4: Thermodynamics', 4) "
+                "ON CONFLICT (subject_id, sequence_order) DO NOTHING RETURNING id",
+                (physics[0],)).fetchone() or conn.execute(
+                "SELECT id FROM chapters WHERE subject_id = %s AND sequence_order = 4",
+                (physics[0],)).fetchone()
+        lab = conn.execute(
+            "SELECT id FROM modules WHERE chapter_id = %s AND title = 'Heat Transfer Virtual Lab'",
+            (ch4[0],)).fetchone()
+        if lab is None:
+            lab = conn.execute(
+                "INSERT INTO modules (chapter_id, title, module_type, sequence_order, is_published) "
+                "VALUES (%s, 'Heat Transfer Virtual Lab', 'LAB', 2, TRUE) "
+                "ON CONFLICT (chapter_id, sequence_order) DO NOTHING RETURNING id",
+                (ch4[0],)).fetchone() or conn.execute(
+                "SELECT id FROM modules WHERE chapter_id = %s AND title = 'Heat Transfer Virtual Lab'",
+                (ch4[0],)).fetchone()
+        conn.execute(
+            "INSERT INTO lab_payloads (module_id, environment_type, instructions_markdown, "
+            "validation_rules) VALUES (%s, 'VIRTUAL_LAB', '# Heat Transfer Virtual Lab', '{}'::jsonb) "
+            "ON CONFLICT (module_id) DO NOTHING", (lab[0],))
 
 
-def login(email):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": "testpass"})
-    r.raise_for_status()
-    return r.json()["access_token"]
-
+ensure_lab_fixture()
 
 with psycopg.connect(DB_DSN) as conn:
     lab_module_id, alice_id = conn.execute(
@@ -57,6 +88,4 @@ r = httpx.get(f"{BASE}/student/modules/{lab_module_id}/lab", headers={"Authoriza
 check("CTRL lab payload served (tier 4)", r.status_code == 200 and r.json()["environment_type"] == "VIRTUAL_LAB",
       f"status={r.status_code}")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed")
-sys.exit(1 if failed else 0)
+finish()

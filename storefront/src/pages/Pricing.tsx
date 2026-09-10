@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, FlaskConical, ListChecks, Play } from 'lucide-react'
 import { api, type Plan } from '../lib/api'
+import { formatInr } from '../lib/ui'
 import { usePurchase } from '../store/purchaseStore'
 
 const FEATURES: { key: 'allow_video' | 'allow_lab' | 'allow_quiz'; label: string; Icon: typeof Play }[] = [
@@ -10,7 +11,7 @@ const FEATURES: { key: 'allow_video' | 'allow_lab' | 'allow_quiz'; label: string
   { key: 'allow_lab', label: 'Virtual labs', Icon: FlaskConical },
 ]
 
-const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`
+const inr = formatInr
 
 export default function Pricing() {
   const nav = useNavigate()
@@ -70,6 +71,9 @@ export default function Pricing() {
                     <span className="text-[28px] font-semibold tracking-tight">{inr(p.price_inr)}</span>
                     <span className="text-[12px] text-sage-dim">/ year</span>
                   </div>
+                  <p className="mt-1 text-[12px] text-sage">
+                    {p.included_seats === 1 ? '1 seat' : `${p.included_seats} seats`} included
+                  </p>
                   <ul className="mt-5 space-y-3 flex-1">
                     {FEATURES.map(({ key, label, Icon }) => (
                       <li key={key} className={`flex items-center gap-2 text-[13px] ${p[key] ? 'text-mist/85' : 'text-sage-dim/70'}`}>

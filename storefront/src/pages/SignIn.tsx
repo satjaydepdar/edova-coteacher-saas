@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
+import { errorBannerClass, inputClass, primaryButtonClass } from '../lib/ui'
 import { usePurchase } from '../store/purchaseStore'
 
 /** Sign in or create the purchaser account. This account becomes the school admin
@@ -31,7 +32,7 @@ export default function SignIn() {
     } finally { setBusy(false) }
   }
 
-  const input = 'w-full h-11 px-3.5 rounded-[12px] bg-ink border border-mist/10 text-[14px] text-mist outline-none focus:border-lime/50 focus:ring-4 focus:ring-lime/15 transition placeholder:text-sage-dim/70'
+  const input = inputClass
 
   return (
     <div className="min-h-screen bg-ink flex flex-col">
@@ -58,10 +59,9 @@ export default function SignIn() {
               minLength={8} placeholder="Password (8+ characters)" className={input} />
           </div>
 
-          {error && <p className="mt-4 text-[12px] text-red-300 bg-red-500/10 border border-red-500/20 rounded-[8px] px-3 py-2">{error}</p>}
+          {error && <p className={errorBannerClass}>{error}</p>}
 
-          <button disabled={busy}
-            className="mt-6 w-full h-11 rounded-[12px] bg-moss hover:bg-moss-dark text-white text-[13px] font-medium border border-transparent hover:border-lime/50 shadow-glow transition disabled:opacity-50">
+          <button disabled={busy} className={`mt-6 ${primaryButtonClass}`}>
             {busy ? 'One moment…' : 'Continue →'}
           </button>
 

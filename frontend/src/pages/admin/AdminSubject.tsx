@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type MutableRefObject } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft, ArrowDown, ArrowUp, Check, ChevronRight, FileUp, FlaskConical,
@@ -48,6 +48,97 @@ function ReorderButtons({ onUp, onDown, first, last, disabled }: {
       <button disabled={first} onClick={onUp} className="text-forest/40 hover:text-forest disabled:opacity-20"><ArrowUp className="w-3.5 h-3.5" /></button>
       <button disabled={last} onClick={onDown} className="text-forest/40 hover:text-forest disabled:opacity-20"><ArrowDown className="w-3.5 h-3.5" /></button>
     </span>
+  )
+}
+
+/** Handlers/refs a ModuleRow needs from AdminSubject, bundled to keep the prop list sane. */
+interface RowActions {
+  moveModule: (mods: AdminModule[], i: number, dir: -1 | 1) => void
+  run: (p: Promise<unknown>) => Promise<void>
+  pickFile: (moduleId: string) => void
+  startUpload: (mod: AdminModule, file: File) => void
+  fileInputs: MutableRefObject<Record<string, HTMLInputElement | null>>
+}
+
+/** One module row: reorder, rename, publish toggle, video upload with progress.
+ *  MUST stay hoisted — defined inside AdminSubject it remounted on every render
+ *  (e.g. each upload progress tick), wiping row state. */
+function ModuleRow({ mod, mods, i, upload, readOnly, actions }: {
+  mod: AdminModule; mods: AdminModule[]; i: number
+  upload?: UploadState; readOnly: boolean; actions: RowActions
+}) {
+  const Icon = TYPE_ICON[mod.module_type]
+  const up = upload
+  return (
+    <div className="flex items-center gap-2 pl-9 pr-3 py-2 text-sm">
+      <ReorderButtons disabled={readOnly} first={i === 0} last={i === mods.length - 1}
+        onUp={() => actions.moveModule(mods, i, -1)} onDown={() => actions.moveModule(mods, i, 1)} />
+      <Icon className="w-3.5 h-3.5 text-forest/40 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <Rename disabled={readOnly} value={mod.title}
+          onSave={(v) => actions.run(adminContent.patchModule(mod.id, { title: v }))} />
+      </div>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded ${mod.content_ready ? 'bg-forest/10 text-forest' : 'bg-gold/15 text-gold-dark'}`}>
+        {mod.content_ready ? 'ready' : 'no content'}
+      </span>
+      {mod.module_type === 'VIDEO' && !readOnly && (
+        <>
+          <input type="file" accept="video/*,.mp4" className="hidden"
+            ref={(el) => { actions.fileInputs.current[mod.id] = el }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) actions.startUpload(mod, f); e.target.value = '' }} />
+          <button onClick={() => actions.pickFile(mod.id)} disabled={up?.phase === 'uploading' || up?.phase === 'transcoding'}
+            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-cream-border hover:border-gold text-forest/70 disabled:opacity-40">
+            <FileUp className="w-3.5 h-3.5" /> Upload video
+          </button>
+        </>
+      )}
+      {!readOnly && (
+        <button
+          onClick={() => void actions.run(adminContent.patchModule(mod.id, { is_published: !mod.is_published }))}
+          className={`text-[11px] font-medium px-2 py-1 rounded-full transition-colors ${
+            mod.is_published ? 'bg-forest text-cream' : 'bg-cream-border text-forest/60 hover:bg-gold/30'
+          }`}>
+          {mod.is_published ? 'Published' : 'Publish'}
+        </button>
+      )}
+      {mod.is_published && readOnly && <span className="text-[11px] text-forest/50">Published</span>}
+      {up && up.phase !== 'done' && (
+        <div className="w-36 shrink-0">
+          {up.phase === 'error'
+            ? <span className="text-[10px] text-danger">{up.message}</span>
+            : <>
+                <div className="h-1.5 rounded-full bg-cream-border overflow-hidden">
+                  <div className="h-full bg-gold transition-all" style={{ width: `${up.phase === 'transcoding' ? 100 : up.pct}%` }} />
+                </div>
+                <span className="text-[10px] text-forest/50">
+                  {up.phase === 'uploading' ? `Uploading ${up.pct}%` : 'Transcoding on server…'}
+                </span>
+              </>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Inline add row (chapter/topic/module). MUST stay hoisted — defined inside
+ *  AdminSubject it remounted per render and discarded the in-progress draft. */
+function AddRow({ placeholder, onAdd, indent, readOnly, run }: {
+  placeholder: string; onAdd: (name: string) => Promise<unknown>; indent?: boolean
+  readOnly: boolean; run: (p: Promise<unknown>) => Promise<void>
+}) {
+  const [v, setV] = useState('')
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!v.trim()) return
+    void run(onAdd(v.trim())).then(() => setV(''))
+  }
+  if (readOnly) return null
+  return (
+    <form onSubmit={submit} className={`flex items-center gap-2 py-1.5 ${indent ? 'pl-9' : 'pl-3'} pr-3`}>
+      <Plus className="w-3.5 h-3.5 text-forest/30" />
+      <input value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder}
+        className="flex-1 max-w-xs px-2 py-1 rounded border border-dashed border-cream-border bg-transparent text-xs outline-none focus:border-gold" />
+    </form>
   )
 }
 
@@ -110,76 +201,7 @@ export default function AdminSubject() {
       })))
   }
 
-  const ModuleRow = ({ mod, mods, i }: { mod: AdminModule; mods: AdminModule[]; i: number }) => {
-    const Icon = TYPE_ICON[mod.module_type]
-    const up = uploads[mod.id]
-    return (
-      <div className="flex items-center gap-2 pl-9 pr-3 py-2 text-sm">
-        <ReorderButtons disabled={readOnly} first={i === 0} last={i === mods.length - 1}
-          onUp={() => moveModule(mods, i, -1)} onDown={() => moveModule(mods, i, 1)} />
-        <Icon className="w-3.5 h-3.5 text-forest/40 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <Rename disabled={readOnly} value={mod.title}
-            onSave={(v) => run(adminContent.patchModule(mod.id, { title: v }))} />
-        </div>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded ${mod.content_ready ? 'bg-forest/10 text-forest' : 'bg-gold/15 text-gold-dark'}`}>
-          {mod.content_ready ? 'ready' : 'no content'}
-        </span>
-        {mod.module_type === 'VIDEO' && !readOnly && (
-          <>
-            <input type="file" accept="video/*,.mp4" className="hidden"
-              ref={(el) => { fileInputs.current[mod.id] = el }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) startUpload(mod, f); e.target.value = '' }} />
-            <button onClick={() => pickFile(mod.id)} disabled={up?.phase === 'uploading' || up?.phase === 'transcoding'}
-              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-cream-border hover:border-gold text-forest/70 disabled:opacity-40">
-              <FileUp className="w-3.5 h-3.5" /> Upload video
-            </button>
-          </>
-        )}
-        {!readOnly && (
-          <button
-            onClick={() => void run(adminContent.patchModule(mod.id, { is_published: !mod.is_published }))}
-            className={`text-[11px] font-medium px-2 py-1 rounded-full transition-colors ${
-              mod.is_published ? 'bg-forest text-cream' : 'bg-cream-border text-forest/60 hover:bg-gold/30'
-            }`}>
-            {mod.is_published ? 'Published' : 'Publish'}
-          </button>
-        )}
-        {mod.is_published && readOnly && <span className="text-[11px] text-forest/50">Published</span>}
-        {up && up.phase !== 'done' && (
-          <div className="w-36 shrink-0">
-            {up.phase === 'error'
-              ? <span className="text-[10px] text-danger">{up.message}</span>
-              : <>
-                  <div className="h-1.5 rounded-full bg-cream-border overflow-hidden">
-                    <div className="h-full bg-gold transition-all" style={{ width: `${up.phase === 'transcoding' ? 100 : up.pct}%` }} />
-                  </div>
-                  <span className="text-[10px] text-forest/50">
-                    {up.phase === 'uploading' ? `Uploading ${up.pct}%` : 'Transcoding on server…'}
-                  </span>
-                </>}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const AddRow = ({ placeholder, onAdd, indent }: { placeholder: string; onAdd: (name: string) => Promise<unknown>; indent?: boolean }) => {
-    const [v, setV] = useState('')
-    const submit = (e: FormEvent) => {
-      e.preventDefault()
-      if (!v.trim()) return
-      void run(onAdd(v.trim())).then(() => setV(''))
-    }
-    if (readOnly) return null
-    return (
-      <form onSubmit={submit} className={`flex items-center gap-2 py-1.5 ${indent ? 'pl-9' : 'pl-3'} pr-3`}>
-        <Plus className="w-3.5 h-3.5 text-forest/30" />
-        <input value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder}
-          className="flex-1 max-w-xs px-2 py-1 rounded border border-dashed border-cream-border bg-transparent text-xs outline-none focus:border-gold" />
-      </form>
-    )
-  }
+  const rowActions: RowActions = { moveModule, run, pickFile, startUpload, fileInputs }
 
   if (error && !tree) return <p className="text-danger text-sm">{error}</p>
   if (!tree) return <p className="text-sm text-forest/50">Loading…</p>
@@ -227,8 +249,9 @@ export default function AdminSubject() {
                       className="text-forest/30 hover:text-danger"><Trash2 className="w-3.5 h-3.5" /></button>
                   )}
                 </div>
-                {tp.modules.map((m, mi) => <ModuleRow key={m.id} mod={m} mods={tp.modules} i={mi} />)}
-                <AddRow indent placeholder={`Add module to “${tp.name}” (title)`}
+                {tp.modules.map((m, mi) => <ModuleRow key={m.id} mod={m} mods={tp.modules} i={mi}
+                  upload={uploads[m.id]} readOnly={readOnly} actions={rowActions} />)}
+                <AddRow indent readOnly={readOnly} run={run} placeholder={`Add module to “${tp.name}” (title)`}
                   onAdd={(title) => adminContent.createModule(ch.id, {
                     title, module_type: 'VIDEO', topic_id: tp.id,
                     sequence_order: tp.modules.reduce((m, x) => Math.max(m, x.sequence_order), 0) + 1,
@@ -236,15 +259,16 @@ export default function AdminSubject() {
               </div>
             ))}
 
-            {ch.modules.map((m, mi) => <ModuleRow key={m.id} mod={m} mods={ch.modules} i={mi} />)}
+            {ch.modules.map((m, mi) => <ModuleRow key={m.id} mod={m} mods={ch.modules} i={mi}
+              upload={uploads[m.id]} readOnly={readOnly} actions={rowActions} />)}
             {ch.modules.length > 0 && <div className="pl-6 text-[10px] text-forest/40 pb-1">Ungrouped modules</div>}
 
             <div className="flex border-t border-cream-border/60">
-              <AddRow placeholder="Add topic…"
+              <AddRow readOnly={readOnly} run={run} placeholder="Add topic…"
                 onAdd={(name) => adminContent.createTopic(ch.id, {
                   name, sequence_order: ch.topics.reduce((m, t) => Math.max(m, t.sequence_order), 0) + 1,
                 })} />
-              <AddRow placeholder="Add ungrouped module (title)…"
+              <AddRow readOnly={readOnly} run={run} placeholder="Add ungrouped module (title)…"
                 onAdd={(title) => adminContent.createModule(ch.id, {
                   title, module_type: 'VIDEO',
                   sequence_order: ch.modules.reduce((m, x) => Math.max(m, x.sequence_order), 0) + 1,
@@ -254,7 +278,7 @@ export default function AdminSubject() {
         ))}
       </div>
 
-      <AddRow placeholder="Add chapter…"
+      <AddRow readOnly={readOnly} run={run} placeholder="Add chapter…"
         onAdd={(name) => adminContent.createChapter(subjectId, {
           name, sequence_order: tree.chapters.reduce((m, c) => Math.max(m, c.sequence_order), 0) + 1,
         })} />

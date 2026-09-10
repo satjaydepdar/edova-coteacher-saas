@@ -5,15 +5,11 @@ Part 2 (runs when the API is on :8000): authz + gate behavior over HTTP.
   - Gate OFF (default)  -> 503 for a valid request.
   - Gate ON  (EDOVA_LAB_EXEC_ENABLED=true on the server) -> full execution path.
 """
+import time
+
 import lab_sandbox
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
+from testutil import BASE, check, finish
 
 
 # ---------- Part 1: executor unit checks ----------
@@ -82,10 +78,20 @@ if httpx is not None:
     else:
         # Idempotent fixture: plan(allow_lab) + tenant + active sub + STUDENT user
         with psycopg.connect(DB_DSN, autocommit=True) as conn:
-            conn.execute("DELETE FROM subscriptions WHERE tenant_id IN (SELECT id FROM tenants WHERE name = 'LabExec School')")
-            conn.execute("DELETE FROM user_tenant_mappings WHERE tenant_id IN (SELECT id FROM tenants WHERE name = 'LabExec School')")
-            conn.execute("DELETE FROM tenants WHERE name = 'LabExec School'")
+            # FK-safe rerun cleanup: children before parents. Rows left by
+            # previous runs (activation keys, progress, submissions, mappings,
+            # subscriptions) block deleting the tenant/user/plan.
+            t_sub = "tenant_id IN (SELECT id FROM tenants WHERE name = 'LabExec School')"
+            u_sub = "student_id IN (SELECT id FROM users WHERE email = 'labexec@edova.dev')"
+            for tbl in ("progress_events", "student_quiz_attempts",
+                        "student_lab_submissions", "quiz_generated_sets", "student_progress"):
+                conn.execute(f"DELETE FROM {tbl} WHERE {u_sub}")
+            conn.execute(f"DELETE FROM activation_keys WHERE {t_sub}")
+            conn.execute(f"DELETE FROM subscriptions WHERE {t_sub}")
+            conn.execute(f"DELETE FROM user_tenant_mappings WHERE {t_sub} OR user_id IN "
+                         "(SELECT id FROM users WHERE email = 'labexec@edova.dev')")
             conn.execute("DELETE FROM users WHERE email = 'labexec@edova.dev'")
+            conn.execute("DELETE FROM tenants WHERE name = 'LabExec School'")
             conn.execute("DELETE FROM subscription_plans WHERE name = 'LabExec Plan'")
             plan_id = conn.execute(
                 "INSERT INTO subscription_plans (name, tier_level, allow_video, allow_lab, allow_quiz) "
@@ -104,9 +110,17 @@ if httpx is not None:
                 "INSERT INTO user_tenant_mappings (user_id, tenant_id, role) VALUES (%s, %s, 'STUDENT')",
                 (uid, tenant_id))
 
-        token = httpx.post(f"{BASE}/auth/login",
-                           json={"email": "labexec@edova.dev", "password": "testpass"}
-                           ).json()["access_token"]
+        # A recently-run rate-limit check (e.g. test_security TC9) may have left
+        # the per-IP /auth/login bucket hot: the limiter throttles ALL logins,
+        # even valid ones, once full. 429s are not re-counted, so the 60s
+        # sliding window just expires — ride it out.
+        for _ in range(30):
+            r = httpx.post(f"{BASE}/auth/login",
+                           json={"email": "labexec@edova.dev", "password": "testpass"})
+            if r.status_code != 429:
+                break
+            time.sleep(3)
+        token = r.json()["access_token"]
         auth = {"Authorization": f"Bearer {token}"}
         payload = {"code": "print('api', 3 * 7)", "language": "python", "timeout_seconds": 5}
 
@@ -135,6 +149,4 @@ if httpx is not None:
                            json={"code": "print(1)", "language": "python", "timeout_seconds": 99})
             check("api rejects out-of-range timeout", r.status_code == 422, f"status={r.status_code}")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed" + (f" — FAILED: {failed}" if failed else ""))
-raise SystemExit(1 if failed else 0)
+finish()

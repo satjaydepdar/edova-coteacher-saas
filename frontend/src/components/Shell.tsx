@@ -143,7 +143,7 @@ export default function Shell() {
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-[300px] max-w-[85vw] lg:w-[280px] shrink-0 flex flex-col transition-transform duration-300 lg:translate-x-0 bg-forest ${
+        className={`print:hidden fixed lg:sticky top-0 left-0 z-50 h-screen w-[300px] max-w-[85vw] lg:w-[280px] shrink-0 flex flex-col transition-transform duration-300 lg:translate-x-0 bg-forest ${
           navOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -170,13 +170,12 @@ export default function Shell() {
             <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/30 px-3 mb-2">
               Main
             </div>
-            <button
-              className="w-full flex items-center gap-3 px-3 h-10 rounded-xl text-white/40 text-[14px] cursor-not-allowed"
-              title="Dashboard is not part of this release"
+            <NavLink
+              to="/dashboard"
+              className="w-full flex items-center gap-3 px-3 h-10 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-[14px] transition-colors"
             >
               <LayoutDashboard className="w-4 h-4" /> Dashboard
-              <span className="ml-auto text-[10px] bg-white/10 px-1.5 py-0.5 rounded">Soon</span>
-            </button>
+            </NavLink>
           </div>
 
           <div>
@@ -204,6 +203,21 @@ export default function Shell() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <NavLink
+              to="/labs"
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 px-3 h-10 rounded-xl text-[14px] transition-colors ${
+                  isActive
+                    ? 'bg-white text-forest font-semibold shadow'
+                    : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
+                }`
+              }
+            >
+              <FlaskConical className="w-4 h-4" /> Virtual Labs
+            </NavLink>
           </div>
 
           <div>
@@ -254,7 +268,7 @@ export default function Shell() {
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden">
-        <header className="h-[72px] shrink-0 bg-white border-b border-black/[0.06] flex items-center gap-3 px-4 lg:px-6">
+        <header className="print:hidden h-[72px] shrink-0 bg-white border-b border-black/[0.06] flex items-center gap-3 px-4 lg:px-6">
           <button
             onClick={() => setNavOpen(true)}
             className="lg:hidden w-9 h-9 rounded-xl border border-black/10 flex items-center justify-center"
@@ -262,53 +276,61 @@ export default function Shell() {
             <Menu className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <div className="relative">
-              <select
-                value={chapterId}
-                onChange={(e) => {
-                  setChapterId(e.target.value)
-                  backToShelf()
-                }}
-                className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-cream border border-black/[0.06] text-[13px] font-medium outline-none focus:border-gold cursor-pointer max-w-[140px] sm:max-w-none"
-              >
-                <option value="ALL">All Chapters</option>
-                {chapters.map((c) => (
-                  <option key={c.chapter_id} value={c.chapter_id}>
-                    {c.chapter_name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" />
-            </div>
+          {/* Content Shelf's chapter/type/subject picker doesn't apply to Dashboard
+              (own Class/Subject filters) or Practice (own chapter select, filters TBD)
+              -- hidden on those routes only; every other route's picker is unchanged. */}
+          {!location.pathname.startsWith('/dashboard') && !location.pathname.startsWith('/practice') && (
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              <div className="relative">
+                <select
+                  value={chapterId}
+                  onChange={(e) => {
+                    setChapterId(e.target.value)
+                    backToShelf()
+                  }}
+                  className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-cream border border-black/[0.06] text-[13px] font-medium outline-none focus:border-gold cursor-pointer max-w-[140px] sm:max-w-none"
+                >
+                  <option value="ALL">All Chapters</option>
+                  {chapters.map((c) => (
+                    <option key={c.chapter_id} value={c.chapter_id}>
+                      {c.chapter_name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" />
+              </div>
 
-            <div className="relative">
-              <select
-                value={typeFilter}
-                onChange={(e) => {
-                  setTypeFilter(e.target.value as ModuleType | 'ALL')
-                  backToShelf()
-                }}
-                className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-black/[0.08] text-[13px] font-medium outline-none focus:border-gold cursor-pointer"
-              >
-                {(Object.keys(TYPE_LABEL) as (ModuleType | 'ALL')[]).map((t) => (
-                  <option key={t} value={t}>
-                    {TYPE_LABEL[t]}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" />
-            </div>
+              <div className="relative">
+                <select
+                  value={typeFilter}
+                  onChange={(e) => {
+                    setTypeFilter(e.target.value as ModuleType | 'ALL')
+                    backToShelf()
+                  }}
+                  className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-black/[0.08] text-[13px] font-medium outline-none focus:border-gold cursor-pointer"
+                >
+                  {(Object.keys(TYPE_LABEL) as (ModuleType | 'ALL')[]).map((t) => (
+                    <option key={t} value={t}>
+                      {TYPE_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" />
+              </div>
 
-            <div className="hidden md:flex items-center gap-2 ml-2 pl-4 border-l border-black/10">
-              <span className="text-[11px] tracking-widest uppercase opacity-40 font-semibold">
-                Subject
-              </span>
-              <span className="text-[13px] font-semibold px-2.5 py-1 rounded-full bg-forest text-white">
-                {activeSubject?.name ?? '—'}
-              </span>
+              <div className="hidden md:flex items-center gap-2 ml-2 pl-4 border-l border-black/10">
+                <span className="text-[11px] tracking-widest uppercase opacity-40 font-semibold">
+                  Subject
+                </span>
+                <span className="text-[13px] font-semibold px-2.5 py-1 rounded-full bg-forest text-white">
+                  {activeSubject?.name ?? '—'}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
+          {(location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/practice')) && (
+            <div className="flex-1" />
+          )}
 
           <div className="flex items-center gap-2 shrink-0">
             <div className="hidden sm:flex items-center gap-2 mr-1">

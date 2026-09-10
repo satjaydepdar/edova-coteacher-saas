@@ -1,0 +1,11 @@
+{
+  "question_id": "7ad29a11-3b37-4761-b245-c5c63e2517c9",
+  "status": "DRAFT",
+  "version_id": "49b75101-c0c2-443e-bc6f-8dfb78e22ec2",
+  "version_no": 2,
+  "question_type": "SHORT_ANSWER",
+  "question_text": "If sinθ + cosθ = √3, then prove that tanθ + cotθ = 1\n\nOR\n\nProve that (cosA - sinA + 1)/(cosA + sinA - 1) = cosecA + cotA",
+  "marks": 3.0,
+  "difficulty": null,
+  "options": []
+}

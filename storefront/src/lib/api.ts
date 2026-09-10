@@ -35,7 +35,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export interface Plan {
   id: string; name: string; tier_level: number
   allow_video: boolean; allow_lab: boolean; allow_quiz: boolean
-  price_inr: number; blurb: string
+  price_inr: number; blurb: string; included_seats: number
 }
 
 export interface Order {
@@ -58,16 +58,16 @@ export const api = {
       method: 'POST', body: JSON.stringify({ email, password }),
     }),
   plans: () => call<{ plans: Plan[] }>('/api/public/plans'),
-  onboard: (school_name: string, address: string, seat_count: number) =>
+  onboard: (school_name: string) =>
     call<{ tenant_id: string; name: string; existing: boolean }>('/api/public/schools/onboard', {
-      method: 'POST', body: JSON.stringify({ school_name, address, seat_count }),
+      method: 'POST', body: JSON.stringify({ school_name }),
     }),
-  createOrder: (plan_id: string, tenant_id: string, seat_count: number) =>
+  createOrder: (plan_id: string, tenant_id: string) =>
     call<Order>('/api/public/checkout/create-order', {
-      method: 'POST', body: JSON.stringify({ plan_id, tenant_id, seat_count }),
+      method: 'POST', body: JSON.stringify({ plan_id, tenant_id }),
     }),
-  verify: (order_id: string, payment_id: string) =>
+  verify: (order_id: string) =>
     call<License>('/api/public/checkout/verify', {
-      method: 'POST', body: JSON.stringify({ order_id, payment_id }),
+      method: 'POST', body: JSON.stringify({ order_id }),
     }),
 }

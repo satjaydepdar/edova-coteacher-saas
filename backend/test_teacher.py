@@ -1,23 +1,10 @@
 """Teacher track tests: session, classroom engines, tier gating, expiry lockout, role isolation."""
-import sys
 
 import httpx
 import psycopg
 from main import DB_DSN
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
-
-
-def login(email):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": "testpass"})
-    r.raise_for_status()
-    return r.json()["access_token"]
+from testutil import BASE, check, finish, login
 
 
 with psycopg.connect(DB_DSN) as conn:
@@ -77,6 +64,4 @@ check("expired school -> 403 lockout", r.status_code == 403, f"status={r.status_
 r = httpx.get(f"{BASE}/api/student/session", headers=T4)
 check("teacher on student session -> 403", r.status_code == 403, f"status={r.status_code}")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed")
-sys.exit(1 if failed else 0)
+finish()

@@ -1,23 +1,10 @@
 """Phase 4B/4C tests: HLS manifest from S3 listing + lab simulation presign."""
-import sys
 
 import httpx
 import psycopg
 from main import DB_DSN
 
-BASE = "http://127.0.0.1:8000"
-results = []
-
-
-def check(name, ok, detail):
-    results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}  [{detail}]")
-
-
-def login(email):
-    r = httpx.post(f"{BASE}/auth/login", json={"email": email, "password": "testpass"})
-    r.raise_for_status()
-    return r.json()["access_token"]
+from testutil import BASE, check, finish, login
 
 
 with psycopg.connect(DB_DSN) as conn:
@@ -75,6 +62,4 @@ import uuid
 r = httpx.get(f"{BASE}/api/student/video/{uuid.uuid4()}/manifest", headers=H3)
 check("4B: unknown module -> 404", r.status_code == 404, f"status={r.status_code}")
 
-failed = [n for n, ok in results if not ok]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed")
-sys.exit(1 if failed else 0)
+finish()

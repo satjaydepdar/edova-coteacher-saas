@@ -938,7 +938,7 @@ const BATH = {x0:614, x1:796, y0:150, y1:462};
    ========================================================= */
 const state = {
   playing:false, speed:1, labels:true, sound:false, molecules:false,
-  cleared:0, dialUrea:0, rotor:0, lastPing:0
+  cleared:0, rotor:0, lastPing:0
 };
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1105,8 +1105,9 @@ const bpmEl = document.getElementById('bpm');
 let last = performance.now();
 
 function crossChance(){
-  // gradient collapses as dialysate urea rises
-  return 0.055 * (1 - state.dialUrea/100);
+  // Constant: dialysate urea (and its gradient collapse) is modeled only in the
+  // assignment sim's separate IIFE; this main loop has no dialysate state.
+  return 0.055;
 }
 
 function tick(now){

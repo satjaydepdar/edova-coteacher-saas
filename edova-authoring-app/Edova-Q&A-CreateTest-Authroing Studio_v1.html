@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EDOVA Co-Teacher — Curriculum, Authoring & Create Test</title>
+<style>
+:root{
+  --canvas:#F7F5EF; --card:#F5F1E6; --white:#FFFDF8; --ink:#18221F;
+  --muted:#7F8782; --line:#DDD8CB; --dark:#151F1C; --dark2:#202C27;
+  --gold:#CDA84F;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--canvas);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+button,input,select,textarea{font:inherit} button{cursor:pointer}
+.app{display:flex;min-height:100vh}.sidebar{width:292px;background:var(--dark);color:#fff;padding:18px 14px;display:flex;flex-direction:column;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:12px;padding:0 16px 28px}.logo{width:43px;height:43px;border-radius:12px;background:#D2AD58;color:#111b18;display:grid;place-items:center;font:bold 19px Georgia}
+.brand b{font-size:14px}.brand small{display:block;font-size:8px;letter-spacing:.18em;opacity:.6;margin-top:3px}
+.nav{display:grid;gap:7px}.nav button{border:1px solid transparent;background:transparent;color:#cbd2ce;border-radius:14px;padding:13px 15px;text-align:left;display:flex;gap:12px;align-items:center}
+.nav button.active{background:var(--dark2);border-color:#33413B;color:#fff}.ico{width:18px;text-align:center}.nav strong{font-size:12px}.nav small{display:block;font-size:10px;opacity:.65;margin-top:3px}
+.swatch{margin:25px 5px 0;padding:14px;border:1px solid #33413B;border-radius:16px;background:#1D2925;font-size:10px;color:#aeb7b1}.swatch code{display:block;color:white;margin-top:5px}.grow{flex:1}
+.user{padding:11px;border:1px solid #33413B;border-radius:14px;background:#1D2925;display:flex;gap:10px;align-items:center}.avatar{width:30px;height:30px;border-radius:50%;background:var(--canvas);color:var(--dark);display:grid;place-items:center;font-size:9px;font-weight:bold}.user b{font-size:11px}.user small{display:block;font-size:9px;opacity:.6;margin-top:3px}
+.main{min-width:0;flex:1}.top{height:76px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px}.eyebrow{font-size:10px;color:var(--muted);letter-spacing:.08em}.title{font:600 25px Georgia,serif;margin:3px 0}.subtitle{font-size:11px;color:var(--muted)}.topright{display:flex;gap:9px;align-items:center}.search{height:38px;width:225px;border:1px solid var(--line);border-radius:22px;background:var(--white);padding:0 14px;font-size:11px}.status{padding:10px 14px;border-radius:22px;background:var(--dark);color:white;font-size:10px}
+.content{max-width:1260px;margin:auto;padding:25px 30px 40px}.card{background:var(--card);border:1px solid #DED8C9;border-radius:20px}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}.toolbar select,.toolbar button,.pill{height:38px;border:1px solid var(--line);border-radius:20px;background:var(--white);padding:0 14px;font-size:11px}.toolbar button.active{background:var(--dark);color:#fff;border-color:var(--dark)}
+h2{font:600 20px Georgia,serif;margin:0}.muted{font-size:10px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.subject{padding:17px}.subject .tag{font-size:9px;letter-spacing:.12em;color:#8b918b}.subject h3{font:600 15px Georgia,serif;margin:16px 0 8px}.subject ul{margin:0 0 16px;padding-left:14px;color:#9aa09b;font-size:10px;line-height:1.8}.progress{height:4px;background:#fff;border-radius:5px;overflow:hidden}.progress i{display:block;height:100%;background:var(--dark)}.subject-foot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:9px;color:var(--muted)}.subject-actions{display:flex;gap:7px;margin-top:12px}.subject-actions button{flex:1;height:31px;border-radius:17px;border:1px solid var(--line);background:var(--white);font-size:10px}.subject-actions button:last-child{background:var(--dark);color:#fff;border-color:var(--dark)}
+.author-layout{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:18px}.author-main,.bank{padding:22px}.field{margin-bottom:17px}.field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:bold;margin-bottom:7px}.field textarea{width:100%;height:110px;border:1px solid var(--line);border-radius:15px;background:var(--white);padding:14px;resize:vertical;outline:none}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.row select,.row input,.source-input{width:100%;height:42px;border:1px solid var(--line);border-radius:12px;background:var(--white);padding:0 12px;font-size:11px}.options{display:grid;gap:8px}.option{display:grid;grid-template-columns:34px 1fr;gap:9px;align-items:center}.correct{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--white)}.correct.on{background:var(--gold);border-color:var(--gold)}.option input{height:40px;border:1px solid var(--line);border-radius:11px;background:var(--white);padding:0 12px}.upload{border:1px dashed #CFC7B7;border-radius:15px;padding:16px;background:#FAF8F1}.upload-preview{max-width:100%;max-height:180px;display:block;margin:10px auto;border-radius:10px}.upload-actions{display:flex;gap:8px}.mini{height:34px;padding:0 13px;border:1px solid var(--line);border-radius:18px;background:var(--white);font-size:10px}.bank-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.bank-list{display:grid;gap:9px;max-height:630px;overflow:auto}.qcard{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:13px}.qcard p{font-size:11px;line-height:1.4;margin:0 0 9px}.meta{display:flex;gap:5px;flex-wrap:wrap}.meta span{font-size:9px;color:#8a918b;border:1px solid var(--line);background:var(--card);padding:4px 7px;border-radius:12px}.q-actions{display:flex;gap:6px;margin-top:10px}.q-actions button{height:28px;padding:0 10px;border:1px solid var(--line);border-radius:14px;background:var(--white);font-size:9px;color:var(--ink)}.q-actions button:hover{background:var(--card)}.q-actions .delete{color:#8B4A42}.q-actions .edit{font-weight:bold}.author-actions{display:flex;gap:10px;margin-top:16px}.primary{background:var(--dark)!important;color:#fff!important;border-color:var(--dark)!important}.author-actions button{height:42px;flex:1;border:1px solid var(--line);border-radius:22px;background:var(--white);font-size:11px;font-weight:bold}
+.test-card{padding:22px}.filters{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:12px}.filters label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:bold;margin-bottom:7px}.filters select{width:100%;height:42px;border:1px solid var(--line);border-radius:12px;background:var(--white);padding:0 12px;font-size:11px}.section-head{border-top:1px solid var(--line);margin-top:22px;padding-top:20px;display:flex;justify-content:space-between;align-items:center}.types{display:grid;gap:6px;margin-top:12px}.type-row{display:grid;grid-template-columns:25px 1fr 210px 70px;gap:10px;align-items:center;padding:8px;border-radius:11px}.type-row:hover{background:#EEE9DC}.type-row input[type=number]{height:39px;border:1px solid var(--line);border-radius:10px;background:var(--white);padding:0 10px;font-size:11px}.mark{height:39px;border:1px solid var(--line);border-radius:10px;background:var(--white);display:grid;place-items:center;font-size:10px;font-weight:bold}.settings{display:flex;align-items:center;gap:10px;margin-top:17px}.settings select{height:37px;border:1px solid var(--line);border-radius:20px;background:var(--white);padding:0 12px;font-size:10px}.questions{margin-top:16px;display:grid;gap:8px}.question{background:var(--white);border:1px solid var(--line);border-radius:13px;padding:12px;display:grid;grid-template-columns:40px 1fr auto;gap:10px}.qno{width:30px;height:30px;border-radius:9px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-size:9px;font-weight:bold}.question .text{font-size:11px;line-height:1.4}.question .small{font-size:9px;color:var(--muted);margin-top:5px}.actions{display:flex;justify-content:center;gap:10px;margin-top:17px}.actions button{height:42px;padding:0 24px;border:1px solid var(--line);border-radius:22px;background:var(--white);font-size:11px;font-weight:bold}
+.hidden{display:none!important}.modal{position:fixed;inset:0;background:#0008;display:grid;place-items:center;padding:20px;z-index:10}.modal-box{width:min(760px,100%);max-height:85vh;overflow:auto;background:var(--canvas);border-radius:20px;padding:25px;border:1px solid var(--line)}.modal-box h2{margin-bottom:14px}
+@media(max-width:1000px){.sidebar{width:235px}.author-layout{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.sidebar{display:none}.content{padding:16px}.top{padding:0 16px}.search{display:none}.grid,.filters{grid-template-columns:1fr}.type-row{grid-template-columns:25px 1fr}.type-row input[type=number],.type-row .mark{grid-column:2}.question{grid-template-columns:35px 1fr}.question .mark{grid-column:2}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="logo">E</div><div><b>EDOVA</b><small>CO-TEACHER</small></div></div>
+  <nav class="nav">
+    <button data-page="curriculum"><div class="ico">▦</div><div><strong>Curriculum View</strong><small>6 cards grid</small></div></button>
+    <button data-page="authoring"><div class="ico">♧</div><div><strong>Authoring Studio</strong><small>Create questions</small></div></button>
+    <button data-page="test"><div class="ico">▷</div><div><strong>Create Test</strong><small>Build mock tests</small></div></button>
+  </nav>
+  <div class="swatch">CARD COLOR<code>#F5F1E6</code><br>CANVAS<code>#F7F5EF</code></div>
+  <div class="grow"></div>
+  <div class="user"><div class="avatar">AT</div><div><b>Anita Teacher</b><small>Class 10 • Maths</small></div></div>
+</aside>
+
+<main class="main">
+<header class="top"><div><div class="eyebrow" id="eyebrow">CURRICULUM</div><div class="title" id="pageTitle">Curriculum Overview</div><div class="subtitle" id="pageSub">Class • Subject • Chapter</div></div><div class="topright"><input class="search" placeholder="Search curriculum"><div class="status">◷ Draft saved</div></div></header>
+
+<section class="content">
+
+<!-- CURRICULUM -->
+<div id="curriculum" class="page">
+  <div class="toolbar">
+    <select id="cClass"><option>All Classes</option><option>Class 10</option><option>Class 9</option><option>Class 8</option><option>Class 7</option></select>
+    <select id="cSubject"><option>All Subjects</option><option>Mathematics</option><option>Science</option><option>Social Science</option></select>
+    <select id="cChapter"><option>All Chapters</option><option>Number Systems</option><option>Algebra</option><option>Geometry</option><option>Statistics & Probability</option><option>Trigonometry</option><option>Mensuration & Co-ordinate</option></select>
+    <button id="gridBtn" class="active">Grid View</button><button id="listBtn">List View</button>
+  </div>
+  <div id="curriculumCards" class="grid"></div>
+</div>
+
+<!-- AUTHORING -->
+<div id="authoring" class="page hidden">
+  <div class="author-layout">
+    <section class="card author-main">
+      <h2>New Question</h2><div class="muted" style="margin:5px 0 20px">Create a question and add it to the Question Bank.</div>
+      <div class="field"><label>Question No.</label><input id="qNumber" class="source-input" value="Q1"></div>
+      <div class="field"><label>Question Text</label><textarea id="qText" placeholder="Type your question here…"></textarea></div>
+      <div class="row">
+        <div class="field"><label>Class</label><select id="aClass"><option>Class 10</option><option>Class 9</option></select></div>
+        <div class="field"><label>Subject</label><select id="aSubject"><option>Mathematics</option><option>Science</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Chapter</label><select id="aChapter"><option>Number Systems</option><option>Algebra</option><option>Geometry</option></select></div>
+        <div class="field"><label>Question Type</label><select id="aType"><option>MCQ</option><option>MCQ (Combination)</option><option>Assertion & Reasoning</option><option>Short Answers</option><option>Long Answers</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Marks</label><input id="aMarks" class="source-input" type="number" value="1" min="0"></div>
+        <div class="field"><label>From</label><input id="aFrom" class="source-input" placeholder="NCERT Exemplar / PYQ 2023"></div>
+      </div>
+      <div class="field"><label>Question Image / Diagram</label>
+        <div class="upload">
+          <input id="imageInput" type="file" accept="image/*" class="hidden">
+          <div class="upload-actions"><button class="mini" id="uploadBtn">Upload Image</button><button class="mini hidden" id="removeImg">Remove</button></div>
+          <img id="imagePreview" class="upload-preview hidden">
+          <input id="imageLabel" class="source-input" style="margin-top:8px" placeholder="Image label / caption (optional)">
+        </div>
+      </div>
+      <div class="field"><label>Multiple Choice Options</label><div class="options">
+        <div class="option"><button class="correct on" data-correct="0">✓</button><input placeholder="Option A"></div>
+        <div class="option"><button class="correct" data-correct="1">B</button><input placeholder="Option B"></div>
+        <div class="option"><button class="correct" data-correct="2">C</button><input placeholder="Option C"></div>
+        <div class="option"><button class="correct" data-correct="3">D</button><input placeholder="Option D"></div>
+      </div></div>
+      <div class="author-actions"><button id="clearQuestion">Clear</button><button class="primary" id="saveQuestion">Add to Bank</button></div>
+    </section>
+    <aside class="card bank"><div class="bank-head"><div><h2>Question Bank</h2><div class="muted" id="bankCount">4 questions</div></div><input id="bankSearch" class="source-input" style="width:180px" placeholder="Search bank"></div><div id="bankList" class="bank-list"></div></aside>
+  </div>
+</div>
+
+<!-- CREATE TEST -->
+<div id="test" class="page hidden">
+  <section class="card test-card">
+    <div class="filters">
+      <div><label>Class</label><select id="tClass"><option>All Classes</option><option selected>Class 10</option><option>Class 9</option></select></div>
+      <div><label>Subject</label><select id="tSubject"><option>All Subjects</option><option selected>Mathematics</option><option>Science</option></select></div>
+      <div><label>Chapter</label><select id="tChapter"><option selected>All Chapters</option><option>Number Systems</option><option>Algebra</option><option>Geometry</option><option>Statistics & Probability</option></select></div>
+    </div>
+    <div class="section-head"><div><b>Question Type</b><div class="muted" style="margin-top:4px">Select the question mix. Marks are calculated automatically.</div></div><div class="pill">Total Marks: <b id="totalMarks">0</b></div></div>
+    <div class="types">
+      <div class="type-row"><input class="typeCheck" type="checkbox" data-mark="1"><b>MCQ (Combination)</b><input class="qty" type="number" min="0" placeholder="Number of questions"><div class="mark">1 mark</div></div>
+      <div class="type-row"><input class="typeCheck" type="checkbox" data-mark="1"><b>MCQ</b><input class="qty" type="number" min="0" placeholder="Number of questions"><div class="mark">1 mark</div></div>
+      <div class="type-row"><input class="typeCheck" type="checkbox" data-mark="2"><b>Assertion & Reasoning</b><input class="qty" type="number" min="0" placeholder="Number of questions"><div class="mark">2 marks</div></div>
+      <div class="type-row"><input class="typeCheck" type="checkbox" data-mark="3"><b>Short Answers</b><input class="qty" type="number" min="0" placeholder="Number of questions"><div class="mark">3 marks</div></div>
+      <div class="type-row"><input class="typeCheck" type="checkbox" data-mark="4"><b>Long Answers</b><input class="qty" type="number" min="0" placeholder="Number of questions"><div class="mark">4/5 marks</div></div>
+    </div>
+    <div class="settings"><span class="muted">SET TIMER</span><select id="timer"><option value="30">30 minutes</option><option value="45">45 minutes</option><option selected value="60">60 minutes</option><option value="90">90 minutes</option></select><span class="muted" style="margin-left:auto">Questions will be selected from the Question Bank.</span></div>
+  </section>
+  <section class="card test-card" style="margin-top:16px"><div class="section-head" style="border:0;margin:0;padding:0"><div><h2>Selected Questions</h2><div class="muted" style="margin-top:4px">Review matching questions before publishing.</div></div><div class="pill"><span id="testCount">0</span> questions</div></div><div id="testQuestions" class="questions"><div class="empty">Select question types and enter quantities above to populate the test.</div></div></section>
+  <div class="actions"><button id="previewTest">Preview the Created Test</button><button class="primary" id="publishTest">Publish</button></div>
+</div>
+</section>
+</main>
+</div>
+
+<div id="modal" class="modal hidden"><div class="modal-box"><h2>Test Preview</h2><div class="muted" id="previewMeta"></div><div id="previewBody" style="margin-top:15px"></div><div class="actions"><button id="closeModal">Close</button></div></div></div>
+
+<script>
+const pages={
+ curriculum:["CURRICULUM","Curriculum Overview","Class • Subject • Chapter"],
+ authoring:["AUTHORING STUDIO","Authoring Studio","Create • Bank • Preview"],
+ test:["TEST BUILDER","Create Mock Test","Configure • Review • Publish"]
+};
+const nav=[...document.querySelectorAll(".nav button")], pageEls=[...document.querySelectorAll(".page")];
+function showPage(id){
+  pageEls.forEach(x=>x.classList.toggle("hidden",x.id!==id)); nav.forEach(x=>x.classList.toggle("active",x.dataset.page===id));
+  const p=pages[id]; document.getElementById("eyebrow").textContent=p[0];document.getElementById("pageTitle").textContent=p[1];document.getElementById("pageSub").textContent=p[2];
+  if(id==="authoring") renderBank();
+}
+nav.forEach(n=>n.onclick=()=>showPage(n.dataset.page));
+
+const curriculumData=[
+["Number Systems","Class 10","Real Numbers","Rational/Irrational","Exponents",75,18,24],
+["Algebra","Class 10","Polynomials","Linear Equations","Quadratics",45,14,32],
+["Geometry","Class 10","Triangles","Circles","Constructions",90,25,28],
+["Statistics & Probability","Class 10","Mean/Median","Probability","Data Handling",20,4,18],
+["Trigonometry","Class 10","Ratios","Identities","Heights & Dist.",60,13,22],
+["Mensuration & Co-ordinate","Class 10","Areas","Surface/Vol","Co-ordinate Geo",35,6,16]
+];
+let listMode=false;
+function renderCurriculum(){
+ const cls=document.getElementById("cClass").value, sub=document.getElementById("cSubject").value, ch=document.getElementById("cChapter").value;
+ const data=curriculumData.filter(x=>(cls==="All Classes"||x[1]===cls)&&(ch==="All Chapters"||x[0]===ch));
+ const box=document.getElementById("curriculumCards"); box.className=listMode?"grid list":"grid";
+ box.style.gridTemplateColumns=listMode?"1fr":"";
+ box.innerHTML=data.map(x=>`<article class="card subject"><div class="tag">• ${x[1].toUpperCase()}</div><h3>${x[0]}</h3><ul><li>${x[2]}</li><li>${x[3]}</li><li>${x[4]}</li></ul><div class="progress"><i style="width:${x[5]}%"></i></div><div class="subject-foot"><span>${x[5]}% complete</span><span>${x[6]}/${x[7]}</span></div><div class="subject-actions"><button onclick="showPage('authoring')">View Bank</button><button onclick="showPage('test')">Mock Test</button></div></article>`).join("");
+}
+["cClass","cSubject","cChapter"].forEach(id=>document.getElementById(id).onchange=renderCurriculum);
+document.getElementById("gridBtn").onclick=()=>{listMode=false;document.getElementById("gridBtn").classList.add("active");document.getElementById("listBtn").classList.remove("active");renderCurriculum()};
+document.getElementById("listBtn").onclick=()=>{listMode=true;document.getElementById("listBtn").classList.add("active");document.getElementById("gridBtn").classList.remove("active");renderCurriculum()};
+
+let questions=[
+{text:"If HCF of 65 and 117 is expressible as 65m − 117, then value of m is:",type:"MCQ",marks:1,from:"NCERT Exemplar",chapter:"Number Systems",options:["4","2","1","3"],correct:1},
+{text:"The sum of exponents of prime factors in prime factorization of 196 is:",type:"MCQ",marks:1,from:"Outside Delhi [Set-I]",chapter:"Number Systems",options:["3","4","5","2"],correct:1},
+{text:"If α and β are zeroes of x² − 5x + 6, then α+β equals:",type:"MCQ",marks:1,from:"PYQ 2023",chapter:"Algebra",options:["5","-5","6","-6"],correct:0},
+{text:"Using Euclid's division algorithm, find the HCF of 135 and 225.",type:"Short Answers",marks:3,from:"NCERT",chapter:"Number Systems",options:[],correct:0}
+];
+function renderBank(){
+ const term=document.getElementById("bankSearch").value.toLowerCase();
+ const arr=questions.map((q,index)=>({...q,_index:index})).filter(q=>q.text.toLowerCase().includes(term));
+ document.getElementById("bankCount").textContent=questions.length+" questions";
+ document.getElementById("bankList").innerHTML=arr.map(q=>`<article class="qcard"><p>${q.text}</p><div class="meta"><span>${q.marks} mark${q.marks==1?"":"s"}</span><span>${q.type}</span><span>${q.chapter}</span><span>${q.from}</span></div><div class="q-actions"><button class="edit" data-action="edit" data-index="${q._index}">Edit</button><button data-action="duplicate" data-index="${q._index}">Duplicate</button><button class="delete" data-action="delete" data-index="${q._index}">Delete</button></div></article>`).join("");
+}
+document.getElementById("bankSearch").oninput=renderBank;
+let editingQuestionIndex=null;
+document.getElementById("bankList").addEventListener("click",e=>{
+ const btn=e.target.closest("button[data-action]"); if(!btn)return;
+ const index=Number(btn.dataset.index), action=btn.dataset.action, q=questions[index]; if(!q)return;
+ if(action==="delete"){if(!confirm("Delete this question from the Question Bank?"))return;questions.splice(index,1);renderBank();return;}
+ if(action==="duplicate"){questions.splice(index+1,0,{...q,options:q.options?[...q.options]:[]});renderBank();return;}
+ if(action==="edit"){
+   editingQuestionIndex=index;
+   document.getElementById("qNumber").value="Q"+(index+1); document.getElementById("qText").value=q.text;
+   document.getElementById("aType").value=q.type; document.getElementById("aMarks").value=q.marks;
+   document.getElementById("aFrom").value=q.from; document.getElementById("aChapter").value=q.chapter;
+   [...document.querySelectorAll(".option input")].forEach((input,i)=>input.value=(q.options&&q.options[i])||"");
+   document.querySelectorAll(".correct").forEach((b,i)=>{b.classList.toggle("on",i===q.correct);b.textContent=i===q.correct?"✓":["A","B","C","D"][i]});
+   if(q.image){imgData=q.image;const im=document.getElementById("imagePreview");im.src=q.image;im.classList.remove("hidden");document.getElementById("removeImg").classList.remove("hidden");}
+   document.getElementById("imageLabel").value=q.imageLabel||""; showPage("authoring"); document.getElementById("qText").focus();
+ }
+});
+
+let imgData=null;
+document.getElementById("uploadBtn").onclick=()=>document.getElementById("imageInput").click();
+document.getElementById("imageInput").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{imgData=r.result;const im=document.getElementById("imagePreview");im.src=imgData;im.classList.remove("hidden");document.getElementById("removeImg").classList.remove("hidden")};r.readAsDataURL(f)};
+document.getElementById("removeImg").onclick=()=>{imgData=null;document.getElementById("imagePreview").classList.add("hidden");document.getElementById("removeImg").classList.add("hidden");document.getElementById("imageInput").value=""};
+document.querySelectorAll(".correct").forEach(b=>b.onclick=()=>{document.querySelectorAll(".correct").forEach(x=>x.classList.remove("on"));b.classList.add("on")});
+document.getElementById("saveQuestion").onclick=()=>{
+ const text=document.getElementById("qText").value.trim(); if(!text){alert("Please enter the question text.");return}
+ const opts=[...document.querySelectorAll(".option input")].map(x=>x.value.trim()); const correct=[...document.querySelectorAll(".correct")].findIndex(x=>x.classList.contains("on"));
+ const updated={text,type:document.getElementById("aType").value,marks:Number(document.getElementById("aMarks").value||1),from:document.getElementById("aFrom").value||"Author created",chapter:document.getElementById("aChapter").value,options:opts,correct,image:imgData,imageLabel:document.getElementById("imageLabel").value};
+ if(editingQuestionIndex!==null){questions[editingQuestionIndex]=updated;editingQuestionIndex=null;renderBank();alert("Question updated.");}else{questions.unshift(updated);renderBank();alert("Question added to Question Bank.");}
+};
+document.getElementById("clearQuestion").onclick=()=>{editingQuestionIndex=null;document.getElementById("qText").value="";document.getElementById("aFrom").value="";document.getElementById("imageLabel").value=""};
+
+const sampleByType={MCQ:["If HCF of 65 and 117 is expressible as 65m − 117, then value of m is:"],"MCQ (Combination)":["The sum of exponents of prime factors in prime factorization of 196 is:"],"Assertion & Reasoning":["Assertion: √5 is irrational. Reason: The square root of every prime number is irrational."],"Short Answers":["Using Euclid's division algorithm, find the HCF of 135 and 225."],"Long Answers":["Prove that √3 is irrational."]};
+function buildTest(){
+ let total=0,count=0,arr=[];const checks=[...document.querySelectorAll(".typeCheck")], qty=[...document.querySelectorAll(".qty")];
+ checks.forEach((c,i)=>{if(!c.checked)return;const n=Number(qty[i].value||0),mark=Number(c.dataset.mark),type=c.parentElement.querySelector("b").textContent;total+=n*mark;count+=n;for(let j=0;j<n;j++){let match=questions.find(q=>q.type===type)||questions.find(q=>q.type.includes(type)||type.includes(q.type));arr.push({type,marks:mark,text:match?match.text:(sampleByType[type]||["Question from Question Bank"])[j%(sampleByType[type]||["x"]).length],from:match?match.from:"Question Bank"});}});
+ document.getElementById("totalMarks").textContent=total;document.getElementById("testCount").textContent=count;
+ document.getElementById("testQuestions").innerHTML=arr.length?arr.map((q,i)=>`<div class="question"><div class="qno">Q${i+1}</div><div><div class="text">${q.text}</div><div class="small">${q.type} • ${q.from}</div></div><div class="mark">${q.marks} mark${q.marks==1?"":"s"}</div></div>`).join(""):'<div class="empty">Select question types and enter quantities above to populate the test.</div>';
+ return arr;
+}
+document.querySelectorAll(".typeCheck,.qty").forEach(x=>x.oninput=buildTest);
+document.getElementById("previewTest").onclick=()=>{const arr=buildTest();document.getElementById("previewMeta").textContent=`${document.getElementById("tClass").value} • ${document.getElementById("tSubject").value} • ${document.getElementById("tChapter").value} • ${document.getElementById("timer").value} minutes`;document.getElementById("previewBody").innerHTML=arr.map((q,i)=>`<div class="qcard" style="margin-bottom:8px"><b>Q${i+1}.</b> ${q.text}<div class="muted" style="margin-top:7px">${q.marks} marks</div></div>`).join("")||'<div class="muted">No questions selected.</div>';document.getElementById("modal").classList.remove("hidden")};
+document.getElementById("closeModal").onclick=()=>document.getElementById("modal").classList.add("hidden");
+document.getElementById("publishTest").onclick=()=>{const arr=buildTest();if(!arr.length){alert("Please select question types and quantities.");return}alert("Test published successfully. In production, the test will be saved to the database.");};
+
+renderCurriculum();renderBank();showPage("curriculum");
+</script>
+</body>
+</html>

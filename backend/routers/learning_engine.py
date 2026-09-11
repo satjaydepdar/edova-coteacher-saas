@@ -26,15 +26,6 @@ router = APIRouter()
 
 
 
-def guarded_chapter(conn, chapter_id: str, tenant_id):
-    row = q(conn, "SELECT s.id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
-                  "WHERE c.id = %s AND (s.tenant_id IS NULL OR s.tenant_id = %s)",
-            (chapter_id, tenant_id)).fetchone()
-    if row is None:
-        raise HTTPException(404, "chapter not found")  # also cross-tenant (IDOR-safe)
-    return row[0]  # subject_id
-
-
 def _principal_clause(student_id, key_id):
     """One row per principal: student user OR classroom device key (migration 013).
     Used by upsert_progress / record_time_event / progress reads — keep in lockstep."""
@@ -97,114 +88,6 @@ def record_time_event(conn, module_id: str, delta_seconds: int, event_id: str,
     q(conn, f"UPDATE student_progress SET time_spent = time_spent + %s WHERE {where} AND module_id = %s",
       (delta_seconds, pid, module_id))
     return True
-
-
-# --- Practice Questions: fully independent of Content Shelf's subject_tree(). That
-# endpoint's chapter list is scoped to published VIDEO/LAB/QUIZ modules only (its own
-# concern); Practice Questions needs chapters that have a live question bank instead,
-# which is a different, unrelated condition -- hence its own endpoint rather than a
-# shared/overloaded one, so a change to either page can never leak into the other. ---
-@router.get("/api/student/practice/chapters")
-def practice_chapters(subject_id: str, authorization: str = Header(...)):
-    p = current_principal(authorization)
-    if not p["features"]["allow_quiz"]:
-        raise HTTPException(403, "quiz access not included in your plan")
-    with db() as conn:
-        subj = q(conn, "SELECT tenant_id FROM subjects WHERE id = %s", (subject_id,)).fetchone()
-        if subj is None or (subj[0] is not None and str(subj[0]) != str(p["tenant_id"])):
-            raise HTTPException(404, "subject not found")
-        rows = q(conn,
-            "SELECT DISTINCT c.id, c.name, c.sequence_order FROM chapters c "
-            "JOIN authored_questions aq ON aq.chapter_id = c.id AND aq.status != 'ARCHIVED' "
-            "WHERE c.subject_id = %s ORDER BY c.sequence_order", (subject_id,)).fetchall()
-    return {"chapters": [{"chapter_id": str(r[0]), "chapter_name": r[1], "sequence_order": r[2]} for r in rows]}
-
-
-# --- Practice Questions: ad-hoc generation from authored_questions (the versioned
-# Authoring Studio bank), scoped to subject+chapter with a caller-chosen count. No
-# admin pre-configuration step needed, unlike the legacy quiz_configurations engine
-# below. Ungraded/stateless by design -- nothing is persisted since there's no
-# submit/grade flow for practice sets (unlike quiz_generated_sets). ---
-class PracticeGenerateIn(BaseModel):
-    subject_id: str
-    chapter_id: str
-    count: int
-
-
-@router.post("/api/student/practice/generate")
-def practice_generate(body: PracticeGenerateIn, authorization: str = Header(...)):
-    p = current_principal(authorization)
-    if not p["features"]["allow_quiz"]:
-        raise HTTPException(403, "quiz access not included in your plan")
-    if body.count <= 0:
-        raise HTTPException(422, "count must be positive")
-
-    with db() as conn:
-        actual_subject_id = guarded_chapter(conn, body.chapter_id, p["tenant_id"])
-        if str(actual_subject_id) != body.subject_id:
-            raise HTTPException(404, "chapter not found")
-
-        rows = q(conn,
-            "SELECT v.id, v.question_type, v.question_text, v.options, v.marks, v.passage "
-            "FROM authored_questions aq JOIN authored_question_versions v ON v.id = aq.current_version_id "
-            "WHERE aq.chapter_id = %s AND aq.status != 'ARCHIVED' "
-            "ORDER BY RANDOM() LIMIT %s",
-            (body.chapter_id, body.count)).fetchall()
-
-    delivered = len(rows)
-    return {
-        "questions": [
-            {"version_id": str(r[0]), "question_type": r[1], "question_text": r[2],
-             "options": [{"key": o["key"], "text": o["text"]} for o in r[3]], "marks": float(r[4]),
-             "passage": r[5]}
-            # correct flag and explanation deliberately withheld here -- explanation is
-            # only released by practice_check, once the student has actually answered.
-            for r in rows
-        ],
-        "metadata": {"total_requested": body.count, "total_delivered": delivered, "shortfall": delivered < body.count},
-    }
-
-
-class PracticeAnswerIn(BaseModel):
-    version_id: str
-    selected_key: str
-
-
-class PracticeCheckIn(BaseModel):
-    answers: list[PracticeAnswerIn]
-
-
-@router.post("/api/student/practice/check")
-def practice_check(body: PracticeCheckIn, authorization: str = Header(...)):
-    p = current_principal(authorization)
-    if not p["features"]["allow_quiz"]:
-        raise HTTPException(403, "quiz access not included in your plan")
-
-    version_ids = [a.version_id for a in body.answers]
-    info_by_id = {}
-    if version_ids:
-        with db() as conn:
-            rows = q(conn,
-                "SELECT v.id, v.options, s.tenant_id, v.explanation FROM authored_question_versions v "
-                "JOIN authored_questions aq ON aq.current_version_id = v.id "
-                "JOIN chapters c ON c.id = aq.chapter_id JOIN subjects s ON s.id = c.subject_id "
-                "WHERE v.id = ANY(%s)", (version_ids,)).fetchall()
-        for vid, options, tenant_id, explanation in rows:
-            if tenant_id is not None and str(tenant_id) != str(p["tenant_id"]):
-                continue  # cross-tenant version_id -- drop silently, never leak its answer key
-            correct_key = next((o["key"] for o in options if o.get("correct")), None)
-            if correct_key is not None:
-                info_by_id[str(vid)] = (correct_key, explanation)
-
-    results = []
-    for a in body.answers:
-        info = info_by_id.get(a.version_id)
-        if info is None:
-            continue
-        correct_key, explanation = info
-        results.append({"version_id": a.version_id, "correct": a.selected_key == correct_key,
-                        "correct_key": correct_key, "explanation": explanation})
-    return {"results": results}
 
 
 # --- Quiz generation (Phase 4 writer side: persists the served set) ---

@@ -111,31 +111,6 @@ export interface PracticeOption {
   text: string
 }
 
-export interface PracticeQuestion {
-  version_id: string
-  question_type: string
-  question_text: string
-  options: PracticeOption[]
-  marks: number
-}
-
-export interface PracticeSet {
-  questions: PracticeQuestion[]
-  metadata: { total_requested: number; total_delivered: number; shortfall: boolean }
-}
-
-export interface PracticeChapter {
-  chapter_id: string
-  chapter_name: string
-  sequence_order: number
-}
-
-export interface PracticeCheckResult {
-  version_id: string
-  correct: boolean
-  correct_key: string
-}
-
 export interface StudentTest {
   test_id: string
   title: string
@@ -263,6 +238,11 @@ export function setToken(t: string | null) {
   void storageSet(TOKEN_KEY, t)
 }
 
+/** For other API clients (e.g. trigApiClient) that need the same auth token. */
+export function getToken(): string | null {
+  return token
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -299,26 +279,6 @@ export const api = {
     call<GeneratedQuiz>(`${BASE}/api/v1/engine/quiz/generate`, {
       method: 'POST',
       body: JSON.stringify({ module_id: moduleId }),
-    }),
-  /** Ad-hoc practice set: subject + chapter + a caller-chosen count, drawn from the
-   *  Authoring Studio's versioned question bank. No admin pre-configuration needed. */
-  practiceGenerate: (subjectId: string, chapterId: string, count: number) =>
-    call<PracticeSet>(`${BASE}/api/student/practice/generate`, {
-      method: 'POST',
-      body: JSON.stringify({ subject_id: subjectId, chapter_id: chapterId, count }),
-    }),
-  /** Practice Questions' own chapter list -- chapters with a live question bank.
-   *  Deliberately NOT api.tree()/subject_tree(): that endpoint is Content Shelf's
-   *  own concern (published video/lab/quiz modules only) and must never be
-   *  affected by what Practice Questions needs, or vice versa. */
-  practiceChapters: (subjectId: string) =>
-    call<{ chapters: PracticeChapter[] }>(`${BASE}/api/student/practice/chapters?subject_id=${subjectId}`),
-  /** Score selected answers for a generated practice set. Correct keys are only
-   *  revealed here, per question, after the caller has already picked an answer. */
-  practiceCheck: (answers: { version_id: string; selected_key: string }[]) =>
-    call<{ results: PracticeCheckResult[] }>(`${BASE}/api/student/practice/check`, {
-      method: 'POST',
-      body: JSON.stringify({ answers }),
     }),
   /** Tests a teacher has assigned -- tenant-wide or to the caller's own section
    *  (device-token sessions have no section identity, so they only ever see the

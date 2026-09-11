@@ -1,5 +1,6 @@
 """Seed Phase 3A fixtures: passwords, multi-tenant Alice, TC3 positive control."""
 import psycopg
+import _bootstrap  # noqa: F401
 from main import DB_DSN, hash_password
 
 PASSWORD = "testpass"

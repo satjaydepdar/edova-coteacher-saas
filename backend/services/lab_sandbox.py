@@ -1,6 +1,6 @@
 """Subprocess code execution for POST /api/v1/engine/lab/execute.
 
-Contract prototype: migration/index.html "Lab Sandbox Engine"
+Contract prototype: temp/migration/index.html "Lab Sandbox Engine"
 (request: code/language/timeout_seconds/memory_limit_mb/stdin;
  response: execution{exit_code,stdout,stderr,cpu_time_ms,peak_memory_mb,timed_out}).
 

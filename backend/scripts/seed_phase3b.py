@@ -1,5 +1,6 @@
 """Seed Phase 3B fixtures: quiz module, coming-soon video, draft-only chapter, Shelbyville."""
 import psycopg
+import _bootstrap  # noqa: F401
 from main import DB_DSN
 
 with psycopg.connect(DB_DSN, autocommit=True) as conn:

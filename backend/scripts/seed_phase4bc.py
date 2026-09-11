@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 import psycopg
+import _bootstrap  # noqa: F401
 import s3_client
 from main import DB_DSN, _tool
 

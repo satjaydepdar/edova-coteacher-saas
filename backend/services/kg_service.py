@@ -3,14 +3,14 @@ import glob
 import logging
 from typing import List, Dict, Set, Optional, Any
 from fastapi import APIRouter, HTTPException, Query, Body
-from kg_schemas import (
+from schemas.kg_schemas import (
     ChapterKnowledgeGraph,
     GraphValidationResult,
     PrerequisiteCheckResponse,
     PrerequisiteCheckPayload,
     ConceptNode,
 )
-from kg_compiler import (
+from services.kg_compiler import (
     MarkdownKGParser,
     KnowledgeGraphValidator,
     KnowledgeGraphEngine,
@@ -26,7 +26,7 @@ GRAPH_ENGINES: Dict[str, KnowledgeGraphEngine] = {}
 
 def find_and_load_all_graphs():
     global COMPILED_GRAPHS, GRAPH_ENGINES
-    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     kg_root_dir = os.path.join(backend_dir, "data", "curriculum_knowledge_graph")
 
     if not os.path.exists(kg_root_dir):

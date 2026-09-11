@@ -13,6 +13,7 @@ import uuid
 from pathlib import Path
 import psycopg
 import imageio_ffmpeg
+import _bootstrap  # noqa: F401
 import s3_client
 
 import sys

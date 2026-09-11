@@ -1,14 +1,14 @@
 import logging
 from typing import Dict, List, Set, Optional, Any
 from collections import defaultdict
-from teacher_schemas import (
+from schemas.teacher_schemas import (
     ConceptHeatmapNode,
     BottleneckAlert,
     StudentInterventionCard,
     ClassroomHeatmapResponse,
     RecordMasteryRequest,
 )
-from kg_service import COMPILED_GRAPHS, find_and_load_all_graphs
+from services.kg_service import COMPILED_GRAPHS, find_and_load_all_graphs
 
 logger = logging.getLogger("edova.teacher_analytics")
 

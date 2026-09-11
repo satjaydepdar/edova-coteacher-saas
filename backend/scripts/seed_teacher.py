@@ -1,5 +1,6 @@
 """Seed teacher fixtures: tier-4 teacher, tier-1 teacher, expired-school teacher, seats."""
 import psycopg
+import _bootstrap  # noqa: F401
 from main import DB_DSN, hash_password
 
 with psycopg.connect(DB_DSN, autocommit=True) as conn:

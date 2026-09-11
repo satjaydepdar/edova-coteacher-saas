@@ -3,7 +3,7 @@ import re
 import logging
 from typing import Dict, List, Set, Optional, Tuple, Any
 from collections import defaultdict, deque
-from kg_schemas import (
+from schemas.kg_schemas import (
     ConceptNode,
     ChapterKnowledgeGraph,
     GraphValidationResult,

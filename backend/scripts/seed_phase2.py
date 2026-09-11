@@ -1,5 +1,6 @@
 """Seed Phase 2 CMS fixtures: platform tenant + platform admin + school admin."""
 import psycopg
+import _bootstrap  # noqa: F401
 from main import DB_DSN, hash_password
 
 with psycopg.connect(DB_DSN, autocommit=True) as conn:

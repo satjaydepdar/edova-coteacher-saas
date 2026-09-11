@@ -4,6 +4,7 @@ signup -> plans (included_seats present) -> onboard -> create-order (plan-derive
 import secrets
 import psycopg
 from fastapi.testclient import TestClient
+import _bootstrap  # noqa: F401
 import main
 
 client = TestClient(main.app)

@@ -65,9 +65,9 @@ function TestDetailView({ test, onBack }: { test: StudentTestDetail; onBack: () 
 
 export default function Practice() {
   const [error, setError] = useState<string | null>(null)
-
   const [tests, setTests] = useState<StudentTest[]>([])
   const [viewingTest, setViewingTest] = useState<StudentTestDetail | null>(null)
+  const [showAssignedTests, setShowAssignedTests] = useState(false)
 
   useEffect(() => {
     api.studentTests().then((r) => setTests(r.tests)).catch(() => setTests([]))
@@ -89,80 +89,68 @@ export default function Practice() {
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1100px] mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-display text-[22px] font-bold tracking-tight flex items-center gap-3">
-          <span className="w-9 h-9 rounded-xl bg-forest text-white flex items-center justify-center">
-            <ListChecks className="w-5 h-5" />
-          </span>
-          Practice Questions
-        </h2>
-        <Link
-          to="/"
-          className="h-9 px-4 rounded-full bg-white border border-black/10 text-[13px] font-medium flex items-center gap-1.5 hover:bg-black/5 transition-colors shadow-sm"
-        >
-          <ArrowLeft className="w-4 h-4" /> Go back
-        </Link>
-      </div>
-
+    <div className="min-h-full w-full bg-[#FBF9F3] text-[#1A221E] antialiased">
+      {/* Assigned Tests Notification / Drawer Banner (if teacher has scheduled tests) */}
       {tests.length > 0 && (
-        <div className="mb-8">
-          <div className="text-[11px] font-semibold uppercase tracking-wide opacity-40 mb-3">Assigned to you</div>
+        <div className="border-b border-[#EDE8DD] bg-[#FCFBF8] px-6 py-2 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 font-mono">
+            <span className="w-2 h-2 rounded-full bg-[#DDB56E] animate-pulse" />
+            <span className="font-semibold text-[#1A221E]">
+              {openTest ? `Assigned Test Available: ${openTest.title}` : `${tests.length} tests in curriculum`}
+            </span>
+            {openTest && (
+              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${STATUS_STYLE.OPEN}`}>
+                {statusLabel(openTest)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {openTest && (
+              <button
+                onClick={() => openTestPreview(openTest.test_id)}
+                className="h-7 px-3 rounded-full bg-[#1A221E] text-white text-[11px] font-medium hover:bg-[#232E27] transition-colors"
+              >
+                Open Assigned Test
+              </button>
+            )}
+            <button
+              onClick={() => setShowAssignedTests(!showAssignedTests)}
+              className="text-[11px] font-mono text-[#6B7280] hover:text-[#1A221E] underline"
+            >
+              {showAssignedTests ? 'Hide List' : 'View All Tests'}
+            </button>
+          </div>
+        </div>
+      )}
 
-          {openTest && (
-            <div className="test-hero bg-white rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-500 p-5 mb-3 flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="font-display font-semibold text-[15px]">{openTest.title}</span>
-                  <span className={`status-pill text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${STATUS_STYLE.OPEN}`}>
-                    {statusLabel(openTest)}
-                  </span>
-                </div>
-                <div className="text-[12px] opacity-60 flex flex-wrap gap-3">
-                  <span>{openTest.subject_name}</span>
-                  <span>{openTest.question_count} questions</span>
-                  <span>{openTest.total_marks} marks</span>
-                  <span>{openTest.timer_minutes} min</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-2 shrink-0">
-                <span className="text-[11px] opacity-50">Closes {new Date(openTest.closes_at).toLocaleDateString()}</span>
-                <div className="flex gap-2">
-                  <button onClick={() => openTestPreview(openTest.test_id)} className="h-8 px-3 rounded-full text-[12px] font-medium opacity-70 hover:opacity-100">Preview</button>
-                  <button onClick={() => openTestPreview(openTest.test_id)} className="h-8 px-3 rounded-full bg-forest text-white text-[12px] font-semibold flex items-center gap-1.5">
-                    <Download className="w-3.5 h-3.5" /> Download PDF
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {otherTests.length > 0 && (
-            <div className="bg-white rounded-2xl border border-black/[0.06] divide-y divide-black/[0.05]">
-              {otherTests.map((t) => (
-                <div key={t.test_id} className="test-row flex items-center gap-3 px-4 py-2.5">
-                  <span className="text-[12px] font-medium opacity-70 flex-1 truncate">{t.title}</span>
+      {showAssignedTests && tests.length > 0 && (
+        <div className="p-4 bg-white border-b border-[#EDE8DD] max-w-[960px] mx-auto my-3 rounded-2xl card-shadow">
+          <div className="text-[11px] font-semibold uppercase tracking-wide opacity-40 mb-3 font-mono">Assigned Tests</div>
+          <div className="divide-y divide-[#EDE8DD]">
+            {tests.map((t) => (
+              <div key={t.test_id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                <span className="font-medium text-[#1A221E] truncate">{t.title}</span>
+                <div className="flex items-center gap-3 shrink-0">
                   <span className={`status-pill text-[9.5px] font-bold uppercase px-2 py-0.5 rounded-full ${STATUS_STYLE[t.status]}`}>
                     {statusLabel(t)}
                   </span>
-                  <span className="text-[11px] opacity-40 hidden sm:inline">{t.question_count} q • {t.total_marks} marks</span>
                   <button
                     onClick={() => openTestPreview(t.test_id)}
                     disabled={t.status === 'UPCOMING'}
-                    className="text-[11px] font-medium opacity-60 hover:opacity-100 disabled:opacity-30"
+                    className="text-[11px] font-mono text-[#2E5A3A] hover:underline disabled:opacity-30"
                   >
-                    Download PDF
+                    Preview / Download
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {error && (
-        <div className="bg-white rounded-[16px] border border-black/[0.06] p-8 text-center mb-4">
-          <p className="text-[14px] font-medium">{error}</p>
+        <div className="bg-white rounded-[16px] border border-[#EDE8DD] p-4 text-center mx-6 my-3 card-shadow">
+          <p className="text-[13px] font-medium text-red-700">{error}</p>
         </div>
       )}
 

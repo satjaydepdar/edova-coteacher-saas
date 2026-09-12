@@ -215,7 +215,7 @@ CREATE TABLE public.activation_keys (
     activated_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT activation_keys_max_devices_check CHECK ((max_devices > 0)),
-    CONSTRAINT activation_keys_status_check CHECK (((status)::text = ANY ((ARRAY['UNUSED'::character varying, 'ACTIVE'::character varying, 'REVOKED'::character varying])::text[])))
+    CONSTRAINT activation_keys_status_check CHECK (((status)::text = ANY (ARRAY[('UNUSED'::character varying)::text, ('ACTIVE'::character varying)::text, ('REVOKED'::character varying)::text])))
 );
 
 
@@ -269,8 +269,8 @@ CREATE TABLE public.authored_question_versions (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     passage text,
     explanation text,
-    CONSTRAINT authored_question_versions_difficulty_check CHECK (((difficulty)::text = ANY ((ARRAY['EASY'::character varying, 'MEDIUM'::character varying, 'HARD'::character varying])::text[]))),
-    CONSTRAINT authored_question_versions_question_type_check CHECK (((question_type)::text = ANY ((ARRAY['MCQ'::character varying, 'MCQ_COMBINATION'::character varying, 'ASSERTION_REASONING'::character varying, 'SHORT_ANSWER'::character varying, 'LONG_ANSWER'::character varying, 'FILL_IN_THE_BLANKS'::character varying, 'MATCH_THE_FOLLOWING'::character varying, 'NUMERICAL'::character varying, 'CASE_STUDY'::character varying])::text[])))
+    CONSTRAINT authored_question_versions_difficulty_check CHECK (((difficulty)::text = ANY (ARRAY[('EASY'::character varying)::text, ('MEDIUM'::character varying)::text, ('HARD'::character varying)::text]))),
+    CONSTRAINT authored_question_versions_question_type_check CHECK (((question_type)::text = ANY (ARRAY[('MCQ'::character varying)::text, ('MCQ_COMBINATION'::character varying)::text, ('ASSERTION_REASONING'::character varying)::text, ('SHORT_ANSWER'::character varying)::text, ('LONG_ANSWER'::character varying)::text, ('FILL_IN_THE_BLANKS'::character varying)::text, ('MATCH_THE_FOLLOWING'::character varying)::text, ('NUMERICAL'::character varying)::text, ('CASE_STUDY'::character varying)::text])))
 );
 
 
@@ -288,7 +288,7 @@ CREATE TABLE public.authored_questions (
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     topic_id uuid,
     source_papers jsonb DEFAULT '[]'::jsonb NOT NULL,
-    CONSTRAINT authored_questions_status_check CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'SUBMITTED'::character varying, 'IN_REVIEW'::character varying, 'REJECTED'::character varying, 'APPROVED'::character varying, 'PUBLISHED'::character varying, 'ARCHIVED'::character varying])::text[])))
+    CONSTRAINT authored_questions_status_check CHECK (((status)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('SUBMITTED'::character varying)::text, ('IN_REVIEW'::character varying)::text, ('REJECTED'::character varying)::text, ('APPROVED'::character varying)::text, ('PUBLISHED'::character varying)::text, ('ARCHIVED'::character varying)::text])))
 );
 
 
@@ -406,7 +406,7 @@ CREATE TABLE public.modules (
     is_published boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     topic_id uuid,
-    CONSTRAINT modules_module_type_check CHECK (((module_type)::text = ANY ((ARRAY['VIDEO'::character varying, 'LAB'::character varying, 'QUIZ'::character varying])::text[])))
+    CONSTRAINT modules_module_type_check CHECK (((module_type)::text = ANY (ARRAY[('VIDEO'::character varying)::text, ('LAB'::character varying)::text, ('QUIZ'::character varying)::text])))
 );
 
 
@@ -442,7 +442,7 @@ CREATE TABLE public.question_bank (
     correct_answer character varying(5) NOT NULL,
     explanation text NOT NULL,
     content_hash text NOT NULL,
-    CONSTRAINT question_bank_difficulty_check CHECK (((difficulty)::text = ANY ((ARRAY['EASY'::character varying, 'MEDIUM'::character varying, 'HARD'::character varying])::text[])))
+    CONSTRAINT question_bank_difficulty_check CHECK (((difficulty)::text = ANY (ARRAY[('EASY'::character varying)::text, ('MEDIUM'::character varying)::text, ('HARD'::character varying)::text])))
 );
 
 
@@ -521,7 +521,7 @@ CREATE TABLE public.student_progress (
     activation_key_id uuid,
     CONSTRAINT student_progress_one_principal CHECK (((student_id IS NOT NULL) OR (activation_key_id IS NOT NULL))),
     CONSTRAINT student_progress_progress_pct_check CHECK (((progress_pct >= 0) AND (progress_pct <= 100))),
-    CONSTRAINT student_progress_status_check CHECK (((status)::text = ANY ((ARRAY['not_started'::character varying, 'in_progress'::character varying, 'completed'::character varying])::text[]))),
+    CONSTRAINT student_progress_status_check CHECK (((status)::text = ANY (ARRAY[('not_started'::character varying)::text, ('in_progress'::character varying)::text, ('completed'::character varying)::text]))),
     CONSTRAINT student_progress_time_spent_check CHECK ((time_spent >= 0))
 );
 
@@ -606,8 +606,8 @@ CREATE TABLE public.tenants (
     type character varying(20) NOT NULL,
     status character varying(20) NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT tenants_status_check CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'SUSPENDED'::character varying, 'EXPIRED'::character varying])::text[]))),
-    CONSTRAINT tenants_type_check CHECK (((type)::text = ANY ((ARRAY['SCHOOL'::character varying, 'INDIVIDUAL'::character varying, 'PLATFORM'::character varying])::text[])))
+    CONSTRAINT tenants_status_check CHECK (((status)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('SUSPENDED'::character varying)::text, ('EXPIRED'::character varying)::text]))),
+    CONSTRAINT tenants_type_check CHECK (((type)::text = ANY (ARRAY[('SCHOOL'::character varying)::text, ('INDIVIDUAL'::character varying)::text, ('PLATFORM'::character varying)::text])))
 );
 
 
@@ -770,7 +770,7 @@ CREATE TABLE public.user_tenant_mappings (
     tenant_id uuid NOT NULL,
     role character varying(20) NOT NULL,
     section_id uuid,
-    CONSTRAINT user_tenant_mappings_role_check CHECK (((role)::text = ANY ((ARRAY['STUDENT'::character varying, 'ADMIN'::character varying, 'TEACHER'::character varying])::text[])))
+    CONSTRAINT user_tenant_mappings_role_check CHECK (((role)::text = ANY (ARRAY[('STUDENT'::character varying)::text, ('ADMIN'::character varying)::text, ('TEACHER'::character varying)::text])))
 );
 
 
@@ -800,7 +800,7 @@ CREATE TABLE public.video_payloads (
     s3_key_prefix text,
     transcode_status character varying(20) DEFAULT 'READY'::character varying NOT NULL,
     transcode_error text,
-    CONSTRAINT video_payloads_transcode_status_check CHECK (((transcode_status)::text = ANY ((ARRAY['PROCESSING'::character varying, 'READY'::character varying, 'FAILED'::character varying])::text[])))
+    CONSTRAINT video_payloads_transcode_status_check CHECK (((transcode_status)::text = ANY (ARRAY[('PROCESSING'::character varying)::text, ('READY'::character varying)::text, ('FAILED'::character varying)::text])))
 );
 
 
@@ -1006,6 +1006,7 @@ INSERT INTO public.admin_audit_log VALUES ('4d8e0dd8-d24f-4f4c-ae24-ee26c74215e4
 INSERT INTO public.admin_audit_log VALUES ('9fc70711-31c7-4cc7-a65b-4329a1ad92ca', '2026-08-19 13:26:39.585229+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/chapters/a0f02a96-79a9-4923-8d6b-f009befb7669/topics', 201, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('13187a90-7da8-455b-b226-b58d47964efe', '2026-08-19 13:26:40.032978+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/chapters/a0f02a96-79a9-4923-8d6b-f009befb7669/topics', 201, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('eac7b982-21a7-4cbb-8469-01a4d4ebb89b', '2026-08-19 13:26:40.653549+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/chapters/a0f02a96-79a9-4923-8d6b-f009befb7669/modules', 200, '127.0.0.1');
+INSERT INTO public.admin_audit_log VALUES ('72587cb7-a42b-4723-bb7d-76bbb4c8aba0', '2026-08-19 17:47:23.499859+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/tenants', 201, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('3bd32fdc-f014-460d-b7c5-c7b0de2300fb', '2026-08-19 13:26:41.383872+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/chapters/a0f02a96-79a9-4923-8d6b-f009befb7669/modules', 200, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('bd0618bf-543b-4810-8de4-082aa8c2236a', '2026-08-19 13:26:42.017948+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/chapters/a0f02a96-79a9-4923-8d6b-f009befb7669/modules', 422, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('13d596e5-37ae-4d78-9470-8fb880ae8ff1', '2026-08-19 13:26:43.220739+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'PATCH', '/admin/modules/227cbe41-9623-494a-b286-80e18cd1696e', 200, '127.0.0.1');
@@ -1066,7 +1067,6 @@ INSERT INTO public.admin_audit_log VALUES ('9b0e0149-3b45-4ebb-aa9b-19f23f944743
 INSERT INTO public.admin_audit_log VALUES ('ee64aca0-7d53-41dc-b320-db548d31b76e', '2026-08-19 13:29:58.810864+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/chapters/90b10d0d-da44-427a-b0af-7aa073ce01b1/modules', 200, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('9d29df66-5ed8-4890-91fb-e4b125be7cbd', '2026-08-19 13:29:59.390279+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'PATCH', '/admin/modules/0b631a05-0b8a-4e04-aa87-d9187c42cef6', 200, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('09b14c8e-6b84-4a11-8bd5-3e350b0e65a9', '2026-08-19 13:28:56.840838+05:30', NULL, 'PATCH', '/admin/subjects/d1503c00-aaec-49e2-a188-5787398b9208', 403, '127.0.0.1');
-INSERT INTO public.admin_audit_log VALUES ('72587cb7-a42b-4723-bb7d-76bbb4c8aba0', '2026-08-19 17:47:23.499859+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/tenants', 201, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('467f4b50-af47-4c2e-8793-18a91810808f', '2026-08-19 17:47:23.780533+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/tenants', 400, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('b182ae56-aa30-451d-8fbb-67a41dec7363', '2026-08-19 17:47:24.397023+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/tenants/430bf804-02b9-4f20-94c8-59d6304d7663/subscriptions', 201, '127.0.0.1');
 INSERT INTO public.admin_audit_log VALUES ('6ef0f9c6-b0bc-496e-a821-93b6b56a0a19', '2026-08-19 17:47:24.905262+05:30', '4067a40f-8539-41f9-862c-571c6ce2960c', 'POST', '/admin/tenants/430bf804-02b9-4f20-94c8-59d6304d7663/subscriptions', 400, '127.0.0.1');
@@ -2556,6 +2556,7 @@ INSERT INTO public.tenants VALUES ('a7da8631-1a6e-4f68-b34d-528d53718c1a', 'Prac
 INSERT INTO public.tenants VALUES ('53170a7f-6c36-4ae4-b678-3ba74aaabaca', 'PracticeGenTest Other Tenant', 'SCHOOL', 'ACTIVE', '2026-08-30 04:10:38.112195+05:30');
 INSERT INTO public.tenants VALUES ('b74b6efd-6383-43dd-87b0-af95dd01dee2', 'DraftSaveTest Tenant', 'SCHOOL', 'ACTIVE', '2026-08-30 04:10:50.976222+05:30');
 INSERT INTO public.tenants VALUES ('33cde123-5dc4-406c-80cf-902c10a30130', 'RichTextTest Tenant', 'SCHOOL', 'ACTIVE', '2026-08-30 04:11:08.397149+05:30');
+INSERT INTO public.tenants VALUES ('4c49d0fd-ac30-40a2-8119-e5888e141a93', 'Edova Platform', 'PLATFORM', 'ACTIVE', '2026-09-11 16:30:44.485998+05:30');
 
 
 --
@@ -2689,7 +2690,6 @@ INSERT INTO public.user_tenant_mappings VALUES ('19b94a44-21bb-4409-9d69-48d9a76
 INSERT INTO public.user_tenant_mappings VALUES ('e28fa962-964a-4587-92ea-350af5a3926f', '6c721ff8-4c8a-4ba8-9254-e693cb8947f9', '499eff2a-78ca-42d2-97dd-6abcdf187638', 'STUDENT', NULL);
 INSERT INTO public.user_tenant_mappings VALUES ('47785a0f-438a-49f0-a407-f57d4b21cf0f', '3f1233f9-1151-41f8-8039-aadd22458347', '6a1c22c0-d426-4ba0-927b-b6fe56783ef0', 'STUDENT', NULL);
 INSERT INTO public.user_tenant_mappings VALUES ('813f2f8d-b62d-49e7-8a93-18f8f4780620', '4067a40f-8539-41f9-862c-571c6ce2960c', 'aa9f9892-ca30-4b9f-9964-dd4db941d887', 'ADMIN', NULL);
-INSERT INTO public.user_tenant_mappings VALUES ('1548ec25-f744-44a9-9c57-520ee708d34a', '90e7b4eb-9ffa-49f3-8b08-93c4685c26e5', '76702573-3bbe-4f30-b55e-0aa08213ae2d', 'ADMIN', NULL);
 INSERT INTO public.user_tenant_mappings VALUES ('73533cf5-5936-442d-9aa1-40c2a2210a04', 'bcd51107-f970-4a5e-a0ae-f40c9806ba8e', '6a1c22c0-d426-4ba0-927b-b6fe56783ef0', 'TEACHER', NULL);
 INSERT INTO public.user_tenant_mappings VALUES ('580b5643-276c-4154-9924-4e51c76c8553', '6471ed38-1245-472c-8623-04c87daf34c0', '6f9f8831-a04c-430a-879f-114c4a55c7d4', 'TEACHER', NULL);
 INSERT INTO public.user_tenant_mappings VALUES ('90b901b2-0e17-4bea-ba5c-65a2e1978bac', '1500cc7c-68ed-48fe-a99b-1e41ef87f6ff', 'd0d5aa50-bc2a-4f2c-b392-811bab9c3707', 'TEACHER', NULL);
@@ -2741,6 +2741,8 @@ INSERT INTO public.user_tenant_mappings VALUES ('99e13813-0f7f-4113-81b7-5dbad1e
 INSERT INTO public.user_tenant_mappings VALUES ('dc76718f-dc16-464e-aaa6-4fc5a98453d8', 'e32bbc08-2634-451a-9656-872b019f6462', 'e75291f5-7558-4d40-aa97-9e7a94cacf7f', 'STUDENT', 'd19af03c-9aa4-48b0-9b3d-699cdafb732d');
 INSERT INTO public.user_tenant_mappings VALUES ('1db753d5-243a-4c6a-8e9c-1c526ad7d525', '1d009a60-440b-458b-90cd-7a22f617f842', '20d3a1c5-c67a-4f70-a5d7-978e200fcde5', 'TEACHER', NULL);
 INSERT INTO public.user_tenant_mappings VALUES ('6f1a65a6-37bc-4d88-8d2f-55eeb1f173c5', '47163336-6603-49a4-87db-1282de388df8', '670c6539-af8d-4c92-ba11-70cc321dd0b7', 'TEACHER', NULL);
+INSERT INTO public.user_tenant_mappings VALUES ('c1cd00a7-0d22-4e83-be62-3bcad775641b', '4067a40f-8539-41f9-862c-571c6ce2960c', '4c49d0fd-ac30-40a2-8119-e5888e141a93', 'ADMIN', NULL);
+INSERT INTO public.user_tenant_mappings VALUES ('1548ec25-f744-44a9-9c57-520ee708d34a', '90e7b4eb-9ffa-49f3-8b08-93c4685c26e5', '76702573-3bbe-4f30-b55e-0aa08213ae2d', 'ADMIN', NULL);
 
 
 --

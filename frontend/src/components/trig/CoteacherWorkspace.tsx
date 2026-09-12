@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  RotateCcw, BookOpen, ChevronDown, ChevronUp, BrainCircuit, BookMarked,
-  Dices, Lock, Lightbulb, Check, Play, Sparkles, X,
+  RotateCcw,
+  Lightbulb,
+  Sparkles,
+  X,
+  RotateCw,
 } from 'lucide-react'
 import MathDisplay from './MathDisplay'
 import FormattedMathText from './FormattedMathText'
-import LatexMathEditor from './LatexMathEditor'
-import EdovaEquationBoard from './EdovaEquationBoard'
-import ProgressChart from './ProgressChart'
-import CognitiveProfileCard from './CognitiveProfileCard'
+import TrigonometryDagModal from './TrigonometryDagModal'
 import { trackTelemetryEvent } from '../../lib/trig/tracer'
 import { createCoTeacherSession, submitCoTeacherStep, CoTeacherApiError } from '../../lib/trig/coTeacherApiClient'
 import {
@@ -20,21 +21,8 @@ import {
   type TrigProgressPoint,
   type TrigProfile,
 } from '../../lib/trig/trigApiClient'
+import { useApp } from '../../store'
 
-/** Ported from edova-pilot-v4/frontend/src/features/workspace/CoteacherWorkspace.jsx.
- *
- * Adapted:
- * - No studentId prop -- the backend derives identity from the auth token
- *   already attached by trigApiClient/coTeacherApiClient.
- * - State/reset calls go through trigApiClient (this app's own backend)
- *   instead of a hardcoded http://localhost:8000.
- * - Step submission still talks directly to the CoTeacher API (a separate
- *   local service, unauthenticated) -- unchanged from the pilot. See the
- *   port's scope notes: this is the "minimal slice", the reasoning engine
- *   itself was not touched or re-implemented.
- * - Known gap carried over, not introduced here: because submission bypasses
- *   this app's backend, SAL/mastery/step progress lives in this component's
- *   state + the CoTeacher session only, and does not survive a page refresh. */
 interface CoteacherWorkspaceProps {
   conceptId: string
   onSelectConcept?: (id: string) => void
@@ -46,6 +34,9 @@ export default function CoteacherWorkspace({
   onSelectConcept,
   availableConcepts = [],
 }: CoteacherWorkspaceProps) {
+  const navigate = useNavigate()
+  const { session } = useApp()
+
   const [loading, setLoading] = useState(false)
   const [hasStartedProblem, setHasStartedProblem] = useState(false)
 
@@ -85,6 +76,7 @@ export default function CoteacherWorkspace({
 
   const [showFormulaDrawer, setShowFormulaDrawer] = useState(false)
   const [showConceptDropdown, setShowConceptDropdown] = useState(false)
+  const [showDagModal, setShowDagModal] = useState(false)
 
   // Generic Neuro-Symbolic Reasoning Engine states
   const [isGenericSession, setIsGenericSession] = useState(false)
@@ -95,25 +87,25 @@ export default function CoteacherWorkspace({
 
   const PRESET_PROBLEMS = [
     {
-      title: "Oswaal Shadow Altitude",
-      text: "a tower AB is 20 m high and BC, its shadow on the ground, is 20 sqaureroot 3 m long. Find the Sun’s altitude."
+      title: 'Oswaal Shadow Altitude',
+      text: 'a tower AB is 20 m high and BC, its shadow on the ground, is 20 sqaureroot 3 m long. Find the Sun’s altitude.',
     },
     {
-      title: "NCERT 8.2 Q3 Angle System",
-      text: "If sin(A - B) = 1/2, cos(A + B) = 1/2, 0 < A + B <= 90, A > B, find A and B."
+      title: 'NCERT 8.2 Q3 Angle System',
+      text: 'If sin(A - B) = 1/2, cos(A + B) = 1/2, 0 < A + B <= 90, A > B, find A and B.',
     },
     {
-      title: "NCERT 8.1 Q1 Triangle Ratios",
-      text: "In triangle ABC, right-angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A (ii) sin C, cos C"
+      title: 'NCERT 8.1 Q1 Triangle Ratios',
+      text: 'In triangle ABC, right-angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A (ii) sin C, cos C',
     },
     {
-      title: "NCERT 8.2 Q1 Compound Evaluation",
-      text: "Evaluate: 2 tan^2 45 + cos^2 30 - sin^2 60"
+      title: 'NCERT 8.2 Q1 Compound Evaluation',
+      text: 'Evaluate: 2 tan^2 45 + cos^2 30 - sin^2 60',
     },
     {
-      title: "Tower Elevation Height",
-      text: "A tower stands vertically on the ground. From a point on the ground, which is 15 m away from the foot of the tower, the angle of elevation of the top of the tower is found to be 60. Find the height of the tower."
-    }
+      title: 'Tower Elevation Height',
+      text: 'A tower stands vertically on the ground. From a point on the ground, which is 15 m away from the foot of the tower, the angle of elevation of the top of the tower is found to be 60. Find the height of the tower.',
+    },
   ]
 
   const handleStartCustomProblem = async (customText?: string) => {
@@ -217,10 +209,6 @@ export default function CoteacherWorkspace({
     setFeedback(null)
   }
 
-  // Step submission -- mathematical correctness AND the grounded pedagogical
-  // response (hint wording, hint-ladder escalation) come entirely from the
-  // CoTeacher API, never decided here. Hint-escalation state lives
-  // server-side, so a repeated wrong attempt naturally escalates.
   const handleStepSubmit = async (answerValue?: string) => {
     const finalAnswer = answerValue || userAnswer
     if (!finalAnswer || isSubmitting || !conceptId) return
@@ -274,13 +262,13 @@ export default function CoteacherWorkspace({
     try {
       let sessionId = reasoningSessionId
       if (!sessionId) {
-        const session = await createCoTeacherSession({
+        const sessionRes = await createCoTeacherSession({
           subject: 'mathematics',
           topic: 'trigonometry',
           problem: problemContext,
           context: requiredItems.length > 0 ? { requiredItems } : undefined,
         })
-        sessionId = session.sessionId
+        sessionId = sessionRes.sessionId
         setReasoningSessionId(sessionId)
       }
 
@@ -347,190 +335,416 @@ export default function CoteacherWorkspace({
     setUserAnswer(step.result || step.instruction || '')
   }
 
-  if (loading) {
-    return <div className="p-12 text-center text-[#8A8A7A] font-mono text-sm">Generating fresh randomized problem...</div>
-  }
-
   const completedSteps = stepsHistory.filter((s) => s.completed)
-  const isLastStep = activeStepIndex >= totalSteps - 1
+
+  const defaultFormulas = [
+    '\\sin(\\theta) = \\frac{\\text{Opposite}}{\\text{Hypotenuse}}',
+    '\\cos(\\theta) = \\frac{\\text{Adjacent}}{\\text{Hypotenuse}}',
+    '\\tan(\\theta) = \\frac{\\text{Opposite}}{\\text{Adjacent}}',
+    '\\csc(\\theta) = \\frac{1}{\\sin(\\theta)}',
+    '\\sec(\\theta) = \\frac{1}{\\cos(\\theta)}',
+    '\\cot(\\theta) = \\frac{1}{\\tan(\\theta)}',
+    '\\sin^2(\\theta) + \\cos^2(\\theta) = 1',
+    '1 + \\tan^2(\\theta) = \\sec^2(\\theta)',
+    '1 + \\cot^2(\\theta) = \\csc^2(\\theta)',
+  ]
+
+  const formulaList = formulaReference
+    ? formulaReference.split('|').map((s) => s.trim()).filter(Boolean)
+    : defaultFormulas
+
+  const initials = session?.tenant?.name
+    ? session.tenant.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+    : 'AK'
 
   return (
-    <div className="space-y-4 font-sans">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-[#8A8A7A] font-sans">Concept:</span>
+    <div className="relative min-h-full w-full bg-[#FBF9F3] text-[#1A221E] selection:bg-[#DDB56E]/30 flex flex-col font-sans">
+      {/* Background Dotted Grid Texture */}
+      <div className="pointer-events-none absolute inset-0 dotted-grid opacity-[0.32]" />
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowConceptDropdown(!showConceptDropdown)}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white hover:bg-[#F7F5EF] text-[#151F1C] border border-[#E8E2D6] transition-all shadow-sm"
-            >
-              <span>{conceptTitle || 'Select a concept'}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#8A8A7A]" />
-            </button>
-
-            {showConceptDropdown && (
-              <div className="absolute left-0 top-full mt-2 w-72 bg-[#FAF9F5] border border-[#E8E2D6] rounded-2xl shadow-xl p-2 z-50 space-y-1">
-                <span className="text-[10px] uppercase font-mono text-[#8A8A7A] px-2 py-1 block">Select Topic from DAG</span>
-                <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
-                  {availableConcepts.map((c) => {
-                    const isLocked = c.is_unlocked === false
-                    const isCurrent = c.id === conceptId
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        disabled={isLocked}
-                        onClick={() => {
-                          onSelectConcept && onSelectConcept(c.id)
-                          setConceptTitle(c.title)
-                          setHasStartedProblem(false)
-                          setShowConceptDropdown(false)
-                        }}
-                        className={`w-full text-left p-2.5 rounded-xl text-xs font-sans flex items-center justify-between transition-colors ${
-                          isCurrent
-                            ? 'bg-[#151F1C] text-[#FAF9F5] font-bold'
-                            : isLocked
-                            ? 'text-[#8A8A7A] opacity-50 cursor-not-allowed'
-                            : 'text-[#151F1C] hover:bg-[#F7F5EF]'
-                        }`}
-                      >
-                        <div className="truncate pr-2">
-                          <span className="font-mono text-[10px] block opacity-70">{c.id}</span>
-                          <span className="truncate block font-semibold">{c.title}</span>
-                        </div>
-                        {isLocked ? (
-                          <Lock className="w-3.5 h-3.5 text-[#8A8A7A] shrink-0" />
-                        ) : c.mastery_score >= 0.8 ? (
-                          <Check className="w-3.5 h-3.5 text-[#2D6A4F] stroke-[3] shrink-0" />
-                        ) : null}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+      {/* Top Bar — Exact Mockup Specifications */}
+      <header className="relative z-10 h-[72px] px-6 lg:px-6 flex items-center justify-between border-b border-[#EDE8DD] bg-[#FBF9F3]/80 backdrop-blur-[8px] sticky top-0 shrink-0">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="h-8 px-3.5 rounded-full bg-white border border-[#EDE8DD] text-[12.5px] font-medium text-[#1A221E] card-shadow flex items-center gap-1.5 btn-secondary cursor-pointer"
+          >
+            <span className="text-[13px]">←</span> Go back
+          </button>
+          <div className="hidden md:flex items-center gap-3">
+            <div className="w-8 h-8 rounded-[9px] bg-[#1A221E] flex items-center justify-center">
+              <span className="text-[#DDB56E] text-[14px]">◫</span>
+            </div>
+            <h1 className="font-display text-[24px] font-[550] tracking-[-0.02em] leading-none">
+              Practice Questions
+            </h1>
+            <span className="ml-2 font-mono text-[10px] px-2 py-1 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[#8A7D67]">
+              CBSE Class 10
+            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowCustomModal(true)}
-            title="Solve any CBSE Class 10 Trigonometry problem dynamically"
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold bg-[#2D6A4F] hover:bg-[#1E4835] text-[#FAF9F5] transition-all active:scale-95 shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>Custom Problem</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleNextProblem}
-            title="Pick a randomized problem covering the selected concept"
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold bg-[#151F1C] hover:bg-[#2A3A32] text-[#FAF9F5] transition-all active:scale-95 shadow-sm"
-          >
-            <Dices className="w-3.5 h-3.5" />
-            <span>Next Problem</span>
-          </button>
-
-          {hasStartedProblem && (
-            <button
-              type="button"
-              onClick={handleReset}
-              title="Reset Practice Steps"
-              className="p-2 rounded-full text-[#8A8A7A] hover:text-[#151F1C] hover:bg-[#E8E2D6]/50 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-col lg:flex-row items-start gap-4 transition-all duration-300 relative">
-        <div className={`space-y-4 transition-all duration-300 w-full ${isRightPanelOpen ? 'lg:flex-1 lg:max-w-4xl' : 'lg:flex-1 lg:max-w-5xl mx-auto'}`}>
-          <div className="bg-[#FAF9F5] border border-[#E8E2D6] rounded-2xl p-5 shadow-[0_1px_2px_rgba(21,31,28,0.04)] space-y-3">
-            <div className="flex items-center justify-between border-b border-[#E8E2D6]/60 pb-2">
-              <span className="font-semibold text-[11px] tracking-[0.12em] uppercase font-mono text-[#8A8A7A]">QUESTION</span>
-              <span className="text-[10px] font-sans px-3 py-1 rounded-full bg-white border border-[#E8E2D6] text-[#6B6B5F] flex items-center gap-1.5 shadow-sm">
-                <BookOpen className="w-3 h-3 text-[#8A8A7A]" />
-                <span>{conceptTitle || 'Trigonometry'} • Bank</span>
-              </span>
-            </div>
-
-            {hasStartedProblem ? (
-              <p className="text-[16px] font-[500] text-[#151F1C] leading-[24px] font-sans">
-                <FormattedMathText text={problemContext} />
-              </p>
-            ) : (
-              <div className="py-2 space-y-1">
-                <p className="text-[15px] font-[500] text-[#151F1C] font-sans">
-                  Ready to practice <strong>{conceptTitle}</strong>?
-                </p>
-                <p className="text-xs text-[#8A8A7A] font-sans">
-                  Click the <strong>Next Problem</strong> button on the top right to load a randomized problem instance with clean slate steps.
-                </p>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 pt-1">
-              {Array.from({ length: Math.max(3, isFullySolved ? activeStepIndex : activeStepIndex + 1) }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    hasStartedProblem && idx <= activeStepIndex ? 'w-10 bg-[#151F1C]' : 'w-10 bg-[#E8E2D6]'
-                  }`}
-                />
-              ))}
-            </div>
+          <div className="hidden md:flex items-center gap-2 font-mono text-[10px] text-[#8A8F8B]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] animate-pulse" />
+            <span>Sync • {conceptTitle.split(' ')[0] || 'Trigonometry'}</span>
           </div>
+          <div className="w-8 h-8 rounded-full bg-[#1A221E] text-white flex items-center justify-center text-[11px] font-medium">
+            {initials}
+          </div>
+        </div>
+      </header>
 
-          <EdovaEquationBoard
-            stepsHistory={hasStartedProblem ? stepsHistory : []}
-            totalSteps={totalSteps}
-            isFullySolved={isFullySolved}
-          />
+      {/* Workspace Area: Main Content Column + Collapsible Telemetry Sidebar */}
+      <div className="flex flex-1 min-w-0 relative overflow-hidden">
+        <main className="flex-1 min-w-0 max-w-full flex flex-col relative overflow-hidden">
+          <div
+            className={`relative z-10 flex-1 px-5 lg:px-6 py-7 flex flex-col gap-4 w-full mx-auto min-w-0 transition-all duration-300 ${
+              isRightPanelOpen ? 'max-w-[760px]' : 'max-w-[960px]'
+            }`}
+            style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
+          >
+            {/* Concept Selection Bar */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[10px] tracking-[0.14em] text-[#8A8F8B]">CONCEPT</span>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowConceptDropdown(!showConceptDropdown)}
+                    className="h-9 pl-3 pr-8 rounded-full bg-white border border-[#EDE8DD] card-shadow text-[13px] font-medium flex items-center gap-2 min-w-[220px] max-w-[280px] btn-secondary cursor-pointer"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] flex items-center justify-center text-[10px]">
+                      ◍
+                    </span>
+                    <span className="truncate">{conceptTitle || 'Select a concept'}</span>
+                    <span className="ml-auto text-[11px] text-[#9AA09B]">
+                      {showConceptDropdown ? '⌃' : '⌄'}
+                    </span>
+                  </button>
 
-          <div className="bg-[#FAF9F5] border border-[#E8E2D6] rounded-2xl p-5 shadow-[0_1px_2px_rgba(21,31,28,0.04)] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E8E2D6] pb-3">
-              <span className="font-semibold text-[11px] tracking-[0.12em] uppercase font-mono text-[#8A8A7A]">YOUR DERIVATIONS</span>
-              {hasStartedProblem && !isFullySolved && (
-                <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#F7F5EF] border border-[#E8E2D6] text-[#8A8A7A]">
-                  Next: Step {activeStepIndex + 1}
-                </span>
-              )}
+                  {showConceptDropdown && (
+                    <div className="absolute top-[44px] left-0 w-[300px] max-w-[calc(100vw-32px)] rounded-[14px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden z-20 p-1.5 space-y-0.5">
+                      {availableConcepts.map((c) => {
+                        const isCurrent = c.id === conceptId
+                        const isLocked = c.is_unlocked === false
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            disabled={isLocked}
+                            onClick={() => {
+                              onSelectConcept && onSelectConcept(c.id)
+                              setConceptTitle(c.title)
+                              setHasStartedProblem(false)
+                              setShowConceptDropdown(false)
+                            }}
+                            className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition-colors ${
+                              isCurrent
+                                ? 'bg-[#1A221E] text-white'
+                                : isLocked
+                                ? 'opacity-40 cursor-not-allowed text-[#8A8F8B]'
+                                : 'hover:bg-[#FBF9F3] text-[#1A221E]'
+                            }`}
+                          >
+                            <div className="truncate pr-2">
+                              <span className="font-mono text-[10px] block opacity-70">{c.id}</span>
+                              <span className="font-medium truncate block">{c.title}</span>
+                            </div>
+                            {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-[#DDB56E] shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* View DAG Map button with the exact 3-node network SVG icon */}
+                <button
+                  type="button"
+                  onClick={() => setShowDagModal(true)}
+                  className="h-7 px-3 rounded-full bg-[#FFFFFF] border border-[#E2DDD1] text-[#6B7280] text-[12px] font-[500] flex items-center gap-1.5 hover:bg-[#FBF9F3] transition-colors card-shadow cursor-pointer"
+                  style={{ height: '28px', borderRadius: '999px' }}
+                >
+                  <span className="text-[#A0A090] flex items-center">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="4" cy="4" r="1.6" stroke="#A0A090" strokeWidth="1.1" fill="none" />
+                      <circle cx="12" cy="4" r="1.6" stroke="#A0A090" strokeWidth="1.1" fill="none" />
+                      <circle cx="8" cy="12" r="1.6" stroke="#A0A090" strokeWidth="1.1" fill="none" />
+                      <path d="M5.2 5.1L6.8 10.1M10.8 5.1L9.2 10.1M5.6 4H10.4" stroke="#A0A090" strokeWidth="1" strokeLinecap="round" opacity="0.9" />
+                    </svg>
+                  </span>
+                  <span>View DAG Map</span>
+                </button>
+              </div>
+
+              <div className="ml-auto hidden md:flex items-center gap-2 font-mono text-[10px] text-[#A0A7A2]">
+                <span>Bank • {availableConcepts.length || 10} concepts</span>
+                <span className="w-px h-3 bg-[#EDE8DD]" />
+                <span>∞ variants</span>
+              </div>
             </div>
 
-            {hasStartedProblem && completedSteps.length > 0 && (
-              <div className="space-y-2">
-                {completedSteps.map((step, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-[#E8E2D6] text-xs font-mono shadow-sm">
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-bold text-[#151F1C]">Step {idx + 1}:</span>
-                      <span className="text-[#151F1C] font-semibold">
-                        <MathDisplay math={step.result || step.instruction} />
+            {/* CARD 1: QUESTION CARD */}
+            <div className="relative rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
+              {/* Subtle SVG right-triangle watermark in top-right */}
+              <svg
+                className="pointer-events-none absolute right-[-10px] top-[-20px] w-[320px] h-[200px] opacity-[0.06] max-w-[60%]"
+                viewBox="0 0 300 200"
+              >
+                <path d="M 40 160 L 240 160 L 40 30 Z" fill="none" stroke="#1A221E" strokeWidth="1.2" strokeLinejoin="round" />
+                <path d="M 40 30 L 40 160" strokeDasharray="4 6" stroke="#1A221E" strokeWidth="0.8" />
+                <circle cx="40" cy="30" r="3" fill="#1A221E" />
+                <text x="18" y="100" fontFamily="Newsreader" fontSize="14" fill="#1A221E">A</text>
+                <text x="35" y="18" fontFamily="Newsreader" fontSize="14" fill="#1A221E">B</text>
+                <text x="250" y="172" fontFamily="Newsreader" fontSize="14" fill="#1A221E">C</text>
+              </svg>
+
+              <div className="relative p-6">
+                <div className="flex items-start justify-between gap-4 mb-5">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] font-mono text-[10px] tracking-[0.02em] text-[#8A7D67] max-w-full truncate">
+                    <span className="w-1 h-1 rounded-full bg-[#DDB56E]" />
+                    <span className="truncate">{conceptTitle || 'Trigonometry'} • Bank</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {[0, 1, 2, 3, 4].map((z) => (
+                      <div
+                        key={z}
+                        className={`h-1.5 rounded-full transition-all ${
+                          (hasStartedProblem && z <= activeStepIndex) || z === 0
+                            ? 'w-6 bg-[#1A221E]'
+                            : 'w-1.5 bg-[#EDE8DD]'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {!hasStartedProblem ? (
+                  <>
+                    <h2 className="font-display text-[26px] md:text-[30px] font-[550] tracking-[-0.02em] leading-[1.1] mb-3 max-w-[520px]">
+                      Ready to practice this concept?
+                    </h2>
+                    <p className="text-[13.5px] leading-[1.6] text-[#5A645E] max-w-[560px]">
+                      You're viewing <span className="font-medium text-[#1A221E] bg-[#F6F1E6] px-1.5 py-0.5 rounded-[6px] border border-[#EDE8DD]">{conceptTitle || 'Trigonometry'}</span>. Click <span className="font-medium text-[#1A221E]">Next Problem</span> to load a randomized instance with a clean slate.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="font-display text-[20px] md:text-[24px] font-[550] tracking-[-0.02em] leading-[1.25] mb-4 max-w-[620px]">
+                      <FormattedMathText text={problemContext} />
+                    </h2>
+                    <div className="flex items-center gap-2 font-mono text-[10px] text-[#8A8F8B]">
+                      <span className="px-2 py-1 rounded-full bg-[#E6F0E8] text-[#2E5A3A] border border-[#CFE0D3]">
+                        {isGenericSession ? 'Engine • Dynamic' : 'Randomized • Seed ' + (Math.floor(Math.random() * 9000) + 1000)}
                       </span>
-                      <span className="text-[#2D6A4F] font-bold">✓</span>
+                      <span>•</span>
+                      <span>Focus: derivation</span>
                     </div>
+                  </>
+                )}
+
+                <div className="mt-7 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomModal(true)}
+                    className="h-10 px-4 rounded-full bg-[#E6F0E8] border border-[#CFE0D3] text-[#2E5A3A] text-[13px] font-[600] btn-secondary flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="text-[12px]">✦</span> Custom Problem
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleNextProblem}
+                    disabled={loading}
+                    className="h-10 px-5 rounded-full bg-[#1A221E] text-white text-[13px] font-[600] btn-primary flex items-center gap-2 disabled:opacity-60 cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-[2px] border-white/30 border-t-white rounded-full animate-spin" />
+                        Loading…
+                      </>
+                    ) : hasStartedProblem ? (
+                      <>
+                        <span>↻</span> New Variant
+                      </>
+                    ) : (
+                      <>
+                        Next Problem <span className="opacity-70">→</span>
+                      </>
+                    )}
+                  </button>
+
+                  {hasStartedProblem && (
                     <button
                       type="button"
-                      onClick={() => handleEditPastStep(step, idx)}
-                      className="px-3.5 py-1 rounded-lg border border-[#E8E2D6] bg-white text-xs font-sans text-[#151F1C] hover:bg-[#F7F5EF] transition-colors shadow-sm font-semibold"
+                      onClick={handleReset}
+                      title="Reset Practice Steps"
+                      className="h-10 w-10 rounded-full border border-[#EDE8DD] bg-white text-[#8A8F8B] hover:text-[#1A221E] flex items-center justify-center transition-colors cursor-pointer shadow-xs"
                     >
-                      Edit
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <span className="font-mono text-[10px] text-[#9AA09B] ml-2 hidden md:inline">
+                    {hasStartedProblem ? 'Press to re-randomize' : 'Space ↵ to start'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bottom Gold Gradient Line */}
+              <div className="h-px w-full bg-gradient-to-r from-[#EDE8DD] via-[#DDB56E]/40 to-[#EDE8DD]" />
+            </div>
+
+            {/* CARD 2: EDOVA EQUATION BOARD */}
+            <div className="rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
+              <div className="h-[44px] px-5 flex items-center justify-between border-b border-[#EDE8DD] bg-[#FCFBF8]">
+                <span className="font-mono text-[10px] tracking-[0.14em] text-[#8A8F8B]">
+                  EDOVA EQUATION BOARD
+                </span>
+                <div className="flex items-center gap-2">
+                  <div className="hidden md:flex items-center gap-2 font-mono text-[10px]">
+                    <span className="px-2 py-1 rounded-full bg-white border border-[#EDE8DD] text-[#6A7570] flex items-center">
+                      <span className="inline-block w-1 h-1 rounded-full bg-[#4A7C59] mr-1.5 animate-pulse" />
+                      {completedSteps.length} verified • 0 total • ∞ steps
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-[#1A221E] text-white flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-[#DDB56E] animate-pulse" />
+                      {hasStartedProblem ? (isFullySolved ? 'Solved' : 'Active') : 'Ready'} • {completedSteps.length} steps
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative min-h-[160px] dotted-grid-strong bg-[#FFFEFD]">
+                {!hasStartedProblem || completedSteps.length === 0 ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 py-8">
+                    <div className="w-10 h-10 rounded-[12px] bg-[#F6F1E6] border border-[#EDE8DD] flex items-center justify-center mb-3">
+                      <span className="font-mono text-[16px] text-[#B8A88E]">∅</span>
+                    </div>
+                    <p className="font-mono text-[11px] tracking-[0.02em] text-[#9AA09B] max-w-[320px] leading-[1.6]">
+                      No derivations yet. Enter Step 1 below in <span className="text-[#1A221E] font-medium">Your Derivations</span> to begin.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-5 md:p-6 space-y-3">
+                    <div className="max-w-[680px] space-y-3">
+                      {completedSteps.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-3">
+                          <div className="w-7 h-7 rounded-full bg-[#1A221E] text-white flex items-center justify-center text-[11px] font-mono shrink-0 mt-0.5">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-mono text-[12.5px] leading-[1.7] text-[#1A221E] bg-[#F6F1E6] border border-[#EDE8DD] rounded-[10px] px-3.5 py-2.5">
+                              <MathDisplay math={step.result || step.instruction} />
+                            </div>
+                            <div className="mt-1 font-mono text-[11px] text-[#4A7C59] px-1 flex items-center gap-1">
+                              <span>✓</span> Verified by symbolic checker
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pointer-events-none absolute inset-0 border border-[#1A221E]/[0.02] rounded-b-[16px]" />
+              </div>
+            </div>
+
+            {/* CARD 3: YOUR DERIVATIONS */}
+            <div className="rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
+              <div className="h-[44px] px-5 flex items-center justify-between border-b border-[#EDE8DD]">
+                <span className="font-display text-[14px] font-[550] tracking-[-0.01em]">
+                  Your Derivations
+                </span>
+                <span className="font-mono text-[10px] text-[#9AA09B]">
+                  {hasStartedProblem ? '⌘+Enter to verify' : 'Idle'}
+                </span>
+              </div>
+
+              {!hasStartedProblem ? (
+                <div className="p-10 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 rounded-[14px] bg-[#FBF9F3] border border-[#EDE8DD] flex items-center justify-center mb-4">
+                    <span className="text-[18px] opacity-60">⟁</span>
+                  </div>
+                  <p className="font-mono text-[11px] text-[#8A8F8B] mb-5">
+                    No active derivation in progress.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleNextProblem}
+                    className="h-9 px-4 rounded-full bg-[#1A221E] text-white text-[12.5px] font-[600] btn-primary flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="text-[10px]">▶</span> Start Step 1 with Next Problem
+                  </button>
+                </div>
+              ) : isFullySolved ? (
+                <div className="p-6 text-center space-y-3 bg-[#E6F0E8]/40">
+                  <div className="w-10 h-10 rounded-full bg-[#E6F0E8] border border-[#CFE0D3] text-[#2E5A3A] flex items-center justify-center mx-auto text-base font-bold">
+                    ✓
+                  </div>
+                  <h3 className="font-display text-[18px] font-semibold text-[#1A221E]">
+                    Concept Mastered Successfully!
+                  </h3>
+                  <p className="text-[13px] text-[#5A645E]">
+                    You have solved all derivation steps with high autonomy.
+                  </p>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleNextProblem}
+                      className="h-9 px-5 rounded-full bg-[#1A221E] text-white text-[12.5px] font-[600] btn-primary flex items-center gap-2 cursor-pointer"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      <span>Next Problem</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="h-9 px-4 rounded-full bg-white border border-[#EDE8DD] text-[#1A221E] text-[12.5px] font-medium card-shadow hover:bg-[#FBF9F3] transition-colors cursor-pointer"
+                    >
+                      Practice Again
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="p-5 space-y-3">
+                  {/* Past steps edit list */}
+                  {completedSteps.length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      {completedSteps.map((step, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 rounded-xl bg-[#FCFBF8] border border-[#EDE8DD] text-xs font-mono"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="font-bold text-[#1A221E]">Step {idx + 1}:</span>
+                            <span className="text-[#1A221E]">
+                              <MathDisplay math={step.result || step.instruction} />
+                            </span>
+                            <span className="text-[#2E5A3A] font-bold">✓</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleEditPastStep(step, idx)}
+                            className="px-3 py-1 rounded-lg border border-[#EDE8DD] bg-white text-xs font-sans text-[#1A221E] hover:bg-[#F7F5EF] transition-colors shadow-xs font-semibold cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-            {hasStartedProblem ? (
-              !isFullySolved ? (
-                <div className="space-y-3 pt-1">
+                  {/* Quick Scaffold Options */}
                   {quickOptions.length > 0 && metrics.assistance_sal >= 0.7 && metrics.active_attempts > 0 && (
                     <div className="space-y-1.5">
-                      <span className="text-[10px] uppercase font-mono text-[#2D6A4F] tracking-wider font-semibold">Quick Scaffold Options:</span>
+                      <span className="text-[10px] uppercase font-mono text-[#2E5A3A] tracking-wider font-semibold">
+                        Quick Scaffold Options:
+                      </span>
                       <div className="flex flex-wrap gap-2">
                         {quickOptions.map((opt, i) => (
                           <button
@@ -540,7 +754,7 @@ export default function CoteacherWorkspace({
                               trackTelemetryEvent(conceptId, activeStepIndex, 'quick_option_click', { option: opt })
                               handleStepSubmit(opt)
                             }}
-                            className="bg-[#E6F4EA] hover:bg-[#D1EBD9] border border-[#A7D4B5] text-[#2D6A4F] text-xs px-3.5 py-1.5 rounded-full font-mono transition-all shadow-sm active:scale-95 font-semibold"
+                            className="bg-[#E6F0E8] hover:bg-[#D6E6D9] border border-[#CFE0D3] text-[#2E5A3A] text-xs px-3.5 py-1.5 rounded-full font-mono transition-all shadow-xs active:scale-95 font-semibold cursor-pointer"
                           >
                             <MathDisplay math={opt} />
                           </button>
@@ -549,202 +763,472 @@ export default function CoteacherWorkspace({
                     </div>
                   )}
 
-                  <LatexMathEditor
-                    value={userAnswer}
-                    onChange={setUserAnswer}
-                    onSubmit={() => handleStepSubmit()}
-                    placeholder="Type...  e.g.  QR = 12"
-                    isSubmitting={isSubmitting}
-                    stepLabel={`Step ${editingStepIndex !== null ? editingStepIndex + 1 : activeStepIndex + 1}:`}
-                    isEditMode={editingStepIndex !== null}
-                    isLastStep={isLastStep}
-                    onCancelEdit={() => {
-                      setEditingStepIndex(null)
-                      setUserAnswer('')
-                    }}
-                    showLightbulb
-                    isHintOpen={isHintOpen}
-                    onToggleHint={() => setIsHintOpen(!isHintOpen)}
-                    conceptId={conceptId}
-                    activeStepIndex={activeStepIndex}
-                  />
+                  {/* Input container */}
+                  <div className="rounded-[12px] border border-[#EDE8DD] bg-[#FCFBF8] overflow-hidden focus-within:border-[#DDB56E] focus-within:ring-[3px] focus-within:ring-[#DDB56E]/20 transition-all">
+                    <div className="px-4 py-2.5 border-b border-[#EDE8DD] flex items-center justify-between bg-white">
+                      <span className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B]">
+                        STEP {editingStepIndex !== null ? editingStepIndex + 1 : activeStepIndex + 1} • LaTeX supported
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] text-[#9AA09B]">{userAnswer.length} chars</span>
+                      </div>
+                    </div>
 
-                  <p className="text-[11px] text-[#8A8A7A] font-sans pl-1">
-                    • Entry appears in Equation Board above. After {isLastStep ? 'submit' : 'next'}, new Step {activeStepIndex + 2} field appears.
-                  </p>
+                    <textarea
+                      value={userAnswer}
+                      onChange={(e) => setUserAnswer(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                          e.preventDefault()
+                          if (userAnswer.trim() && !isSubmitting) handleStepSubmit()
+                        }
+                      }}
+                      placeholder="Type your derivation here... e.g., AC² = 3²+4² = 9+16 = 25 → AC=5"
+                      rows={3}
+                      className="w-full min-h-[96px] p-4 bg-transparent outline-none resize-none font-mono text-[13px] leading-[1.7] placeholder:text-[#B8BFB9] text-[#1A221E]"
+                    />
+
+                    {/* Live KaTeX preview inside input box if non-empty */}
+                    {userAnswer.trim() && (
+                      <div className="px-4 py-2 bg-[#F6F1E6]/50 border-t border-[#EDE8DD] flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 font-mono text-[#1A221E] overflow-x-auto">
+                          <span className="text-[10px] text-[#8A8F8B] uppercase shrink-0">Preview:</span>
+                          <MathDisplay math={userAnswer} />
+                        </div>
+                        <span className="text-[10px] font-mono text-[#8A8F8B] shrink-0 ml-2 hidden sm:inline">
+                          ⌘+Enter to verify
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStepSubmit()}
+                        disabled={!userAnswer.trim() || isSubmitting}
+                        className="h-8 px-4 rounded-full bg-[#1A221E] text-white text-[12px] font-[600] btn-primary disabled:opacity-40 disabled:transform-none flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Verifying…
+                          </>
+                        ) : (
+                          'Verify Step'
+                        )}
+                      </button>
+                      <span className="font-mono text-[10px] text-[#9AA09B]">
+                        AI checks algebra • no penalty
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {socraticScaffold && (
+                        <button
+                          type="button"
+                          onClick={() => setIsHintOpen(!isHintOpen)}
+                          className={`h-8 px-3 rounded-full text-xs font-mono font-medium flex items-center gap-1.5 border transition-all cursor-pointer ${
+                            isHintOpen
+                              ? 'bg-[#DDB56E]/20 text-[#8A7D67] border-[#DDB56E]'
+                              : 'bg-white border-[#EDE8DD] text-[#8A8F8B] hover:bg-[#FBF9F3]'
+                          }`}
+                        >
+                          <Lightbulb className="w-3.5 h-3.5 text-[#DDB56E]" />
+                          <span>{isHintOpen ? 'Hide Clue' : 'Guided Clue'}</span>
+                        </button>
+                      )}
+
+                      {editingStepIndex !== null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStepIndex(null)
+                            setUserAnswer('')
+                          }}
+                          className="text-xs font-mono text-[#8A8F8B] hover:text-[#1A221E] px-2 cursor-pointer"
+                        >
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                   {feedback && (
-                    <p
-                      className={`text-xs font-mono text-center animate-fade-in font-medium p-2.5 rounded-xl border ${
+                    <div
+                      className={`p-3 rounded-xl border text-xs font-mono transition-all ${
                         feedback.startsWith('✓')
-                          ? 'bg-[#E6F4EA] text-[#2D6A4F] border-[#A7D4B5]'
+                          ? 'bg-[#E6F0E8] border-[#CFE0D3] text-[#2E5A3A]'
                           : feedback.startsWith('?')
-                          ? 'bg-[#EAF2FB] text-[#1D4E89] border-[#A9C6E8]'
-                          : 'bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]'
+                          ? 'bg-[#EAF2FB] border-[#A9C6E8] text-[#1D4E89]'
+                          : 'bg-[#FEF3C7] border-[#FCD34D] text-[#92400E]'
                       }`}
                     >
                       {feedback}
-                    </p>
+                    </div>
                   )}
 
                   {systemError && (
-                    <p className="text-xs font-mono text-center animate-fade-in font-medium p-2.5 rounded-xl border bg-[#F3F3EE] text-[#5B5B4F] border-[#D8D3C4]">
+                    <div className="p-3 rounded-xl border bg-[#FBF9F3] border-[#EDE8DD] text-xs font-mono text-[#8A8F8B]">
                       {systemError}
-                    </p>
+                    </div>
                   )}
 
+                  {/* Socratic Guided Clue */}
                   {isHintOpen && socraticScaffold && (
-                    <div className="bg-[#F6EFE6] border border-[#C19A6B] rounded-2xl p-4 animate-fade-in space-y-2.5 shadow-sm mt-2 text-[#151F1C]">
+                    <div className="p-4 rounded-xl bg-[#F6F1E6] border border-[#DDB56E]/50 space-y-2 text-[#1A221E]">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#151F1C] flex items-center gap-1.5 font-mono">
-                          <Lightbulb className="w-3.5 h-3.5 fill-[#151F1C]/20 text-[#151F1C]" />
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8A7D67] flex items-center gap-1.5">
+                          <Lightbulb className="w-3.5 h-3.5 text-[#DDB56E]" />
                           Socratic Guided Clue
                         </span>
-                        <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#EEDBC5] text-[#151F1C] border border-[#C19A6B] font-bold">
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#EDE8DD] text-[#8A7D67]">
                           SAL: {Math.round(metrics.assistance_sal * 100)}%
                         </span>
                       </div>
-
-                      <p className="text-xs text-[#151F1C] leading-relaxed font-sans font-medium">
-                        <FormattedMathText text={socraticScaffold} className="text-[#151F1C]" />
-                      </p>
-
+                      <div className="text-[13px] leading-relaxed font-sans text-[#1A221E]">
+                        <FormattedMathText text={socraticScaffold} />
+                      </div>
                       {currentPrompt && (
-                        <div className="pt-2 border-t border-[#C19A6B]/40 flex items-start gap-2">
-                          <span className="w-4 h-4 rounded-full bg-[#151F1C] text-[#FAF9F5] text-[10px] font-bold font-mono flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                        <div className="pt-2 border-t border-[#EDE8DD] text-xs font-semibold text-[#1A221E] flex items-start gap-2">
+                          <span className="w-4 h-4 rounded-full bg-[#1A221E] text-white text-[10px] font-bold font-mono flex items-center justify-center shrink-0 mt-0.5">
                             {activeStepIndex + 1}
                           </span>
-                          <p className="text-xs font-semibold text-[#151F1C] font-sans">
-                            <FormattedMathText text={currentPrompt} className="text-[#151F1C]" />
-                          </p>
+                          <FormattedMathText text={currentPrompt} />
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="p-5 bg-[#E6F4EA] border border-[#A7D4B5] rounded-2xl text-center space-y-2.5">
-                  <Check className="w-8 h-8 text-[#2D6A4F] mx-auto stroke-[3]" />
-                  <h4 className="text-sm font-bold text-[#151F1C]">Concept Mastered Successfully!</h4>
-                  <p className="text-xs text-[#2D6A4F]">You have solved all derivation steps with high autonomy.</p>
-                  <div className="flex justify-center gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={handleNextProblem}
-                      className="px-4 py-2 rounded-full bg-[#151F1C] hover:bg-[#2A3A32] text-[#FAF9F5] text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Dices className="w-3.5 h-3.5" />
-                      <span>Next Problem</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleReset}
-                      className="px-4 py-2 rounded-full bg-white hover:bg-[#F7F5EF] border border-[#E8E2D6] text-[#151F1C] text-xs font-mono font-semibold transition-all"
-                    >
-                      Practice Again
-                    </button>
+              )}
+            </div>
+
+            {/* CARD 4: CBSE TRIGONOMETRY FORMULAS REFERENCE ACCORDION */}
+            <div className="rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
+              <button
+                type="button"
+                onClick={() => setShowFormulaDrawer(!showFormulaDrawer)}
+                className="w-full h-[52px] px-5 flex items-center justify-between text-left group cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-[8px] bg-[#F6F1E6] border border-[#EDE8DD] flex items-center justify-center font-mono text-[11px]">
+                    ≋
+                  </div>
+                  <span className="font-display text-[14.5px] font-[550]">
+                    CBSE Trigonometry Formulas Reference
+                  </span>
+                  <span className="hidden md:inline font-mono text-[10px] px-2 py-1 rounded-full bg-[#FBF9F3] border border-[#EDE8DD] text-[#9AA09B]">
+                    {formulaList.length} formulas
+                  </span>
+                </div>
+                <span
+                  className={`w-6 h-6 rounded-full border border-[#EDE8DD] flex items-center justify-center text-[12px] transition-transform ${
+                    showFormulaDrawer
+                      ? 'rotate-180 bg-[#1A221E] text-white border-[#1A221E]'
+                      : 'bg-white'
+                  }`}
+                >
+                  ⌄
+                </span>
+              </button>
+
+              {showFormulaDrawer && (
+                <div className="px-5 pb-5 border-t border-[#EDE8DD] bg-[#FCFBF8]">
+                  <div className="pt-4 grid md:grid-cols-3 gap-3">
+                    {formulaList.map((formula, idx) => (
+                      <div
+                        key={idx}
+                        className="px-3.5 py-3 rounded-[10px] bg-white border border-[#EDE8DD] font-mono text-[11.5px] leading-[1.5] text-[#2E3A32]"
+                      >
+                        <MathDisplay math={formula} />
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )
-            ) : (
-              <div className="py-6 text-center space-y-3">
-                <p className="text-xs text-[#8A8A7A] font-mono">No active derivation in progress.</p>
-                <button
-                  type="button"
-                  onClick={handleNextProblem}
-                  className="px-4 py-2 rounded-full bg-[#151F1C] hover:bg-[#2A3A32] text-[#FAF9F5] text-xs font-mono font-bold transition-all inline-flex items-center gap-2 shadow-sm"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Start Step 1 with Next Problem</span>
-                </button>
-              </div>
-            )}
+              )}
+            </div>
+
+            <div className="h-6" />
           </div>
+        </main>
 
-          <div className="bg-[#FAF9F5] border border-[#E8E2D6] rounded-2xl p-4 shadow-[0_1px_2px_rgba(21,31,28,0.04)]">
-            <button
-              type="button"
-              onClick={() => setShowFormulaDrawer(!showFormulaDrawer)}
-              className="flex items-center justify-between w-full text-xs text-[#8A8A7A] hover:text-[#151F1C] transition-colors py-1"
-            >
-              <span className="font-semibold text-[11px] tracking-[0.12em] uppercase font-mono flex items-center gap-1.5">
-                <BookMarked className="w-3.5 h-3.5" />
-                CBSE TRIGONOMETRY FORMULAS REFERENCE
-              </span>
-              {showFormulaDrawer ? <ChevronUp className="w-4 h-4 text-[#8A8A7A]" /> : <ChevronDown className="w-4 h-4 text-[#8A8A7A]" />}
-            </button>
-
-            {showFormulaDrawer && (
-              <div className="mt-3 p-3.5 bg-white rounded-xl border border-[#E8E2D6] text-xs font-mono text-[#151F1C] shadow-sm">
-                <MathDisplay math={formulaReference || 'AC^2 = AB^2 + BC^2 | \\sin(A) = \\frac{BC}{AC} | \\cos(A) = \\frac{AB}{AC}'} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="hidden lg:flex items-center self-center px-0.5 shrink-0 select-none my-auto">
+        {/* Collapsible Slider Tab Button on Vertical Border */}
+        <div
+          className="hidden lg:flex absolute top-0 bottom-0 z-20 items-center justify-center"
+          style={{
+            width: '24px',
+            right: isRightPanelOpen ? '320px' : '0px',
+            transition: 'right 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
           <button
             type="button"
             onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
-            title={isRightPanelOpen ? 'Click to collapse telemetry panel' : 'Click to expand telemetry panel'}
-            className="group py-2 px-1 focus:outline-none cursor-ew-resize flex items-center justify-center transition-transform active:scale-95"
+            title={isRightPanelOpen ? 'Collapse telemetry' : 'Expand telemetry'}
+            className="w-4 h-10 rounded-full bg-[#FFFFFF] border border-[#EDE8DD] shadow-[0_2px_10px_rgba(0,0,0,0.08)] flex items-center justify-center text-[#6B7280] hover:bg-[#FBF9F3] hover:text-[#1A221E] transition-colors cursor-pointer"
+            style={{ width: '16px', height: '40px' }}
           >
-            <div className={`w-1 rounded-full transition-all duration-300 flex items-center justify-center ${
-              isRightPanelOpen ? 'h-20 bg-[#E8E2D6] group-hover:bg-[#151F1C]' : 'h-24 bg-[#151F1C] shadow-sm'
-            }`}>
-              <span className="text-[10px] text-[#8A8A7A] group-hover:text-white font-mono select-none">||</span>
-            </div>
+            <span className="font-mono text-[11px] leading-none select-none">
+              {isRightPanelOpen ? '>' : '<'}
+            </span>
           </button>
         </div>
 
-        <div className={`transition-all duration-300 ease-in-out shrink-0 ${
-          isRightPanelOpen ? 'w-full lg:w-[360px] opacity-100 translate-x-0 space-y-4' : 'w-0 opacity-0 translate-x-12 overflow-hidden pointer-events-none space-y-0 h-0 lg:h-auto'
-        }`}>
-          <div className="bg-[#FAF9F5] border border-[#E8E2D6] rounded-2xl p-4 shadow-[0_1px_2px_rgba(21,31,28,0.04)] space-y-3">
-            <h3 className="text-[11px] font-semibold tracking-[0.12em] text-[#8A8A7A] uppercase font-mono flex items-center gap-2">
-              <BrainCircuit className="w-3.5 h-3.5 text-[#151F1C]" />
-              Cognitive Diagnostics & Telemetry
-            </h3>
+        {/* Telemetry Sidebar */}
+        <aside
+          className="w-full lg:w-[320px] shrink-0 bg-white border-t lg:border-t-0 lg:border-l border-[#EDE8DD] flex flex-col overflow-hidden"
+          style={{
+            minWidth: isRightPanelOpen ? '320px' : '0px',
+            maxWidth: isRightPanelOpen ? '320px' : '0px',
+            transform: isRightPanelOpen ? 'translateX(0)' : 'translateX(100%)',
+            opacity: isRightPanelOpen ? 1 : 0,
+            transition: 'all 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          <div className="h-[72px] px-6 flex items-center border-b border-[#EDE8DD] shrink-0">
+            <span className="font-mono text-[10px] tracking-[0.14em] text-[#8A8F8B]">TELEMETRY</span>
+            <span className="ml-auto w-2 h-2 rounded-full bg-[#4A7C59] animate-pulse" />
+          </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-white p-3 rounded-xl border border-[#E8E2D6] shadow-sm">
-                <span className="text-[10px] text-[#8A8A7A] uppercase font-mono font-medium block mb-1">Concept Mastery</span>
-                <span className="text-xl font-bold text-[#151F1C] font-mono">{(metrics.concept_mastery * 100).toFixed(0)}%</span>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-[#E8E2D6] shadow-sm">
-                <span className="text-[10px] text-[#8A8A7A] uppercase font-mono font-medium block mb-1">Assistance SAL</span>
-                <span className="text-xl font-bold text-[#2D6A4F] font-mono">{(metrics.assistance_sal * 100).toFixed(0)}%</span>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-[#E8E2D6] shadow-sm">
-                <span className="text-[10px] text-[#8A8A7A] uppercase font-mono font-medium block mb-1">Active Attempts</span>
-                <span className={`text-xl font-bold font-mono ${metrics.active_attempts > 1 ? 'text-[#92400E]' : 'text-[#151F1C]'}`}>
-                  {metrics.active_attempts}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar min-w-0">
+            {/* 2x2 Diagnostics Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  label: 'Concept Mastery',
+                  value: `${Math.round(metrics.concept_mastery * 100)}%`,
+                  sub: 'Baseline',
+                  color: '#1A221E',
+                  progress: Math.round(metrics.concept_mastery * 100),
+                },
+                {
+                  label: 'Assistance SAL',
+                  value: `${Math.round(metrics.assistance_sal * 100)}%`,
+                  sub: metrics.assistance_sal >= 0.7 ? 'Adaptive' : 'Low assist',
+                  color: '#4A7C59',
+                  progress: Math.round(metrics.assistance_sal * 100),
+                },
+                {
+                  label: 'Active Attempts',
+                  value: `${metrics.active_attempts}`,
+                  sub: 'This session',
+                  color: metrics.active_attempts > 1 ? '#DDB56E' : '#1A221E',
+                  progress: Math.min(100, metrics.active_attempts * 25),
+                },
+                {
+                  label: 'Accuracy Rate',
+                  value: `${Math.round(metrics.accuracy_rate * 100)}%`,
+                  sub: 'Verified',
+                  color: '#1A221E',
+                  progress: Math.round(metrics.accuracy_rate * 100),
+                },
+              ].map((z) => (
+                <div key={z.label} className="relative rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-3.5 overflow-hidden">
+                  <div className="font-mono text-[9.5px] tracking-[0.08em] text-[#9AA09B] leading-tight mb-1.5">
+                    {z.label.toUpperCase()}
+                  </div>
+                  <div className="font-display text-[22px] font-[600] leading-none tracking-[-0.02em] mb-1">
+                    {z.value}
+                  </div>
+                  <div className="font-mono text-[10px] text-[#8A8F8B]">{z.sub}</div>
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EDE8DD]">
+                    <div
+                      className="h-full transition-all duration-700 ease-out"
+                      style={{ width: `${z.progress}%`, background: z.color }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* LEARNING TRAJECTORY DYNAMICS */}
+            <div className="rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B]">
+                  LEARNING TRAJECTORY DYNAMICS
+                </span>
+                <span className="font-mono text-[9px] px-1.5 py-1 rounded-full bg-white border border-[#EDE8DD] text-[#9AA09B]">
+                  SAL • Mastery
                 </span>
               </div>
-              <div className="bg-white p-3 rounded-xl border border-[#E8E2D6] shadow-sm">
-                <span className="text-[10px] text-[#8A8A7A] uppercase font-mono font-medium block mb-1">Accuracy Rate</span>
-                <span className="text-xl font-bold text-[#151F1C] font-mono">{(metrics.accuracy_rate * 100).toFixed(0)}%</span>
+
+              <div className="relative h-[112px] w-full rounded-[10px] bg-white border border-[#EDE8DD] overflow-hidden dotted-grid">
+                <svg viewBox="0 0 280 112" className="absolute inset-0 w-full h-full">
+                  <line x1="0" y1="28" x2="280" y2="28" stroke="#EDE8DD" strokeWidth="0.8" strokeDasharray="4 6" />
+                  <line x1="0" y1="56" x2="280" y2="56" stroke="#EDE8DD" strokeWidth="0.8" strokeDasharray="4 6" />
+                  <line x1="0" y1="84" x2="280" y2="84" stroke="#EDE8DD" strokeWidth="0.8" strokeDasharray="4 6" />
+                  <path
+                    d={
+                      hasStartedProblem
+                        ? 'M 14 92 C 60 88, 90 68, 130 62 S 190 48, 262 22'
+                        : 'M 14 92 C 50 90, 90 88, 130 88 S 200 86, 262 84'
+                    }
+                    fill="none"
+                    stroke="#1A221E"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d={
+                      hasStartedProblem
+                        ? 'M 14 92 C 70 70, 120 54, 160 44 S 220 18, 262 12'
+                        : 'M 14 96 C 80 84, 150 60, 262 28'
+                    }
+                    fill="none"
+                    stroke="#4A7C59"
+                    strokeWidth="1.4"
+                    strokeDasharray="6 6"
+                    strokeLinecap="round"
+                    opacity="0.9"
+                  />
+                  <g>
+                    <circle cx="14" cy={hasStartedProblem ? 92 : 96} r="4" fill="#1A221E" />
+                    <circle cx="14" cy={hasStartedProblem ? 92 : 96} r="8" fill="none" stroke="#1A221E" strokeWidth="0.8" opacity="0.18" />
+                  </g>
+                  {hasStartedProblem && (
+                    <>
+                      <circle cx="262" cy="22" r="3" fill="#1A221E" />
+                      <circle cx="262" cy="12" r="3" fill="#4A7C59" />
+                    </>
+                  )}
+                </svg>
+
+                <div className="absolute left-3 bottom-2 font-mono text-[9px] text-[#8A8F8B] flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1A221E]" /> Start
+                  <span className="ml-2 w-3 h-[1.5px] bg-[#1A221E] inline-block" /> Mastery
+                  <span
+                    className="ml-2 w-3 h-[1.5px] bg-[#4A7C59] inline-block"
+                    style={{ background: 'repeating-linear-gradient(90deg,#4A7C59 0 3px, transparent 3px 6px)' }}
+                  />
+                  SAL
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 font-mono text-[10px] text-[#9AA09B]">
+                <span>Trajectory updates after verification</span>
+                <span className="ml-auto w-1 h-1 rounded-full bg-[#4A7C59] animate-pulse" />
+              </div>
+            </div>
+
+            {/* FLUENCY • SPEED Dark Card */}
+            <div
+              className="rounded-[14px] bg-[#1A221E] p-4 border border-[#2A332F] relative overflow-hidden"
+              style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 24px rgba(0,0,0,0.18)' }}
+            >
+              <div className="absolute right-[-20px] top-[-20px] w-28 h-28 rounded-full bg-[#DDB56E]/[0.08] blur-[1px]" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-mono text-[9px] tracking-[0.14em] text-[#9CA3AF] uppercase opacity-90">
+                    FLUENCY • SPEED
+                  </span>
+                  <span className="font-mono text-[9px] px-2 py-1 rounded-full bg-[#232E27] border border-[#2A332F] text-[#C7D0C9]">
+                    10 max
+                  </span>
+                </div>
+
+                <div className="flex items-end gap-3 mb-4">
+                  <div className="font-display text-[28px] font-[700] leading-none text-[#FFFFFF] tracking-[-0.02em]">
+                    {hasStartedProblem && completedSteps.length > 0
+                      ? `${Math.min(100, completedSteps.length * 20 + 2)}%`
+                      : '0%'}
+                  </div>
+                  <div className="font-mono text-[11px] text-[#EDE8DD] mb-0.5 opacity-90">
+                    {completedSteps.length}/10 steps • avg 18s
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="rounded-[8px] bg-[#232E27] border border-[#2A332F] p-2.5">
+                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#9CA3AF] uppercase">
+                      Accuracy Rate
+                    </div>
+                    <div className="font-medium text-[14px] text-[#FFFFFF] mt-1">
+                      {hasStartedProblem && completedSteps.length > 0 ? `${Math.round(metrics.accuracy_rate * 100)}%` : '—'}
+                    </div>
+                  </div>
+                  <div className="rounded-[8px] bg-[#232E27] border border-[#2A332F] p-2.5">
+                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#9CA3AF] uppercase">
+                      Mastered Steps
+                    </div>
+                    <div className="font-medium text-[14px] text-[#FFFFFF] mt-1">
+                      {completedSteps.length}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 10 Equalizer Bars */}
+                <div className="h-[36px] flex items-end gap-[3px]">
+                  {Array.from({ length: 10 }).map((_, yn) => {
+                    const isFilled = hasStartedProblem && yn < completedSteps.length
+                    return (
+                      <div
+                        key={yn}
+                        className="flex-1 rounded-[4px] transition-all duration-500"
+                        style={{
+                          height: isFilled ? `${34 + yn * 6}%` : '18%',
+                          background: isFilled ? '#DDB56E' : '#2A332F',
+                          opacity: isFilled ? 1 : 0.9,
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+
+                <div className="mt-3 font-mono text-[10px] text-[#EDE8DD] opacity-80">
+                  No time pressure • Focus on derivation quality
+                </div>
+              </div>
+            </div>
+
+            {/* SESSION CONTEXT Card */}
+            <div className="rounded-[14px] border border-[#EDE8DD] bg-white p-4">
+              <div className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B] mb-3">
+                SESSION CONTEXT
+              </div>
+              <div className="space-y-2.5">
+                <div className="flex justify-between font-mono text-[11px]">
+                  <span className="text-[#8A8F8B]">Concept</span>
+                  <span className="text-[#1A221E] font-medium max-w-[150px] truncate">
+                    {conceptTitle || 'Trigonometry'}
+                  </span>
+                </div>
+                <div className="flex justify-between font-mono text-[11px]">
+                  <span className="text-[#8A8F8B]">Variant</span>
+                  <span className="text-[#1A221E]">
+                    {hasStartedProblem ? (isGenericSession ? 'Engine • Dynamic' : '#1847 • Fresh') : '— • Ready'}
+                  </span>
+                </div>
+                <div className="flex justify-between font-mono text-[11px]">
+                  <span className="text-[#8A8F8B]">Mode</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[10px]">
+                    Practice • ∞ steps
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <ProgressChart data={timeline} />
-          <CognitiveProfileCard profile={profile} />
-        </div>
+          <div className="p-4 border-t border-[#EDE8DD]">
+            <div className="font-mono text-[10px] text-[#9AA09B] leading-[1.5]">
+              Edova verifies each step symbolically. No final answer without derivation.
+            </div>
+          </div>
+        </aside>
       </div>
 
       {/* Custom Problem Reasoning Modal */}
       {showCustomModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#FAF9F5] border border-[#E8E2D6] rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E8E2D6] pb-3">
+          <div className="bg-[#FAF9F5] border border-[#EDE8DD] rounded-[20px] shadow-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto card-shadow">
+            <div className="flex items-center justify-between border-b border-[#EDE8DD] pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-[#2D6A4F]/10 text-[#2D6A4F]">
-                  <Sparkles className="w-5 h-5 text-[#2D6A4F]" />
+                <div className="p-2 rounded-xl bg-[#E6F0E8] text-[#2E5A3A]">
+                  <Sparkles className="w-5 h-5 text-[#2E5A3A]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#151F1C]">Custom CBSE Trigonometry Problem</h3>
-                  <p className="text-xs text-[#8A8A7A]">
+                  <h3 className="font-display text-lg font-bold text-[#1A221E]">Custom CBSE Trigonometry Problem</h3>
+                  <p className="text-xs text-[#8A8F8B]">
                     Template-free Neuro-Symbolic reasoning for NCERT, Oswaal, RD Sharma, and Board Exams
                   </p>
                 </div>
@@ -752,14 +1236,14 @@ export default function CoteacherWorkspace({
               <button
                 type="button"
                 onClick={() => setShowCustomModal(false)}
-                className="p-2 rounded-full text-[#8A8A7A] hover:text-[#151F1C] hover:bg-[#E8E2D6]/50 transition-colors"
+                className="p-2 rounded-full text-[#8A8F8B] hover:text-[#1A221E] hover:bg-[#EDE8DD]/50 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider font-mono text-[#8A8A7A] block">
+              <label className="text-xs font-semibold uppercase tracking-wider font-mono text-[#8A8F8B] block">
                 Paste Question Text
               </label>
               <textarea
@@ -767,13 +1251,13 @@ export default function CoteacherWorkspace({
                 onChange={(e) => setCustomProblemInput(e.target.value)}
                 placeholder="e.g. In triangle ABC, right-angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A&#10;or: a tower AB is 20 m high and BC, its shadow on the ground, is 20 sqaureroot 3 m long. Find the Sun’s altitude."
                 rows={4}
-                className="w-full p-3.5 rounded-xl border border-[#E8E2D6] bg-white text-sm font-sans text-[#151F1C] focus:outline-none focus:ring-2 focus:ring-[#2D6A4F] shadow-sm resize-none"
+                className="w-full p-3.5 rounded-xl border border-[#EDE8DD] bg-white text-sm font-sans text-[#1A221E] focus:outline-none focus:border-[#DDB56E] focus:ring-2 focus:ring-[#DDB56E]/20 shadow-xs resize-none"
               />
             </div>
 
             {/* Quick Presets */}
             <div className="space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider font-mono text-[#8A8A7A] block">
+              <span className="text-[11px] font-semibold uppercase tracking-wider font-mono text-[#8A8F8B] block">
                 Quick Sample Archetypes:
               </span>
               <div className="flex flex-wrap gap-2">
@@ -784,7 +1268,7 @@ export default function CoteacherWorkspace({
                     onClick={() => {
                       setCustomProblemInput(preset.text)
                     }}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-[#E8E2D6] bg-white hover:bg-[#F7F5EF] text-[#151F1C] transition-colors shadow-sm font-medium text-left"
+                    className="text-xs px-3 py-1.5 rounded-lg border border-[#EDE8DD] bg-white hover:bg-[#FBF9F3] text-[#1A221E] transition-colors shadow-xs font-medium text-left cursor-pointer"
                   >
                     {preset.title}
                   </button>
@@ -792,11 +1276,11 @@ export default function CoteacherWorkspace({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E8E2D6]">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EDE8DD]">
               <button
                 type="button"
                 onClick={() => setShowCustomModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8A8A7A] hover:text-[#151F1C] hover:bg-[#E8E2D6]/40 transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8A8F8B] hover:text-[#1A221E] hover:bg-[#EDE8DD]/40 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -804,13 +1288,13 @@ export default function CoteacherWorkspace({
                 type="button"
                 disabled={customLoading || !customProblemInput.trim()}
                 onClick={() => handleStartCustomProblem()}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold font-mono bg-[#2D6A4F] hover:bg-[#1E4835] text-white disabled:opacity-50 transition-all shadow-md active:scale-95"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold font-mono bg-[#1A221E] hover:bg-[#232E27] text-white disabled:opacity-50 transition-all shadow-md active:scale-95 cursor-pointer"
               >
                 {customLoading ? (
                   <span>Analyzing & Chunking Math...</span>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <Sparkles className="w-4 h-4 text-[#DDB56E]" />
                     <span>Solve With Reasoning Engine</span>
                   </>
                 )}
@@ -819,6 +1303,23 @@ export default function CoteacherWorkspace({
           </div>
         </div>
       )}
+
+      {/* Interactive Trigonometry DAG Modal */}
+      <TrigonometryDagModal
+        isOpen={showDagModal}
+        onClose={() => setShowDagModal(false)}
+        concepts={availableConcepts}
+        activeConceptId={conceptId}
+        onSelectConcept={(selectedId) => {
+          const found = availableConcepts.find(
+            (c) => c.id.toLowerCase() === selectedId.toLowerCase(),
+          )
+          const targetId = found ? found.id : selectedId
+          onSelectConcept && onSelectConcept(targetId)
+          if (found) setConceptTitle(found.title)
+          setHasStartedProblem(false)
+        }}
+      />
     </div>
   )
 }

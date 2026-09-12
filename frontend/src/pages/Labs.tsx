@@ -36,7 +36,7 @@ export default function Labs() {
   }
 
   return (
-    <div className="min-h-full w-full flex flex-col bg-cream text-[#111827] font-ui">
+    <div className="min-h-full w-full flex flex-col bg-[#FBF9F3] text-[#111814] font-sans antialiased selection:bg-[#DDB56E]/30">
       {/* View 1: Active Interactive Socratic Simulation */}
       {activeSimulation ? (
         <div className="flex-1 flex flex-col h-[calc(100vh-72px)] overflow-hidden">
@@ -46,26 +46,26 @@ export default function Labs() {
           />
         </div>
       ) : unimplementedLabTitle ? (
-        /* View 2: Unimplemented Lab Activity Notice in SaaS card styling */
+        /* View 2: Unimplemented Lab Activity Notice in Token Sheet v4 card styling */
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none min-h-[70vh]">
-          <div className="max-w-md w-full bg-white rounded-[22px] border border-black/[0.06] p-8 md:p-10 shadow-card flex flex-col items-center space-y-5 animate-fadeIn">
-            <div className="w-16 h-16 rounded-2xl bg-cream border border-black/[0.08] flex items-center justify-center text-3xl shadow-inner">
-              <Construction className="w-8 h-8 text-gold" />
+          <div className="max-w-md w-full bg-white rounded-[16px] border border-[#EDE8DD] p-8 shadow-card flex flex-col items-center space-y-4 animate-fadeIn">
+            <div className="w-14 h-14 rounded-[12px] bg-[#FEF3C7] border border-[#FDE68A] flex items-center justify-center shadow-xs">
+              <Construction className="w-7 h-7 text-[#92400E]" />
             </div>
-            <div className="space-y-2">
-              <h3 className="font-display text-[20px] font-bold text-[#111827] tracking-[-0.015em]">
+            <div className="space-y-1.5">
+              <h3 className="font-serif text-[20px] font-[600] text-[#111814] tracking-tight">
                 Simulation in development
               </h3>
-              <p className="text-[14px] font-normal text-[#4B5563] leading-[1.6]">
-                The interactive Socratic simulation for <span className="font-semibold text-[#111827]">"{unimplementedLabTitle}"</span> is currently being prepared for this curriculum.
+              <p className="text-[13px] font-normal text-[#6B7280] leading-[1.6]">
+                The interactive Socratic simulation for <span className="font-[600] text-[#111814]">"{unimplementedLabTitle}"</span> is currently being prepared for this curriculum.
               </p>
             </div>
             <div className="pt-2">
               <button
                 onClick={handleBackToCatalog}
-                className="h-10 px-6 rounded-xl bg-forest hover:bg-forest-raised text-white text-[13px] font-medium shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                className="h-9 px-5 rounded-full bg-[#1A221E] hover:bg-black text-white text-[12px] font-[500] shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <ArrowLeft className="w-4 h-4" /> Back to catalog
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to catalog
               </button>
             </div>
           </div>

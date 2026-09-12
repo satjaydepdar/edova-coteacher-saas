@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EDOVA DAG v5 FINAL - Complete 10 Nodes In One Frame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,600;0,6..72,700;1,6..72,600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --canvas: #FBF9F3;
+      --surface: #FFFFFF;
+      --border: #EDE8DD;
+      --border-subtle: #E2DDD1;
+      --text-primary: #111814;
+      --text-secondary: #6B7280;
+      --text-muted: #9CA3AF;
+      --dark: #1A221E;
+      --dark-surface: #2A332F;
+      --gold: #DDB56E;
+      --green: #4A7C59;
+      --green-light: #E6F0E8;
+      --locked: #D6D0C2;
+      --locked-line: #C2C2C2;
+      --badge-beige: #F6F1E6;
+      --radius-card: 16px;
+      --radius-btn: 12px;
+      --radius-pill: 999px;
+      --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
+      --shadow-drag: 0 12px 32px rgba(0,0,0,0.22);
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--canvas);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* HEADER */
+    header {
+      height: 64px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 20;
+      flex-shrink: 0;
+    }
+    .header-left, .header-right { display: flex; align-items: center; gap: 14px; }
+    .btn-back {
+      height: 32px;
+      padding: 0 14px;
+      border-radius: var(--radius-pill);
+      background: var(--dark);
+      color: #FFF;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      cursor: pointer;
+    }
+    .header-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .pill-cbse {
+      height: 22px;
+      padding: 0 10px;
+      border-radius: var(--radius-pill);
+      background: var(--dark);
+      color: #FFF;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .gold-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+    .mastery-wrap { display: flex; flex-direction: column; align-items: flex-end; }
+    .mastery-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); letter-spacing: 0.08em; }
+    .progress-bar-wrap { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .progress-track { width: 140px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-fill { width: 10%; height: 100%; background: var(--green); }
+    .btn-fullscreen, .btn-close {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .btn-close { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
+
+    /* LEGEND BAR */
+    .legend-bar {
+      margin: 12px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-card);
+      z-index: 20;
+      flex-shrink: 0;
+    }
+    .legend-left, .legend-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .legend-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.08em; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; }
+    .dot-status { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .pill-btn {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border);
+      background: var(--badge-beige);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-input {
+      height: 32px;
+      width: 190px;
+      padding: 0 14px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      background: var(--surface);
+      font-size: 12px;
+      color: var(--text-primary);
+      outline: none;
+    }
+    .btn-fit {
+      height: 32px;
+      padding: 0 14px;
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* MAIN LAYOUT */
+    .main-layout {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      height: calc(100vh - 140px);
+    }
+    .canvas-container {
+      flex: 1;
+      background-color: var(--canvas);
+      background-image: radial-gradient(#D6D0C2 1px, transparent 1px);
+      background-size: 24px 24px;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+    }
+    .canvas-container.grabbing { cursor: grabbing; }
+
+    .virtual-stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1500px;
+      height: 760px;
+      transform-origin: 0 0;
+    }
+
+    /* SVG CONNECTORS */
+    svg.connectors {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1500px;
+      height: 760px;
+      pointer-events: none;
+      z-index: 1;
+      overflow: visible;
+    }
+
+    /* NODES */
+    .node-card {
+      position: absolute;
+      width: 220px;
+      min-height: 96px;
+      height: auto;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      z-index: 2;
+      touch-action: none;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .node-card.active {
+      background: var(--dark);
+      color: #FFF;
+      border: 2px solid var(--gold);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12), 0 12px 28px rgba(0,0,0,0.14);
+    }
+    .node-card.locked {
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+    .node-card.dragging {
+      z-index: 30 !important;
+      cursor: grabbing !important;
+      transform: scale(1.02);
+      box-shadow: var(--shadow-drag);
+    }
+
+    .node-top { display: flex; justify-content: space-between; align-items: center; }
+    .node-id { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text-muted); }
+    .node-card.active .node-id { color: #EDE8DD; }
+    .node-title {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      margin-top: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      white-space: normal;
+      overflow: visible;
+      word-break: break-word;
+      color: var(--text-primary);
+    }
+    .node-card.active .node-title { color: #FFF; }
+    .node-card.locked .node-title { color: var(--text-muted); }
+
+    .node-formula-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .formula-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--badge-beige);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .node-card.active .formula-pill {
+      background: var(--dark-surface);
+      color: #EDE8DD;
+      border-color: #3A4A3E;
+    }
+    .xp-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--badge-beige);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .node-card.active .xp-badge {
+      background: var(--gold);
+      color: var(--dark);
+      border-color: var(--gold);
+      font-weight: 600;
+    }
+
+    /* RIGHT INSPECTOR */
+    .inspector {
+      width: 340px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform 300ms ease-out;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.06);
+    }
+    .inspector.closed {
+      transform: translateX(100%);
+      box-shadow: none;
+    }
+    .inspector-handle {
+      position: absolute;
+      left: -24px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 48px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-right: 0;
+      border-radius: 8px 0 0 8px;
+      box-shadow: -4px 0 12px rgba(0,0,0,0.08);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .inspector-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .inspector-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .inspector-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .inspector-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-top: 6px;
+    }
+    .formula-card {
+      background: var(--badge-beige);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .formula-card-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .formula-card-math {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .btn-cta {
+      height: 44px;
+      border-radius: var(--radius-btn);
+      background: var(--dark);
+      color: #FFF;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .btn-cta.disabled {
+      background: var(--badge-beige);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      cursor: not-allowed;
+    }
+
+    /* MINIMAP */
+    .minimap {
+      position: absolute;
+      bottom: 24px;
+      right: 364px;
+      width: 140px;
+      height: 90px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      pointer-events: none;
+      transition: right 300ms ease-out;
+      z-index: 10;
+    }
+    .minimap.closed-inspector { right: 24px; }
+    .minimap-inner {
+      width: 100%;
+      height: 100%;
+      background: var(--canvas);
+      border: 1px solid rgba(237,232,221,0.6);
+      border-radius: 6px;
+      position: relative;
+    }
+    .minimap-dot {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+    }
+    .minimap-viewport {
+      position: absolute;
+      border: 1px solid var(--gold);
+      background: rgba(221, 181, 110, 0.12);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <button class="btn-back"><span>←</span> Go back</button>
+      <span class="header-title">Practice Questions</span>
+      <span class="pill-cbse"><span class="gold-dot"></span> CBSE CLASS 10 DAG</span>
+    </div>
+    <div class="header-right">
+      <div class="mastery-wrap">
+        <span class="mastery-label">MASTERY: 0/10 TOPICS</span>
+        <div class="progress-bar-wrap">
+          <div class="progress-track"><div class="progress-fill"></div></div>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;">0%</span>
+        </div>
+      </div>
+      <button class="btn-fullscreen" onclick="toggleFullscreen()">Fullscreen</button>
+      <button class="btn-close">✕</button>
+    </div>
+  </header>
+
+  <!-- LEGEND BAR -->
+  <div class="legend-bar">
+    <div class="legend-left">
+      <span class="legend-title">ROADMAP LEGEND:</span>
+      <span class="legend-item"><span class="dot-status" style="background:#111814;"></span> Mastered</span>
+      <span class="legend-item"><span class="dot-status" style="background:#DDB56E; box-shadow:0 0 0 2px rgba(221,181,110,0.25);"></span> Active Practice</span>
+      <span class="legend-item"><span class="dot-status" style="background:#4A7C59;"></span> Unlocked Ready</span>
+      <span class="legend-item"><span class="dot-status" style="background:#D6D0C2;"></span> Locked</span>
+    </div>
+    <div class="legend-right">
+      <button class="pill-btn" id="btnFocus" onclick="toggleFocusView()">Focus View</button>
+      <input type="text" class="filter-input" id="filterInput" placeholder="Filter nodes..." oninput="handleFilter(this.value)">
+      <div class="pill-btn" style="cursor:default; font-family:'JetBrains Mono',monospace; font-size:10px;">
+        <span class="dot-status" style="width:6px; height:6px; background:#4A7C59;"></span> 10 NODES • 12 EDGES
+      </div>
+      <button class="btn-fit" onclick="fit10Nodes()">Fit 10 nodes</button>
+    </div>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout">
+    <!-- GRAPH CANVAS -->
+    <div class="canvas-container" id="canvasContainer">
+      <div class="virtual-stage" id="virtualStage">
+        <svg class="connectors" id="svgConnectors">
+          <defs>
+            <marker id="arrow-locked" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 1 L 9 5 L 0 9 z" fill="#C2C2C2"></path>
+            </marker>
+            <marker id="arrow-unlocked" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 1 L 9 5 L 0 9 z" fill="#6B8F75"></path>
+            </marker>
+            <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 1 L 9 5 L 0 9 z" fill="#DDB56E"></path>
+            </marker>
+          </defs>
+          <!-- Edges dynamically rendered -->
+        </svg>
+
+        <!-- 10 Node Cards dynamically rendered -->
+        <div id="nodesLayer"></div>
+      </div>
+
+      <!-- MINIMAP -->
+      <div class="minimap" id="minimap">
+        <div class="minimap-inner" id="minimapInner">
+          <div class="minimap-viewport" id="minimapViewport"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT INSPECTOR -->
+    <aside class="inspector" id="inspector">
+      <div class="inspector-handle" id="inspectorHandle" onclick="toggleInspector()">›</div>
+      <div class="inspector-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span id="inspId" style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); font-weight:600;">TRIG-101</span>
+          <span id="inspDiff" style="font-family:'JetBrains Mono',monospace; font-size:10px; padding:2px 8px; border-radius:999px; background:var(--badge-beige); border:1px solid var(--border); color:var(--text-secondary);">Diff 1/5.0</span>
+        </div>
+        <div id="inspStatus"></div>
+      </div>
+      <div class="inspector-body">
+        <div>
+          <div class="inspector-title" id="inspTitle">Right-Angled Triangle Anatomy</div>
+          <div class="inspector-desc" id="inspDesc">Master the side relationships and Pythagorean Theorem in right-angled triangles.</div>
+        </div>
+        <div class="formula-card">
+          <div class="formula-card-label">
+            <span>Core Formula / Identity</span>
+            <span style="cursor:pointer;" onclick="copyFormula()">Copy</span>
+          </div>
+          <div class="formula-card-math" id="inspFormula">AC² = AB² + BC² → c² = a² + b²</div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div style="padding:10px; background:var(--canvas); border:1px solid var(--border); border-radius:8px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); margin-bottom:4px;">PREREQUISITES</div>
+            <div id="inspPrereq" style="font-size:11px;">None (Root)</div>
+          </div>
+          <div style="padding:10px; background:var(--canvas); border:1px solid var(--border); border-radius:8px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); margin-bottom:4px;">UNLOCKS</div>
+            <div id="inspUnlocks" style="font-size:11px;">TRIG-102, TRIG-105</div>
+          </div>
+        </div>
+        <div id="inspCtaWrap"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const INITIAL_NODES = [
+      { id: 'TRIG-101', title: 'Right-Angled Triangle Anatomy', formula: 'c² = a² + b²', xp: '+1.5', status: 'active', x: 60, y: 340, difficulty: '1/5.0', desc: 'Master the side relationships and Pythagorean Theorem in right-angled triangles.', fullFormula: 'AC² = AB² + BC² → c² = a² + b²', prereq: [], unlocks: ['TRIG-102', 'TRIG-105'] },
+      { id: 'TRIG-102', title: 'Primary Trigonometric Ratios', formula: 'sin, cos, tan', xp: '+2.0', status: 'unlocked', x: 340, y: 340, difficulty: '2/5.0', desc: 'Understand sine, cosine, tangent as ratios of sides. Foundation for all trigonometry.', fullFormula: 'sinθ = O/H, cosθ = A/H, tanθ = O/A', prereq: ['TRIG-101'], unlocks: ['TRIG-103', 'TRIG-105'] },
+      { id: 'TRIG-103', title: 'Reciprocal Trigonometric Ratios', formula: 'cosec, sec, cot', xp: '+2.2', status: 'unlocked', x: 620, y: 100, difficulty: '2.5/5.0', desc: 'Cosecant, secant, cotangent as reciprocals of primary ratios. Inverse domain.', fullFormula: 'cosecθ = 1/sinθ, secθ = 1/cosθ, cotθ = 1/tanθ', prereq: ['TRIG-102'], unlocks: ['TRIG-104'] },
+      { id: 'TRIG-104', title: 'Quotient & Product Relations', formula: 'tan = sin/cos', xp: '+2.5', status: 'locked', x: 620, y: 230, difficulty: '3/5.0', desc: 'How ratios interrelate through quotient and product rules.', fullFormula: 'tanθ = sinθ/cosθ, cotθ = cosθ/sinθ', prereq: ['TRIG-103'], unlocks: ['TRIG-107'] },
+      { id: 'TRIG-105', title: 'Trigonometric Ratios of Standard Angles', formula: '0°, 30°, 45°, 60°, 90°', xp: '+2.4', status: 'unlocked', x: 620, y: 450, difficulty: '2.8/5.0', desc: 'Values for standard angles using equilateral and isosceles triangles.', fullFormula: 'sin30=1/2, sin45=√2/2, sin60=√3/2', prereq: ['TRIG-102'], unlocks: ['TRIG-106'] },
+      { id: 'TRIG-106', title: 'The Core Pythagorean Identity', formula: 'sin²+cos²=1', xp: '+3.0', status: 'locked', x: 620, y: 580, difficulty: '3.2/5.0', desc: 'Fundamental identity sin²θ + cos²θ = 1 and geometric proof.', fullFormula: 'sin²θ + cos²θ = 1 → 1 - sin²θ = cos²θ', prereq: ['TRIG-105'], unlocks: ['TRIG-107', 'TRIG-109'] },
+      { id: 'TRIG-107', title: 'Derived Pythagorean Identities', formula: '1+tan²=sec²', xp: '+3.5', status: 'locked', x: 900, y: 150, difficulty: '3.8/5.0', desc: 'Derive secondary identities by dividing core identity by cos² and sin².', fullFormula: '1 + tan²θ = sec²θ, 1 + cot²θ = cosec²θ', prereq: ['TRIG-104', 'TRIG-106'], unlocks: ['TRIG-108', 'TRIG-109'] },
+      { id: 'TRIG-108', title: 'Complex Trigonometric Proofs', formula: 'LHS ≡ RHS', xp: '+4.2', status: 'locked', x: 900, y: 280, difficulty: '4.5/5.0', desc: 'Advanced LHS-RHS proof techniques using identities.', fullFormula: '(sinθ+cosθ)² = 1+2sinθcosθ', prereq: ['TRIG-107'], unlocks: ['TRIG-110'] },
+      { id: 'TRIG-109', title: 'Applications: Angles of Elevation', formula: 'tanθ = h/d', xp: '+3.8', status: 'locked', x: 900, y: 450, difficulty: '4/5.0', desc: 'Height & distance problems using angle of elevation and depression.', fullFormula: 'tan(elevation) = Height / Distance', prereq: ['TRIG-106', 'TRIG-107'], unlocks: ['TRIG-110'] },
+      { id: 'TRIG-110', title: 'Advanced Multi-Heights & Distances', formula: 'multi-triangle', xp: '+4.8', status: 'locked', x: 1180, y: 340, difficulty: '5/5.0', desc: 'Compound problems with multiple triangles and observers.', fullFormula: 'h = d·tanθ₁·tanθ₂/(tanθ₂−tanθ₁)', prereq: ['TRIG-108', 'TRIG-109'], unlocks: [] }
+    ];
+
+    const EDGES = [
+      { from: 'TRIG-101', to: 'TRIG-102', status: 'active' },
+      { from: 'TRIG-102', to: 'TRIG-103', status: 'unlocked' },
+      { from: 'TRIG-102', to: 'TRIG-105', status: 'unlocked' },
+      { from: 'TRIG-103', to: 'TRIG-104', status: 'locked' },
+      { from: 'TRIG-105', to: 'TRIG-106', status: 'unlocked' },
+      { from: 'TRIG-104', to: 'TRIG-107', status: 'locked' },
+      { from: 'TRIG-106', to: 'TRIG-107', status: 'locked' },
+      { from: 'TRIG-106', to: 'TRIG-109', status: 'locked' },
+      { from: 'TRIG-107', to: 'TRIG-108', status: 'locked' },
+      { from: 'TRIG-107', to: 'TRIG-109', status: 'locked' },
+      { from: 'TRIG-108', to: 'TRIG-110', status: 'locked' },
+      { from: 'TRIG-109', to: 'TRIG-110', status: 'locked' }
+    ];
+
+    let nodes = JSON.parse(JSON.stringify(INITIAL_NODES));
+    let selectedId = 'TRIG-101';
+    let isInspectorOpen = true;
+    let isFocusView = false;
+    let filterQuery = '';
+    let pan = { x: 0, y: 0 };
+    let zoom = 0.88;
+
+    // DOM Elements
+    const virtualStage = document.getElementById('virtualStage');
+    const svgConnectors = document.getElementById('svgConnectors');
+    const nodesLayer = document.getElementById('nodesLayer');
+    const canvasContainer = document.getElementById('canvasContainer');
+    const inspector = document.getElementById('inspector');
+    const inspectorHandle = document.getElementById('inspectorHandle');
+    const minimap = document.getElementById('minimap');
+    const minimapInner = document.getElementById('minimapInner');
+    const minimapViewport = document.getElementById('minimapViewport');
+
+    function renderStageTransform() {
+      virtualStage.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
+      updateMinimapViewport();
+    }
+
+    function getBezierPath(from, to) {
+      const x1 = from.x + 220;
+      const y1 = from.y + 48;
+      const x2 = to.x;
+      const y2 = to.y + 48;
+      const dx = x2 - x1;
+      const offset = dx > 0 ? Math.max(60, dx * 0.45) : 80;
+      return `M ${x1} ${y1} C ${x1 + offset} ${y1}, ${x2 - offset} ${y2}, ${x2} ${y2}`;
+    }
+
+    function renderEdges() {
+      const paths = EDGES.map(edge => {
+        const from = nodes.find(n => n.id === edge.from);
+        const to = nodes.find(n => n.id === edge.to);
+        if (!from || !to) return '';
+
+        let color = '#C2C2C2';
+        let width = 1.25;
+        let dash = '6 4';
+        let marker = 'url(#arrow-locked)';
+
+        if (edge.status === 'active' || (selectedId === edge.from || selectedId === edge.to)) {
+          color = '#DDB56E';
+          width = 2;
+          dash = 'none';
+          marker = 'url(#arrow-active)';
+        } else if (edge.status === 'unlocked') {
+          color = '#6B8F75';
+          width = 1.5;
+          dash = 'none';
+          marker = 'url(#arrow-unlocked)';
+        }
+
+        const isFiltered = (!filterQuery || from.title.toLowerCase().includes(filterQuery) || to.title.toLowerCase().includes(filterQuery));
+        const opacity = isFiltered ? (isFocusView ? ((from.id === selectedId || to.id === selectedId) ? 1 : 0.15) : 0.8) : 0.15;
+
+        return `<path d="${getBezierPath(from, to)}" fill="none" stroke="${color}" stroke-width="${width}" stroke-dasharray="${dash === 'none' ? '' : dash}" marker-end="${marker}" opacity="${opacity}"></path>`;
+      }).join('');
+
+      svgConnectors.innerHTML = `
+        <defs>
+          <marker id="arrow-locked" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#C2C2C2"></path>
+          </marker>
+          <marker id="arrow-unlocked" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#6B8F75"></path>
+          </marker>
+          <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#DDB56E"></path>
+          </marker>
+        </defs>
+        ${paths}
+      `;
+    }
+
+    function renderNodes() {
+      nodesLayer.innerHTML = nodes.map(n => {
+        const isSel = n.id === selectedId;
+        const isFiltered = !filterQuery || n.id.toLowerCase().includes(filterQuery) || n.title.toLowerCase().includes(filterQuery);
+        let opacity = isFiltered ? 1 : 0.2;
+        if (isFocusView && n.id !== selectedId) {
+          const active = nodes.find(x => x.id === selectedId);
+          const isDirect = active && (active.prereq.includes(n.id) || active.unlocks.includes(n.id));
+          if (!isDirect) opacity = 0.2;
+        }
+
+        return `
+          <div class="node-card ${n.status} ${isSel ? 'active' : ''}" id="node-${n.id}" data-id="${n.id}"
+            style="left:${n.x}px; top:${n.y}px; opacity:${opacity};">
+            <div class="node-top">
+              <span class="node-id">${n.id}</span>
+              <span style="display:flex; align-items:center;">
+                ${n.status === 'active' ? '<span class="dot-status" style="background:#DDB56E; box-shadow:0 0 0 3px rgba(221,181,110,0.25);"></span>' :
+                  n.status === 'locked' ? '<span style="font-size:11px;">🔒</span>' :
+                  '<span class="dot-status" style="background:#4A7C59;"></span>'}
+              </span>
+            </div>
+            <div class="node-title">${n.title}</div>
+            <div class="node-formula-row">
+              <span class="formula-pill">${n.formula}</span>
+              <span class="xp-badge">★${n.xp}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Attach pointer listeners to each node
+      nodes.forEach(n => {
+        const el = document.getElementById('node-' + n.id);
+        if (el) attachNodeDrag(el, n);
+      });
+      updateMinimapDots();
+    }
+
+    // INDIVIDUAL NODE DRAG
+    function attachNodeDrag(el, node) {
+      el.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+
+        const startPointer = { x: e.clientX, y: e.clientY };
+        const startPos = { x: node.x, y: node.y };
+        let hasMoved = false;
+
+        el.classList.add('dragging');
+        el.setPointerCapture(e.pointerId);
+
+        const onMove = (moveEvent) => {
+          const dx = (moveEvent.clientX - startPointer.x) / zoom;
+          const dy = (moveEvent.clientY - startPointer.y) / zoom;
+          if (!hasMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) hasMoved = true;
+
+          if (hasMoved) {
+            node.x = Math.max(10, Math.min(1500 - 230, Math.round(startPos.x + dx)));
+            node.y = Math.max(10, Math.min(760 - 110, Math.round(startPos.y + dy)));
+            el.style.left = node.x + 'px';
+            el.style.top = node.y + 'px';
+            renderEdges();
+            updateMinimapDots();
+          }
+        };
+
+        const onUp = (upEvent) => {
+          el.releasePointerCapture(upEvent.pointerId);
+          el.classList.remove('dragging');
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+
+          if (!hasMoved) {
+            selectedId = node.id;
+            updateInspector();
+            renderNodes();
+            renderEdges();
+            if (!isInspectorOpen) toggleInspector();
+          }
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    }
+
+    // CANVAS PAN
+    canvasContainer.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('.node-card')) return;
+
+      const start = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+      canvasContainer.classList.add('grabbing');
+      canvasContainer.setPointerCapture(e.pointerId);
+
+      const onMove = (moveEvent) => {
+        pan.x = moveEvent.clientX - start.x;
+        pan.y = moveEvent.clientY - start.y;
+        renderStageTransform();
+      };
+
+      const onUp = (upEvent) => {
+        canvasContainer.releasePointerCapture(upEvent.pointerId);
+        canvasContainer.classList.remove('grabbing');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+
+    // WHEEL ZOOM
+    canvasContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      zoom = Math.min(1.6, Math.max(0.6, Number((zoom + delta).toFixed(2))));
+      renderStageTransform();
+    }, { passive: false });
+
+    // MINIMAP
+    function updateMinimapDots() {
+      const existingDots = minimapInner.querySelectorAll('.minimap-dot');
+      existingDots.forEach(d => d.remove());
+
+      nodes.forEach(n => {
+        const dot = document.createElement('div');
+        dot.className = 'minimap-dot';
+        dot.style.left = (n.x / 1500 * 120 + 2) + 'px';
+        dot.style.top = (n.y / 760 * 70 + 2) + 'px';
+        dot.style.background = n.id === selectedId ? '#1A221E' : n.status === 'active' ? '#DDB56E' : n.status === 'unlocked' ? '#4A7C59' : '#D6D0C2';
+        minimapInner.appendChild(dot);
+      });
+    }
+
+    function updateMinimapViewport() {
+      const vx = Math.max(0, (-pan.x / zoom / 1500) * 124);
+      const vy = Math.max(0, (-pan.y / zoom / 760) * 74);
+      const vw = Math.min(124, Math.max(16, (canvasContainer.clientWidth / zoom / 1500) * 124));
+      const vh = Math.min(74, Math.max(12, (canvasContainer.clientHeight / zoom / 760) * 74));
+
+      minimapViewport.style.left = vx + 'px';
+      minimapViewport.style.top = vy + 'px';
+      minimapViewport.style.width = vw + 'px';
+      minimapViewport.style.height = vh + 'px';
+    }
+
+    // INSPECTOR
+    function updateInspector() {
+      const node = nodes.find(n => n.id === selectedId) || nodes[0];
+      document.getElementById('inspId').textContent = node.id;
+      document.getElementById('inspDiff').textContent = 'Diff ' + node.difficulty;
+      document.getElementById('inspTitle').textContent = node.title;
+      document.getElementById('inspDesc').textContent = node.desc;
+      document.getElementById('inspFormula').textContent = node.fullFormula;
+      document.getElementById('inspPrereq').textContent = node.prereq.length ? node.prereq.join(', ') : 'None (Root)';
+      document.getElementById('inspUnlocks').textContent = node.unlocks.length ? node.unlocks.join(', ') : 'Final convergence';
+
+      const statusEl = document.getElementById('inspStatus');
+      const ctaEl = document.getElementById('inspCtaWrap');
+
+      if (node.status === 'locked') {
+        statusEl.innerHTML = '<span style="font-size:10px; font-family:monospace; padding:2px 8px; border-radius:999px; background:var(--badge-beige); color:var(--text-muted); border:1px solid var(--border);">🔒 Locked</span>';
+        ctaEl.innerHTML = '<button class="btn-cta disabled">🔒 Complete prerequisites</button>';
+      } else {
+        statusEl.innerHTML = '<span style="font-size:10px; font-family:monospace; padding:2px 8px; border-radius:999px; background:var(--green-light); color:var(--green); border:1px solid #BBF7D0;">Ready to Practice</span>';
+        ctaEl.innerHTML = `<button class="btn-cta" onclick="alert('Starting Practice for ' + '${node.id}')">Practice ${node.id} →</button>`;
+      }
+    }
+
+    function toggleInspector() {
+      isInspectorOpen = !isInspectorOpen;
+      inspector.classList.toggle('closed', !isInspectorOpen);
+      inspectorHandle.textContent = isInspectorOpen ? '›' : '‹';
+      minimap.classList.toggle('closed-inspector', !isInspectorOpen);
+    }
+
+    function fit10Nodes() {
+      pan = { x: 0, y: 0 };
+      zoom = 0.88;
+      renderStageTransform();
+    }
+
+    function toggleFocusView() {
+      isFocusView = !isFocusView;
+      const btn = document.getElementById('btnFocus');
+      btn.style.background = isFocusView ? '#1A221E' : '#F6F1E6';
+      btn.style.color = isFocusView ? '#FFF' : '#111814';
+      renderNodes();
+      renderEdges();
+    }
+
+    function handleFilter(val) {
+      filterQuery = val.trim().toLowerCase();
+      renderNodes();
+      renderEdges();
+    }
+
+    function copyFormula() {
+      const f = document.getElementById('inspFormula').textContent;
+      navigator.clipboard?.writeText(f);
+      alert('Copied formula: ' + f);
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (isInspectorOpen) toggleInspector();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      updateMinimapViewport();
+    });
+
+    // Initial render
+    renderStageTransform();
+    renderNodes();
+    renderEdges();
+    updateInspector();
+  </script>
+</body>
+</html>

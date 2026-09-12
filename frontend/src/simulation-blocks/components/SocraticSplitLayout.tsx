@@ -2,13 +2,11 @@ import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { HermesAgent, AskResponse } from '../agents/HermesAgent'
 import { logEvent } from '../instrument/logger'
 import { Pit, LogEvent } from '../types'
-import KnowledgeGraphRoadmap from './KnowledgeGraphRoadmap'
-import { Sparkles, Send, Eye, BookOpen, Lightbulb, Mic } from 'lucide-react'
+import { Sparkles, Send, Eye, BookOpen, Lightbulb, Mic, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export function formatMathText(raw: string): string {
   if (!raw) return ''
-  let text = raw
-    // Convert LaTeX arrows and symbols
+  return raw
     .replace(/\\longrightarrow/g, '→')
     .replace(/\\rightarrow/g, '→')
     .replace(/\\cdot/g, '·')
@@ -18,24 +16,19 @@ export function formatMathText(raw: string): string {
     .replace(/\\ne/g, '≠')
     .replace(/\\le/g, '≤')
     .replace(/\\ge/g, '≥')
-    // Remove TeX \text{...}, \mathbf{...}, \mathit{...} wrappers
     .replace(/\\text\{([^}]+)\}/g, '$1')
     .replace(/\\mathbf\{([^}]+)\}/g, '$1')
     .replace(/\\mathit\{([^}]+)\}/g, '$1')
-    // Convert common superscripts
     .replace(/\^2\b|\^\{2\}/g, '²')
     .replace(/\^3\b|\^\{3\}/g, '³')
     .replace(/\^n\b|\^\{n\}/g, 'ⁿ')
-    // Convert common subscripts
     .replace(/_1\b|_\{1\}/g, '₁')
     .replace(/_2\b|_\{2\}/g, '₂')
     .replace(/_n\b|_\{n\}/g, 'ₙ')
     .replace(/_k\b|_\{k\}/g, 'ₖ')
     .replace(/_\{k\+1\}/g, 'ₖ₊₁')
-    // Convert inline $...$ wrappers
     .replace(/\$([^\$]+)\$/g, '$1')
     .replace(/\$/g, '')
-  return text
 }
 
 export interface SocraticSplitLayoutProps {
@@ -68,14 +61,12 @@ export default function SocraticSplitLayout({
   blockState,
   liveObservation,
   topicTitle,
-  topicSubtitle,
   prompt,
-  progressPercent = 40,
+  progressPercent = 35,
   points = 75,
   quickQuestions = [
     'Why is this the answer?',
     'How to form the equation?',
-    'Why discard negative root?'
   ],
   pits,
   initialHint,
@@ -85,21 +76,19 @@ export default function SocraticSplitLayout({
   onEvent,
   onAgentResponse,
   children,
-  rightPanelHeaderExtra
 }: SocraticSplitLayoutProps) {
-  const [isRightPanelExpanded, setIsRightPanelExpanded] = useState(false)
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true)
   const [inp, setInp] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const chatBottomRef = useRef<HTMLDivElement>(null)
 
   const [chat, setChat] = useState<Array<{ who: 'bot' | 'user'; text: string; timestamp: string }>>([])
-  const [currentPoints] = useState(points)
-  const [celebrationToast] = useState<{ title: string; xp: number; badge: string } | null>(null)
+  const currentPoints = points
 
   const resolvedBlockType = blockType || json?.blockType || json?.id || 'algebra-tile'
   const resolvedPrompt = prompt || json?.content?.prompt || 'Explore the interactive simulation model.'
 
-  // Dynamic Socratic Guide mathematical relationship model based on block type
+  // Dynamic Socratic Guide mathematical relationship model
   const socraticGuideText = useMemo(() => {
     if (initialHint) return initialHint
     if (json?.socratic?.initialHint) return json.socratic.initialHint
@@ -118,10 +107,9 @@ export default function SocraticSplitLayout({
     if (resolvedBlockType === 'titration' || blockId?.includes('titration')) {
       return 'At neutral equivalence point: <b>Moles H⁺ = Moles OH⁻ (pH = 7.00)</b>.'
     }
-    return 'When breadth = x, length is <b>2x + 1</b>. We know Area = L × B, so <b>528 = (2x + 1) · x</b>.'
+    return "Welcome! Let's visualise the park. Try a breadth value—what length does 2x+1 give? Watch the area tile update."
   }, [initialHint, json?.socratic?.initialHint, resolvedBlockType, blockId])
 
-  // Auto-scroll chat to bottom when new user queries or responses arrive
   useEffect(() => {
     if (chat.length > 0) {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -145,13 +133,12 @@ export default function SocraticSplitLayout({
       type: 'chat',
       query: q,
       value: null,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }
     logEvent(evt)
     onEvent?.(evt)
 
     try {
-      // 1. Primary: Live Backend FastAPI endpoint
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 3500)
 
@@ -165,8 +152,8 @@ export default function SocraticSplitLayout({
           chapter_id: chapterId || 'curriculum-stem',
           concept_id: conceptId || 'STEM-01',
           mastered_concept_ids: masteredConceptIds,
-          chat_history: chat.slice(-6).map((c) => ({ role: c.who, content: c.text }))
-        })
+          chat_history: chat.slice(-6).map((c) => ({ role: c.who, content: c.text })),
+        }),
       })
       clearTimeout(timeoutId)
 
@@ -179,7 +166,7 @@ export default function SocraticSplitLayout({
           conceptId: data.concept_id,
           isReady: data.is_ready,
           missingPrerequisites: data.missing_prerequisites,
-          nextRecommendedConcept: data.next_recommended_concept
+          nextRecommendedConcept: data.next_recommended_concept,
         })
         return
       }
@@ -187,7 +174,6 @@ export default function SocraticSplitLayout({
       // Fallback
     }
 
-    // 2. Secondary: Client-Side Fallback
     try {
       const res = await agent.ask({
         query: q,
@@ -196,7 +182,7 @@ export default function SocraticSplitLayout({
         chapterId,
         conceptId,
         masteredConceptIds,
-        pits: resolvedPits
+        pits: resolvedPits,
       })
 
       setIsTyping(false)
@@ -209,224 +195,224 @@ export default function SocraticSplitLayout({
         {
           who: 'bot',
           text: 'I am observing your current exploration! Adjust the interactive controls on the right or ask any specific question.',
-          timestamp: timeStr
-        }
+          timestamp: timeStr,
+        },
       ])
     }
   }
 
-  const togglePanel = () => {
-    setIsRightPanelExpanded((prev) => !prev)
-    const evt: LogEvent = {
-      blockId: json?.id || blockId,
-      type: 'panel-toggle',
-      value: !isRightPanelExpanded ? 'expanded' : 'split',
-      timestamp: Date.now()
-    }
-    logEvent(evt)
-    onEvent?.(evt)
-  }
+  const roadmapSteps = ['1. Patterns', '2. Linear', '3. Area Model', '4. Factor Pairs', '5. Quadratic', '6. Sum']
 
   return (
-    <div className="h-full flex-1 flex flex-col bg-cream text-forest overflow-hidden select-none font-ui leading-relaxed">
-      {/* Top Header Bar */}
-      <div className="h-[54px] flex items-center px-4 md:px-6 gap-4 border-b border-black/[0.08] bg-white z-20 shrink-0 shadow-xs">
-        <div className="flex-1 flex items-center gap-3 max-w-[560px] mx-auto px-4">
-          <div className="h-2 bg-cream border border-black/[0.08] rounded-full overflow-hidden flex-1">
-            <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(10, progressPercent))}%` }}
-            />
-          </div>
-          <div className="flex gap-1.5 shrink-0">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <div className="w-2.5 h-2.5 rounded-full bg-black/20" />
-          </div>
+    <div className="h-full flex-1 flex flex-col bg-[#FBF9F3] text-[#111814] overflow-hidden select-none font-sans leading-relaxed">
+      {/* 4px Progress Track */}
+      <div className="mx-6 mt-3 max-md:mx-4 shrink-0">
+        <div className="h-1 rounded-full bg-[#EDE8DD] overflow-hidden">
+          <div
+            className="h-full bg-[#4A7C59] transition-all duration-500 ease-out"
+            style={{ width: `${Math.min(100, Math.max(20, progressPercent))}%` }}
+          />
         </div>
+        <div className="mt-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[10px] tracking-[0.12em] text-[#6B7280] font-medium">
+              {Math.round(progressPercent)}% COMPLETE
+            </span>
+            <div className="flex items-center gap-[5px]">
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`w-[7px] h-[7px] rounded-full transition-colors ${
+                    idx < Math.ceil((progressPercent / 100) * 5)
+                      ? 'bg-[#4A7C59]'
+                      : 'bg-[#EDE8DD] border border-[#E2DDD1]'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
 
-        <div className="flex items-center gap-2 text-[13px] font-bold bg-cream border border-black/10 px-3.5 py-1 rounded-full text-forest">
-          <Sparkles className="w-3.5 h-3.5 text-gold" />
-          <span>{currentPoints} XP</span>
+          <div className="font-mono text-[10px] tracking-[0.12em] text-[#9C7A3A] font-medium">
+            REWARD: <span className="text-[#111814]">{currentPoints} XP</span>
+          </div>
         </div>
       </div>
 
-      {/* Floating Celebration Toast */}
-      {celebrationToast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-bounce bg-white border-2 border-gold rounded-2xl px-6 py-3 shadow-card-hover flex items-center gap-3.5 text-forest select-none">
-          <span className="text-3xl">👏</span>
-          <div>
-            <div className="text-[11px] font-bold text-gold uppercase flex items-center gap-1.5">
-              <span>{celebrationToast.badge}</span>
-              <span>Badge Unlocked: {celebrationToast.title}</span>
-            </div>
-            <div className="text-[12px] font-bold text-forest mt-0.5">
-              +{celebrationToast.xp} XP Earned • Progress +10% ✦
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Interactive Knowledge Graph Roadmap Strip */}
-      {chapterId && (
-        <KnowledgeGraphRoadmap
-          chapterId={chapterId}
-          activeConceptId={conceptId}
-          masteredConceptIds={masteredConceptIds}
-          onAskHermes={(q) => sendQuery(q)}
-        />
-      )}
-
-      {/* Main Split-Panel Area */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Panel: Socratic Guide */}
-        <div
-          className={`h-full bg-cream border-r border-black/[0.08] flex flex-col transition-all duration-300 ease-in-out relative ${
-            isRightPanelExpanded
-              ? 'w-0 min-w-0 border-r-0 opacity-0 overflow-hidden pointer-events-none'
-              : 'w-[400px] min-w-[350px] max-w-[440px] shrink-0 opacity-100'
-          }`}
-        >
-          {/* Welcome Intro Header */}
-          <div className="px-5 pt-5 pb-3 shrink-0">
-            <h3 className="font-display text-[15px] font-bold text-forest leading-snug">
-              Welcome to {topicTitle || 'Linear & Quadratic Equations'}.
-            </h3>
-          </div>
-
-          {/* Socratic Cards Stream */}
-          <div className="flex-1 overflow-y-auto px-5 py-2 space-y-4">
-            {/* Card 1: ✦ Active Problem: */}
-            <div className="bg-white rounded-[18px] p-4 border border-black/[0.06] shadow-card space-y-2">
-              <div className="flex items-center gap-2 text-[12px] font-bold text-forest uppercase tracking-wider">
-                <BookOpen className="w-3.5 h-3.5 text-gold" />
-                <span>✦ Active Problem:</span>
-              </div>
-              <p className="text-[13px] text-forest/85 leading-relaxed">
-                {resolvedPrompt}
-              </p>
-            </div>
-
-            {/* Card 2: ✦ Socratic Guide: */}
-            <div className="bg-white rounded-[18px] p-4 border border-black/[0.06] shadow-card space-y-2">
-              <div className="flex items-center gap-2 text-[12px] font-bold text-forest uppercase tracking-wider">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                <span>✦ Socratic Guide:</span>
-              </div>
+      {/* Roadmap Strip */}
+      <div className="mx-6 mt-3 max-md:mx-4 rounded-[12px] bg-white border border-[#EDE8DD] shadow-card px-4 py-[10px] flex items-center gap-3 overflow-x-auto scrollbar-none max-w-full shrink-0">
+        <span className="font-mono text-[10px] tracking-[0.12em] text-[#9CA3AF] font-medium shrink-0">
+          ROADMAP:
+        </span>
+        <div className="flex items-center gap-2">
+          {roadmapSteps.map((step, idx) => {
+            const isActive = idx === 2 || (progressPercent > 50 && idx === 3)
+            return (
               <div
-                className="text-[13px] text-forest/85 leading-relaxed font-mono"
-                dangerouslySetInnerHTML={{ __html: formatMathText(socraticGuideText) }}
-              />
-            </div>
-
-            {/* Card 3: ✦ 👁 Watching your interaction: */}
-            {liveObservation && (
-              <div className="bg-white rounded-[18px] p-4 border border-black/[0.06] shadow-card space-y-2">
-                <div className="flex items-center gap-2 text-[12px] font-bold text-emerald-800 uppercase tracking-wider">
-                  <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>✦ Watching your interaction:</span>
-                </div>
-                <div
-                  className="text-[13px] text-forest/90 leading-relaxed font-mono bg-cream/70 rounded-xl p-3 border border-black/[0.04]"
-                  dangerouslySetInnerHTML={{
-                    __html: formatMathText(liveObservation),
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Dynamic Chat Messages (When user asks queries) */}
-            {chat.map((m, i) => (
-              <div
-                key={i}
-                className={`p-4 rounded-[18px] text-[13px] leading-relaxed shadow-sm ${
-                  m.who === 'user'
-                    ? 'bg-forest text-white ml-6 rounded-br-none'
-                    : 'bg-white border border-black/[0.06] text-forest mr-6 rounded-bl-none shadow-card'
+                key={idx}
+                className={`h-[28px] px-3 rounded-full text-[12px] font-medium flex items-center gap-1.5 border shrink-0 transition-all ${
+                  isActive
+                    ? 'bg-[#1A221E] text-white border-[#1A221E] shadow-sm'
+                    : 'bg-[#F6F1E6] text-[#6B7280] border-[#EDE8DD]'
                 }`}
               >
-                <div dangerouslySetInnerHTML={{ __html: formatMathText(m.text) }} />
+                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#DDB56E] mr-0.5" />}
+                <span>{step}</span>
               </div>
-            ))}
+            )
+          })}
+        </div>
+      </div>
 
-            {isTyping && (
-              <div className="p-3.5 bg-white border border-black/[0.06] rounded-[18px] text-[12px] text-forest/60 flex items-center gap-2 shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-gold animate-spin" />
-                <span>Hermes is thinking...</span>
+      {/* Main Split-Panel Area: 340px Left + Fluid Canvas Right */}
+      <div className="flex-1 flex mt-4 mx-6 mb-6 gap-4 max-lg:flex-col max-md:mx-4 overflow-hidden relative">
+        {/* Left Panel: Socratic Guide & Feedback (340px) */}
+        <div
+          className={`shrink-0 flex flex-col gap-3 transition-all duration-300 ${
+            isLeftPanelOpen
+              ? 'w-[340px] max-lg:w-full opacity-100'
+              : 'w-0 max-w-0 opacity-0 overflow-hidden pointer-events-none p-0 m-0'
+          }`}
+        >
+          {/* Card 1: ACTIVE PROBLEM */}
+          <div className="rounded-[16px] bg-white border border-[#EDE8DD] shadow-card p-4">
+            <div className="font-mono text-[9px] tracking-[0.12em] text-[#9CA3AF] opacity-65 uppercase font-medium mb-2">
+              ACTIVE PROBLEM
+            </div>
+            <div className="mt-1 flex gap-3">
+              <div className="w-8 h-8 rounded-[10px] bg-[#E6F0E8] grid place-items-center shrink-0">
+                <BookOpen className="w-4 h-4 text-[#4A7C59]" />
               </div>
-            )}
-            <div ref={chatBottomRef} />
+              <div className="flex-1 min-w-0">
+                <div className="font-display font-semibold text-[14px] leading-[1.3] text-[#111814] truncate">
+                  {topicTitle || 'Consecutive Numbers & Algebra'}
+                </div>
+                <div className="mt-1.5 text-[12px] leading-[1.5] text-[#6B7280]">
+                  {resolvedPrompt}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Socratic Quick Prompts */}
-          <div className="flex flex-col gap-1.5 px-5 py-2 shrink-0">
-            {quickQuestions.slice(0, 2).map((q, idx) => (
+          {/* Card 2: SOCRATIC GUIDE (Yellow Token Spec #FFFBEB / #FDE68A) */}
+          <div className="rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] p-4 shadow-sm">
+            <div className="flex items-center gap-1.5 font-mono text-[9px] tracking-[0.12em] text-[#92400E] uppercase font-medium mb-2">
+              <Lightbulb className="w-3.5 h-3.5 text-[#92400E]" />
+              <span>SOCRATIC GUIDE</span>
+            </div>
+            <div
+              className="text-[12px] leading-[1.55] text-[#78350F]"
+              dangerouslySetInnerHTML={{ __html: formatMathText(socraticGuideText) }}
+            />
+          </div>
+
+          {/* Card 3: WATCHING YOUR INTERACTION (Green Token Spec #F0FDF4 / #BBF7D0) */}
+          {liveObservation && (
+            <div className="rounded-[12px] border border-[#BBF7D0] bg-[#F0FDF4] p-4 shadow-sm">
+              <div className="flex items-center gap-1.5 font-mono text-[9px] tracking-[0.12em] text-[#166534] uppercase font-medium mb-2">
+                <Eye className="w-3.5 h-3.5 text-[#166534] shrink-0" />
+                <span>WATCHING YOUR INTERACTION</span>
+              </div>
+              <div
+                className="text-[12px] leading-[1.55] text-[#14532D]"
+                dangerouslySetInnerHTML={{ __html: formatMathText(liveObservation) }}
+              />
+            </div>
+          )}
+
+          {/* Quick Prompts */}
+          <div className="flex flex-wrap gap-2">
+            {quickQuestions.map((q, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => sendQuery(q)}
-                className="rounded-xl bg-white hover:bg-cream-card border border-black/[0.08] px-3.5 py-1.5 text-[12px] font-medium text-forest/80 hover:text-forest transition-all cursor-pointer shadow-xs text-left w-fit"
+                className="h-[28px] px-3 rounded-full bg-white border border-[#EDE8DD] shadow-sm text-[11px] text-[#6B7280] hover:bg-[#FBF9F3] hover:text-[#111814] transition-colors text-left cursor-pointer"
               >
                 {q}
               </button>
             ))}
           </div>
 
-          {/* Bottom Chat Input Bar */}
-          <div className="p-4 pt-1 shrink-0 bg-cream">
-            <div className="rounded-[16px] border border-black/[0.08] bg-white px-3.5 py-2.5 flex items-center gap-2.5 shadow-sm focus-within:border-gold">
+          {/* Dynamic Chat Messages */}
+          {chat.length > 0 && (
+            <div className="flex-1 overflow-y-auto space-y-2 max-h-[160px] pr-1">
+              {chat.map((m, i) => (
+                <div
+                  key={i}
+                  className={`p-2.5 rounded-[12px] text-[12px] leading-relaxed ${
+                    m.who === 'user'
+                      ? 'bg-[#1A221E] text-white ml-4'
+                      : 'bg-white border border-[#EDE8DD] text-[#111814] mr-4 shadow-sm'
+                  }`}
+                >
+                  <div dangerouslySetInnerHTML={{ __html: formatMathText(m.text) }} />
+                </div>
+              ))}
+              {isTyping && (
+                <div className="p-2 bg-white border border-[#EDE8DD] rounded-[10px] text-[11px] text-[#6B7280] flex items-center gap-1.5 font-mono">
+                  <Sparkles className="w-3 h-3 text-[#DDB56E] animate-spin" />
+                  <span>Hermes is thinking...</span>
+                </div>
+              )}
+              <div ref={chatBottomRef} />
+            </div>
+          )}
+
+          {/* Hermes Chat Input Bar */}
+          <div className="mt-auto pt-2">
+            <div className="h-[40px] rounded-[12px] bg-white border border-[#EDE8DD] shadow-card flex items-center px-3 gap-2">
               <input
                 value={inp}
                 onChange={(e) => setInp(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendQuery(inp)}
                 placeholder="Ask Hermes a question..."
-                className="flex-1 bg-transparent text-[13px] text-forest placeholder:text-forest/40 outline-none"
+                className="flex-1 h-8 text-[12px] outline-none placeholder:text-[#9CA3AF] text-[#111814] bg-transparent font-sans"
               />
               <button
                 type="button"
-                className="text-forest/40 hover:text-forest cursor-pointer p-1"
+                className="w-7 h-7 grid place-items-center rounded-full hover:bg-[#FBF9F3] text-[#9CA3AF] hover:text-[#111814] transition-colors cursor-pointer"
                 title="Voice input"
               >
-                <Mic className="w-4 h-4" />
+                <Mic className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => sendQuery(inp)}
                 disabled={!inp.trim()}
-                className="h-7 w-7 rounded-lg bg-forest text-white hover:bg-forest-raised transition-all flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-40"
-                aria-label="Send message"
+                className="w-7 h-7 grid place-items-center rounded-full bg-[#1A221E] text-white hover:bg-black transition-colors cursor-pointer disabled:opacity-40"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>
             </div>
+            <div className="mt-2 font-mono text-[9px] tracking-[0.12em] text-[#9CA3AF] text-center">
+              HERMES · SOCRATIC TUTOR
+            </div>
           </div>
         </div>
 
-        {/* Boundary Collapse / Expand Toggle Button */}
-        <button
-          onClick={togglePanel}
-          aria-label={isRightPanelExpanded ? 'Restore Socratic Chat' : 'Expand problem workspace'}
-          title={isRightPanelExpanded ? 'Restore Chat (←)' : 'Expand workspace (→)'}
-          className={`absolute top-1/2 -translate-y-1/2 z-40 cursor-pointer flex items-center justify-center w-4 h-16 bg-forest hover:bg-forest-raised text-white shadow-card border border-white/20 transition-all focus:outline-none ${
-            isRightPanelExpanded ? 'left-0 rounded-r-full' : 'left-[400px] -translate-x-1/2 rounded-full'
-          }`}
-        >
-          <div className="w-1 h-5 rounded-full bg-white/70" />
-        </button>
+        {/* Panel collapse/expand toggle on desktop */}
+        <div className="hidden lg:flex items-center self-center shrink-0 -mx-2 z-20">
+          <button
+            type="button"
+            onClick={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+            title={isLeftPanelOpen ? 'Collapse Socratic guide' : 'Expand Socratic guide'}
+            className="w-4 h-10 rounded-full bg-white border border-[#EDE8DD] shadow-[0_2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center text-[#6B7280] hover:text-[#111814] hover:bg-[#FBF9F3] transition-colors cursor-pointer"
+          >
+            {isLeftPanelOpen ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          </button>
+        </div>
 
-        {/* Right Panel: Interactive Problem Workspace */}
-        <div className="flex-1 min-w-0 bg-cream-card p-6 md:p-8 flex flex-col justify-between overflow-y-auto border-l border-black/[0.06]">
-          {/* Goal of the Simulation */}
-          {resolvedPrompt && (
-            <div className="w-full mb-6 text-left shrink-0">
-              <h2 className="font-display text-[18px] md:text-[22px] font-bold text-forest leading-snug tracking-tight">
-                {resolvedPrompt}
-              </h2>
-            </div>
-          )}
-
-          {/* Centered Problem Workspace */}
-          <div className="flex-1 flex flex-col justify-center items-center w-full">
+        {/* Right Panel: Interactive Canvas */}
+        <div className="flex-1 relative rounded-[16px] overflow-hidden border border-[#EDE8DD] bg-[#FBF9F3] min-h-[720px] flex flex-col">
+          <div
+            className="absolute inset-0 dotted-bg opacity-[0.35] pointer-events-none"
+            style={{
+              backgroundImage: 'radial-gradient(#1A221E 1px, transparent 1.4px)',
+              backgroundSize: '22px 22px',
+            }}
+          />
+          <div className="absolute inset-0 bg-[#FBF9F3]/[0.84] pointer-events-none" />
+          <div className="relative z-10 flex flex-col flex-1 w-full overflow-y-auto">
             {children}
           </div>
         </div>

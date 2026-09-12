@@ -268,7 +268,8 @@ export default function Shell() {
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden">
-        <header className="print:hidden h-[72px] shrink-0 bg-white border-b border-black/[0.06] flex items-center gap-3 px-4 lg:px-6">
+        {!location.pathname.startsWith('/practice') && (
+          <header className="print:hidden h-[72px] shrink-0 bg-white border-b border-black/[0.06] flex items-center gap-3 px-4 lg:px-6">
           <button
             onClick={() => setNavOpen(true)}
             className="lg:hidden w-9 h-9 rounded-xl border border-black/10 flex items-center justify-center"
@@ -347,8 +348,9 @@ export default function Shell() {
             </button>
           </div>
         </header>
+        )}
 
-        <main className="flex-1 overflow-y-auto bg-cream min-w-0">
+        <main className="flex-1 overflow-y-auto bg-[#FBF9F3] min-w-0">
           <Outlet context={ctx} />
         </main>
       </div>

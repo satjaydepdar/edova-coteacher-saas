@@ -186,14 +186,14 @@ interface SocraticLabEmbedProps {
 }
 
 export default function SocraticLabEmbed({
-  initialSimId = 'quad-park',
+  initialSimId = 'quad-consecutive',
   onBack,
 }: SocraticLabEmbedProps) {
   const [activeSim, setActiveSim] = useState<SimulationItem>(() => {
-    return LAB_CATALOG.find((s) => s.id === initialSimId) || LAB_CATALOG[0]
+    return LAB_CATALOG.find((s) => s.id === initialSimId) || LAB_CATALOG[2] || LAB_CATALOG[0]
   })
   const [activeProblemKey, setActiveProblemKey] = useState<string>(
-    initialSimId === 'quad-rocket' ? 'rocket' : initialSimId === 'quad-consecutive' ? 'consecutive' : 'park',
+    initialSimId === 'quad-rocket' ? 'rocket' : initialSimId === 'quad-park' ? 'park' : 'consecutive',
   )
   const [sessionKey, setSessionKey] = useState<string>(() => `sess-${initialSimId}-${Date.now()}`)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -221,78 +221,81 @@ export default function SocraticLabEmbed({
     <div
       className={
         isFullscreen
-          ? 'fixed inset-0 z-50 bg-cream text-forest flex flex-col h-screen w-screen overflow-hidden font-ui'
-          : 'bg-cream text-forest flex flex-col h-full overflow-hidden font-ui'
+          ? 'fixed inset-0 z-50 bg-[#FBF9F3] text-[#111814] flex flex-col h-screen w-screen overflow-hidden font-sans'
+          : 'bg-[#FBF9F3] text-[#111814] flex flex-col h-full overflow-hidden font-sans'
       }
     >
-      {/* Top Context Bar in SaaS styling */}
-      <div className="h-[60px] bg-white border-b border-black/[0.08] px-4 lg:px-6 flex items-center justify-between z-30 shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
+      {/* Top Context Sub-Nav Bar */}
+      <div className="mx-6 mt-4 rounded-[12px] bg-white border border-[#EDE8DD] shadow-[0_1px_2px_rgba(0,0,0,0.04)] h-[44px] flex items-center justify-between px-3 max-md:mx-4 max-md:h-auto max-md:py-2 max-md:flex-col max-md:items-stretch gap-2 shrink-0 z-30">
+        <div className="flex items-center gap-2">
           {onBack && (
             <button
               onClick={onBack}
-              className="h-9 px-3.5 rounded-xl bg-forest hover:bg-forest-raised text-white text-[13px] font-medium flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              className="h-7 px-3 rounded-full bg-[#1A221E] text-white text-[11px] font-[500] flex items-center gap-1 hover:bg-black transition-colors cursor-pointer shadow-xs"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3 h-3" />
               <span>Back</span>
             </button>
           )}
-          <div className="text-[12px] text-forest/60 hidden sm:flex items-center gap-1.5 font-medium">
-            <span className="capitalize">{activeSim.subjectId}</span>
-            <ChevronRight className="w-3.5 h-3.5 opacity-40" />
-            <span className="capitalize">{activeSim.chapterId.replace('-', ' ')}</span>
-            <ChevronRight className="w-3.5 h-3.5 opacity-40" />
-            <span className="text-forest font-semibold">{activeSim.title}</span>
-          </div>
+          <span className="text-[11px] text-[#9CA3AF] font-mono hidden md:inline uppercase tracking-wide">
+            {activeSim.subjectId} &gt; {activeSim.chapterId.replace('-', ' ')} &gt; {activeSim.title}
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 overflow-auto no-scrollbar">
           {/* Multi-Problem Switcher for Quadratics */}
           {activeSim.subtopicId === 'quadratic-equations' && (
-            <div className="flex items-center gap-1 bg-cream p-1 rounded-xl border border-black/10 text-[12px]">
+            <>
               <button
                 onClick={() => handleSwitchProblem('park')}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`h-7 px-3 rounded-full text-[11px] font-[500] flex items-center gap-1.5 transition-all cursor-pointer ${
                   activeProblemKey === 'park'
-                    ? 'bg-forest text-white font-semibold shadow-sm'
-                    : 'text-forest/70 hover:text-forest'
+                    ? 'bg-[#1A221E] text-white shadow-xs'
+                    : 'bg-[#F6F1E6] border border-[#EDE8DD] text-[#6B7280] hover:text-[#111814]'
                 }`}
               >
+                {activeProblemKey === 'park' && <span className="w-1.5 h-1.5 rounded-full bg-[#DDB56E]"></span>}
                 <span>1. Park Area</span>
-                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 text-white text-[9px] flex items-center justify-center font-bold">✓</span>
               </button>
               <button
                 onClick={() => handleSwitchProblem('rocket')}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                className={`h-7 px-3 rounded-full text-[11px] font-[500] flex items-center gap-1.5 transition-all cursor-pointer ${
                   activeProblemKey === 'rocket'
-                    ? 'bg-forest text-white font-semibold shadow-sm'
-                    : 'text-forest/70 hover:text-forest'
+                    ? 'bg-[#1A221E] text-white shadow-xs'
+                    : 'bg-[#F6F1E6] border border-[#EDE8DD] text-[#6B7280] hover:text-[#111814]'
                 }`}
               >
-                2. Rocket Path
+                {activeProblemKey === 'rocket' && <span className="w-1.5 h-1.5 rounded-full bg-[#DDB56E]"></span>}
+                <span>2. Rocket Path</span>
               </button>
               <button
                 onClick={() => handleSwitchProblem('consecutive')}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                className={`h-7 px-3 rounded-full text-[11px] font-[500] flex items-center gap-1.5 transition-all cursor-pointer ${
                   activeProblemKey === 'consecutive'
-                    ? 'bg-forest text-white font-semibold shadow-sm'
-                    : 'text-forest/70 hover:text-forest'
+                    ? 'bg-[#1A221E] text-white shadow-xs'
+                    : 'bg-[#F6F1E6] border border-[#EDE8DD] text-[#6B7280] hover:text-[#111814]'
                 }`}
               >
-                3. Number Sum
+                {activeProblemKey === 'consecutive' && <span className="w-1.5 h-1.5 rounded-full bg-[#DDB56E]"></span>}
+                <span>3. Number Sum</span>
               </button>
-            </div>
+              <span className="w-px h-4 bg-[#EDE8DD] mx-1"></span>
+            </>
           )}
 
           {/* Fullscreen / Immersive Mode Toggle */}
           <button
             onClick={() => setIsFullscreen((prev) => !prev)}
-            className="h-9 px-3 rounded-xl border border-black/10 bg-white hover:bg-black/5 text-forest text-[12px] font-medium flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            className="h-7 px-3 rounded-full bg-white border border-[#EDE8DD] text-[11px] text-[#111814] flex items-center gap-1 hover:bg-[#F6F1E6] transition-colors cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Immersive Fullscreen'}
           >
-            {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
-            <span className="hidden md:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+            {isFullscreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
           </button>
+
+          <span className="h-7 px-3 rounded-full bg-[#FEF3C7] border border-[#FDE68A] text-[11px] font-mono font-[600] text-[#92400E] grid place-items-center">
+            {activeSim.points || 75} XP
+          </span>
         </div>
       </div>
 

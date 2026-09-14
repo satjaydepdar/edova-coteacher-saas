@@ -58,6 +58,7 @@ export interface TrigMetrics {
   concept_mastery: number
   active_attempts: number
   accuracy_rate: number
+  questions_solved?: number
 }
 
 export interface TrigRequiredItem {
@@ -71,6 +72,7 @@ export interface TrigStudentState {
   difficulty: number
   sal: number
   mastery_score: number
+  questions_solved?: number
   active_step_index: number
   total_steps: number
   is_fully_solved: boolean
@@ -86,6 +88,7 @@ export interface TrigStudentState {
   steps_history: TrigStepHistoryItem[]
   metrics: TrigMetrics
   required_items: TrigRequiredItem[]
+  session_id?: string
 }
 
 export interface TrigConceptSummary {

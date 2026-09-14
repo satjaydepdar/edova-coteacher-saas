@@ -8,10 +8,10 @@ import {
   RotateCw,
 } from 'lucide-react'
 import MathDisplay from './MathDisplay'
+import MathLiveInput from './MathLiveInput'
 import FormattedMathText from './FormattedMathText'
 import TrigonometryDagModal from './TrigonometryDagModal'
 import { trackTelemetryEvent } from '../../lib/trig/tracer'
-import { createCoTeacherSession, submitCoTeacherStep, CoTeacherApiError } from '../../lib/trig/coTeacherApiClient'
 import {
   trigApi,
   type TrigConceptSummary,
@@ -54,8 +54,6 @@ export default function CoteacherWorkspace({
   const [userAnswer, setUserAnswer] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const [reasoningSessionId, setReasoningSessionId] = useState<string | null>(null)
   const [systemError, setSystemError] = useState<string | null>(null)
   const [requiredItems, setRequiredItems] = useState<TrigRequiredItem[]>([])
 
@@ -150,17 +148,16 @@ export default function CoteacherWorkspace({
 
   const fetchState = async (fresh = true, generateNew = true) => {
     setLoading(true)
-    setIsGenericSession(false)
-    setGenericSessionId(null)
     setUserAnswer('')
     setFeedback(null)
     setSystemError(null)
     setIsFullySolved(false)
     setEditingStepIndex(null)
-    setReasoningSessionId(null)
 
     try {
       const data = await trigApi.state(conceptId, { fresh, generateNew })
+      setGenericSessionId(data.session_id || null)
+      setIsGenericSession(true)
       setConceptTitle(data.concept_title)
       setProblemContext(data.problem_context || '')
       setActiveStepIndex(data.active_step_index ?? 0)
@@ -172,7 +169,7 @@ export default function CoteacherWorkspace({
       setCurrentPrompt(data.current_step?.prompt || '')
       setFormulaReference(data.formula_reference || '')
       setRequiredItems(data.required_items || [])
-      setMetrics(data.metrics || { assistance_sal: data.sal, concept_mastery: data.mastery_score, active_attempts: 0, accuracy_rate: 0 })
+      setMetrics(data.metrics || { assistance_sal: data.sal, concept_mastery: data.mastery_score, active_attempts: 0, accuracy_rate: 0, questions_solved: data.questions_solved || 0 })
       setHasStartedProblem(true)
     } catch {
       setSystemError('Could not reach the workspace backend. Please try again.')
@@ -194,7 +191,6 @@ export default function CoteacherWorkspace({
     setUserAnswer('')
     setFeedback(null)
     setSystemError(null)
-    setReasoningSessionId(null)
     setRequiredItems([])
     setStepsHistory([])
     setTimeline(startTimelineSeed())
@@ -204,8 +200,7 @@ export default function CoteacherWorkspace({
 
   const handleNextProblem = () => {
     trackTelemetryEvent(conceptId, activeStepIndex, 'next_problem_click', { concept_id: conceptId })
-    fetchState(true, true)
-    setTimeline(startTimelineSeed())
+    fetchState(false, true)
     setFeedback(null)
   }
 
@@ -213,107 +208,49 @@ export default function CoteacherWorkspace({
     const finalAnswer = answerValue || userAnswer
     if (!finalAnswer || isSubmitting || !conceptId) return
 
+    if (!genericSessionId) {
+      setSystemError('No active reasoning session. Please refresh or select a concept.')
+      return
+    }
+
     setIsSubmitting(true)
     setSystemError(null)
     const isEditingPastStep = editingStepIndex !== null
     const stepIdx = isEditingPastStep ? editingStepIndex : activeStepIndex
 
-    // Dedicated Generic Reasoning Engine submission
-    if (isGenericSession && genericSessionId) {
-      try {
-        const res = await trigApi.submitStep(genericSessionId, stepIdx, finalAnswer.trim())
-        if (res.is_correct) {
-          setStepsHistory(res.steps_history)
-          if (!isEditingPastStep) {
-            setActiveStepIndex(res.active_step_index)
-            if (res.total_steps) {
-              setTotalSteps(res.total_steps)
-            } else if (res.steps_history && res.steps_history.length > totalSteps) {
-              setTotalSteps(res.steps_history.length)
-            }
-          }
-          setEditingStepIndex(null)
-          setUserAnswer('')
-          setMetrics(res.metrics)
-          if (res.is_fully_solved) {
-            setIsFullySolved(true)
-            setFeedback(`✓ ${res.socratic_scaffold}`)
-          } else {
-            setFeedback(`✓ ${res.socratic_scaffold}`)
-            setCurrentPrompt(res.active_step?.prompt || '')
-            setQuickOptions(res.quick_options || [])
-            setSocraticScaffold(res.active_step?.hint || res.socratic_scaffold)
-            setIsHintOpen(false)
-          }
-        } else {
-          setFeedback(`✕ ${res.socratic_scaffold}`)
-          setSocraticScaffold(res.socratic_scaffold)
-          setMetrics(res.metrics)
-          setIsHintOpen(true)
-        }
-      } catch (err: any) {
-        setSystemError(err?.message || 'Error communicating with Reasoning Engine.')
-      } finally {
-        setIsSubmitting(false)
-      }
-      return
-    }
-
     try {
-      let sessionId = reasoningSessionId
-      if (!sessionId) {
-        const sessionRes = await createCoTeacherSession({
-          subject: 'mathematics',
-          topic: 'trigonometry',
-          problem: problemContext,
-          context: requiredItems.length > 0 ? { requiredItems } : undefined,
-        })
-        sessionId = sessionRes.sessionId
-        setReasoningSessionId(sessionId)
-      }
-
-      const requestId = crypto.randomUUID()
-      const { coach } = await submitCoTeacherStep(sessionId, finalAnswer.trim(), requestId)
-
-      switch (coach.responseType) {
-        case 'ENCOURAGE':
-          setStepsHistory((prev) => {
-            const next = [...prev]
-            next[stepIdx] = { ...next[stepIdx], completed: true, result: finalAnswer.trim() }
-            return next
-          })
-          if (!isEditingPastStep) setActiveStepIndex(stepIdx + 1)
-          setEditingStepIndex(null)
-          setUserAnswer('')
-          setFeedback(`✓ ${coach.message}`)
-          setIsHintOpen(false)
-          break
-        case 'TARGETED_HINT':
-          setFeedback('✕ Not quite equivalent.')
-          setSocraticScaffold(coach.message)
-          setIsHintOpen(true)
-          break
-        case 'CLARIFY':
-          setFeedback("? Let's clarify that step.")
-          setSocraticScaffold(coach.message)
-          setIsHintOpen(true)
-          break
-        case 'COMPLETION':
+      const res = await trigApi.submitStep(genericSessionId, stepIdx, finalAnswer.trim())
+      if (res.is_correct) {
+        setStepsHistory(res.steps_history)
+        if (!isEditingPastStep) {
+          setActiveStepIndex(res.active_step_index)
+          if (res.total_steps) {
+            setTotalSteps(res.total_steps)
+          } else if (res.steps_history && res.steps_history.length > totalSteps) {
+            setTotalSteps(res.steps_history.length)
+          }
+        }
+        setEditingStepIndex(null)
+        setUserAnswer('')
+        setMetrics(res.metrics)
+        if (res.is_fully_solved) {
           setIsFullySolved(true)
-          setFeedback(`✓ ${coach.message}`)
-          break
-        case 'SYSTEM_ERROR':
-          setSystemError(coach.message)
-          break
-        default:
-          break
-      }
-    } catch (err) {
-      if (err instanceof CoTeacherApiError) {
-        setSystemError('Unable to check this step right now. Please try again.')
+          setFeedback(`✓ ${res.socratic_scaffold}`)
+        } else {
+          setFeedback(`✓ ${res.socratic_scaffold}`)
+          setCurrentPrompt(res.active_step?.prompt || '')
+          setQuickOptions(res.quick_options || [])
+          setSocraticScaffold(res.active_step?.hint || res.socratic_scaffold)
+          setIsHintOpen(false)
+        }
       } else {
-        throw err
+        setFeedback(`✕ ${res.socratic_scaffold}`)
+        setSocraticScaffold(res.socratic_scaffold)
+        setMetrics(res.metrics)
+        setIsHintOpen(true)
       }
+    } catch (err: any) {
+      setSystemError(err?.message || 'Error communicating with Reasoning Engine.')
     } finally {
       setIsSubmitting(false)
     }
@@ -774,18 +711,14 @@ export default function CoteacherWorkspace({
                       </div>
                     </div>
 
-                    <textarea
+                    <MathLiveInput
                       value={userAnswer}
-                      onChange={(e) => setUserAnswer(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                          e.preventDefault()
-                          if (userAnswer.trim() && !isSubmitting) handleStepSubmit()
-                        }
+                      onChange={setUserAnswer}
+                      onSubmit={() => {
+                        if (userAnswer.trim() && !isSubmitting) handleStepSubmit()
                       }}
-                      placeholder="Type your derivation here... e.g., AC² = 3²+4² = 9+16 = 25 → AC=5"
-                      rows={3}
-                      className="w-full min-h-[96px] p-4 bg-transparent outline-none resize-none font-mono text-[13px] leading-[1.7] placeholder:text-[#B8BFB9] text-[#1A221E]"
+                      placeholder="Type your derivation here, e.g., AC^2 = 3^2+4^2 = 9+16 = 25"
+                      className="w-full min-h-[96px] p-4 font-mono text-[13px] leading-[1.7] text-[#1A221E]"
                     />
 
                     {/* Live KaTeX preview inside input box if non-empty */}
@@ -1120,21 +1053,19 @@ export default function CoteacherWorkspace({
               <div className="relative">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-mono text-[9px] tracking-[0.14em] text-[#9CA3AF] uppercase opacity-90">
-                    FLUENCY • SPEED
+                    ARCHETYPE MASTERY
                   </span>
-                  <span className="font-mono text-[9px] px-2 py-1 rounded-full bg-[#232E27] border border-[#2A332F] text-[#C7D0C9]">
-                    10 max
+                  <span className="font-mono text-[9px] px-2 py-1 rounded-full bg-[#232E27] border border-[#2A332F] text-[#DDB56E] font-semibold">
+                    {metrics.questions_solved || 0}/5 Solved
                   </span>
                 </div>
 
                 <div className="flex items-end gap-3 mb-4">
                   <div className="font-display text-[28px] font-[700] leading-none text-[#FFFFFF] tracking-[-0.02em]">
-                    {hasStartedProblem && completedSteps.length > 0
-                      ? `${Math.min(100, completedSteps.length * 20 + 2)}%`
-                      : '0%'}
+                    {`${Math.round((metrics.concept_mastery || 0) * 100)}%`}
                   </div>
                   <div className="font-mono text-[11px] text-[#EDE8DD] mb-0.5 opacity-90">
-                    {completedSteps.length}/10 steps • avg 18s
+                    {(metrics.questions_solved || 0) >= 5 ? '★ Mastered' : `${5 - (metrics.questions_solved || 0)} more to master`}
                   </div>
                 </div>
 
@@ -1149,27 +1080,28 @@ export default function CoteacherWorkspace({
                   </div>
                   <div className="rounded-[8px] bg-[#232E27] border border-[#2A332F] p-2.5">
                     <div className="font-mono text-[9px] tracking-[0.08em] text-[#9CA3AF] uppercase">
-                      Mastered Steps
+                      Current SAL
                     </div>
-                    <div className="font-medium text-[14px] text-[#FFFFFF] mt-1">
-                      {completedSteps.length}
+                    <div className="font-medium text-[14px] text-[#DDB56E] mt-1 font-mono">
+                      {metrics.assistance_sal.toFixed(2)}
                     </div>
                   </div>
                 </div>
 
-                {/* 10 Equalizer Bars */}
-                <div className="h-[36px] flex items-end gap-[3px]">
-                  {Array.from({ length: 10 }).map((_, yn) => {
-                    const isFilled = hasStartedProblem && yn < completedSteps.length
+                {/* 5 Archetype Question Milestones */}
+                <div className="h-[28px] flex items-center gap-2">
+                  {Array.from({ length: 5 }).map((_, qIdx) => {
+                    const isSolved = (metrics.questions_solved || 0) > qIdx
                     return (
                       <div
-                        key={yn}
-                        className="flex-1 rounded-[4px] transition-all duration-500"
+                        key={qIdx}
+                        className="flex-1 h-3 rounded-[4px] transition-all duration-500 border"
                         style={{
-                          height: isFilled ? `${34 + yn * 6}%` : '18%',
-                          background: isFilled ? '#DDB56E' : '#2A332F',
-                          opacity: isFilled ? 1 : 0.9,
+                          background: isSolved ? '#DDB56E' : '#232E27',
+                          borderColor: isSolved ? '#DDB56E' : '#2A332F',
+                          opacity: isSolved ? 1 : 0.6,
                         }}
+                        title={`Question ${qIdx + 1}: ${isSolved ? 'Solved' : 'Pending'}`}
                       />
                     )
                   })}

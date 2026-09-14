@@ -41,6 +41,9 @@ class StudentState(Base):
     mastery_score = Column(Float, default=0.0)
     scaffold_assistance_level = Column(Float, default=1.0)
     consecutive_correct = Column(Integer, default=0)
+    questions_solved = Column(Integer, default=0)
+    active_session_id = Column(String(64), index=True, nullable=True)
+    current_question_id = Column(Integer, ForeignKey('trig_questions.id', ondelete="SET NULL"), nullable=True)
     cognitive_profile = Column(JSON, default=lambda: {
         "accuracy_rate": 0.0,
         "avg_response_latency_sec": 0.0,
@@ -51,6 +54,7 @@ class StudentState(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     concept = relationship("Concept")
+    current_question = relationship("TrigQuestion")
 
 class InteractionLog(Base):
     __tablename__ = 'trig_interaction_logs'
@@ -79,3 +83,18 @@ class TelemetryEvent(Base):
     event_type = Column(String, nullable=False, index=True)
     event_payload = Column(JSON, default=dict)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+class TrigQuestion(Base):
+    __tablename__ = 'trig_questions'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    concept_id = Column(String, ForeignKey('trig_concepts.id', ondelete="CASCADE"), nullable=False, index=True)
+    chapter = Column(String, nullable=False, index=True)
+    difficulty = Column(Float, default=1.0)
+    title = Column(String, nullable=False)
+    problem_text = Column(Text, nullable=False)
+    problem_spec = Column(JSON, nullable=True, default=dict)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    concept = relationship("Concept")
+

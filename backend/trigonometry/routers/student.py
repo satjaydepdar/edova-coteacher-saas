@@ -1,83 +1,42 @@
-"""Ported from edova-pilot-v4/backend/app/api/student.py.
-
-Adapted:
-- student_id comes from the verified auth token, never a path/body param.
-- The deprecated POST /submit endpoint is NOT ported. Tracing the actual
-  current pilot-v4 frontend (CoteacherWorkspace.jsx) confirms step
-  submission talks directly to the CoTeacher API, not this backend --
-  pilot-v4's own PHASE-6C-MIGRATION-NOTES.md documents this migration and
-  that /submit's only remaining caller was its own test suite. Porting a
-  dead code path here would just add an unused sympy dependency.
-- Known gap, carried over from the pilot rather than introduced by this
-  port: because step submission bypasses this backend, StudentState/
-  InteractionLog are not updated during a solve -- SAL/mastery/step
-  progress lives in browser state + the CoTeacher session only, and does
-  not currently survive a page refresh. Flagged, not silently fixed."""
-import re
+import os
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from core import current_principal
 from trigonometry.database import get_db
-from trigonometry.models import Concept, StudentState
-from trigonometry.schemas import ResetRequest, StepHistoryItem, CognitiveMetrics
-from trigonometry.engine import get_pedagogical_scaffold
-from trigonometry.problem_generator import generate_dynamic_problem
+from trigonometry.models import Concept, StudentState, TrigQuestion
+from trigonometry.schemas import ResetRequest, CognitiveMetrics
+
+REASONING_ENGINE_URL = os.getenv("REASONING_ENGINE_URL", "http://127.0.0.1:8000")
 
 router = APIRouter(prefix="/api/trig/student", tags=["Trigonometry Student Workspace"])
 
 def _student_id(p: dict) -> str:
     return p["user_id"] or f"device:{p['key_id']}"
 
-# Derives the CoTeacher reasoning session's completion target from data the
-# problem already declares (the final step's expected_latex, e.g.
-# "\sin(A) = \frac{7}{25}") -- never hardcoded per-concept here. Ported from
-# pilot-v4's derive_required_items(); required by the (non-deprecated)
-# frontend flow, which reads this field to seed the CoTeacher session.
-RATIO_TARGET_RE = re.compile(r"\\?(sin|cos|tan|cot|sec|csc|cosec)\(\\?([A-Za-z]+)\)")
+def _school_id(p: dict) -> str:
+    return str(p.get("tenant_id") or "default_school")
 
-def derive_required_items(steps: list) -> List[Dict[str, str]]:
-    if not steps:
-        return []
-    last_expected = steps[-1].get("expected_latex", "")
-    m = RATIO_TARGET_RE.search(last_expected)
-    if not m:
-        return []
-    ratio, angle = m.group(1), m.group(2)
-    item_id = f"{ratio}_{angle}"
-    return [{"id": item_id, "quantity": item_id}]
-
-# Active session problems/derivations cache, keyed "student_id:concept_id" --
-# same in-memory-cache design as the pilot (not durable across a restart;
-# fine for a randomized "next problem" instance, same tradeoff it already had).
+# Active session cache: { "student_id:concept_id": {"question_id": int, "session_id": str} }
 ACTIVE_SESSION_PROBLEMS: Dict[str, Dict[str, Any]] = {}
 
-def build_steps_history(steps: list, active_step_index: int) -> List[StepHistoryItem]:
-    history = []
-    for s in steps:
-        idx = s.get("step_index", 0)
-        is_completed = idx < active_step_index
-        result_str = s.get("expected_latex", s.get("expected_math", "")) if is_completed else ""
-        history.append(StepHistoryItem(
-            step_index=idx,
-            instruction=s.get("prompt", ""),
-            result=result_str,
-            completed=is_completed
-        ))
-    return history
-
 @router.get("/state/{concept_id}")
-def get_student_state(
+async def get_student_state(
     concept_id: str,
     fresh: bool = Query(False, description="Whether to reset the concept to a fresh Step 1 session"),
-    generate_new: bool = Query(False, description="Whether to generate a fresh randomized problem with new numbers"),
+    generate_new: bool = Query(False, description="Whether to fetch a new question from the question bank"),
     authorization: str = Header(...),
     db: Session = Depends(get_db)
 ):
-    """Retrieves or initializes the active student state and next pedagogical scaffold for the concept."""
+    """
+    Retrieves or initializes the active student state and connects to edova-reasoner
+    using curated problem statements stored in the trig_questions table.
+    """
     p = current_principal(authorization)
     student_id = _student_id(p)
+    school_id = _school_id(p)
 
     concept = db.query(Concept).filter(Concept.id == concept_id).first()
     if not concept:
@@ -93,73 +52,140 @@ def get_student_state(
         db.add(state)
         db.commit()
         db.refresh(state)
-    elif fresh or generate_new:
+    elif fresh:
         state.active_step_index = 0
         state.mastery_score = 0.0
         state.scaffold_assistance_level = 1.0
         state.consecutive_correct = 0
+        state.questions_solved = 0
+        state.active_session_id = None
+        state.current_question_id = None
+        db.commit()
+        db.refresh(state)
+    elif generate_new:
+        state.active_step_index = 0
+        state.active_session_id = None
         db.commit()
         db.refresh(state)
 
     session_key = f"{student_id}:{concept_id}"
+    cached_session = ACTIVE_SESSION_PROBLEMS.get(session_key)
 
-    if generate_new:
-        dyn_prob = generate_dynamic_problem(concept_id)
-        ACTIVE_SESSION_PROBLEMS[session_key] = dyn_prob if dyn_prob else (concept.problem_data or {})
-    elif session_key not in ACTIVE_SESSION_PROBLEMS:
-        ACTIVE_SESSION_PROBLEMS[session_key] = concept.problem_data or {}
+    # 1. Select problem from trig_questions bank
+    questions = db.query(TrigQuestion).filter(TrigQuestion.concept_id == concept_id).order_by(TrigQuestion.id).all()
+    
+    current_qid = state.current_question_id or (cached_session.get("question_id") if cached_session else None)
+    selected_question: Optional[TrigQuestion] = None
 
-    problem_data = ACTIVE_SESSION_PROBLEMS.get(session_key, concept.problem_data or {})
-    steps = problem_data.get("steps", [])
-    total_steps = len(steps)
-    is_fully_solved = state.active_step_index >= total_steps and total_steps > 0
+    if questions:
+        if generate_new and current_qid is not None:
+            # Cycle to the next problem in the bank
+            q_ids = [q.id for q in questions]
+            try:
+                curr_idx = q_ids.index(current_qid)
+                selected_question = questions[(curr_idx + 1) % len(questions)]
+            except ValueError:
+                selected_question = questions[0]
+        elif cached_session and not fresh and not generate_new:
+            matching = [q for q in questions if q.id == current_qid]
+            selected_question = matching[0] if matching else questions[0]
+        else:
+            selected_question = questions[0]
 
-    current_step = steps[state.active_step_index] if not is_fully_solved and state.active_step_index < total_steps else None
+        problem_text = selected_question.problem_text
+        question_id = selected_question.id
+    else:
+        # Fallback to concept.problem_data
+        problem_data = concept.problem_data or {}
+        problem_text = problem_data.get("context", f"Solve standard problems for {concept.title}.")
+        question_id = None
 
-    scaffold_info = {
-        "scaffold": "Congratulations! You have completed all problem steps for this concept.",
-        "strategy": "mastered",
-        "quick_options": []
+    # 2. Check if we can resume an existing active reasoner session
+    existing_session_id = (state.active_session_id or cached_session.get("session_id")) if (not fresh and not generate_new) else None
+    reasoner_data = None
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        if existing_session_id:
+            try:
+                res = await client.get(f"{REASONING_ENGINE_URL}/api/v1/session/{existing_session_id}")
+                if res.status_code == 200:
+                    reasoner_data = res.json()
+            except Exception:
+                reasoner_data = None
+
+        # 3. If no active session, initialize a new session with edova-reasoner
+        if not reasoner_data:
+            try:
+                init_payload = {
+                    "problem_text": problem_text,
+                    "student_id": student_id,
+                    "school_id": school_id,
+                    "initial_sal": state.scaffold_assistance_level
+                }
+                if selected_question and selected_question.problem_spec:
+                    init_payload["problem_spec"] = selected_question.problem_spec
+
+                res = await client.post(
+                    f"{REASONING_ENGINE_URL}/api/v1/session/init",
+                    json=init_payload
+                )
+                if res.status_code != 200:
+                    detail = "Reasoning engine error"
+                    try:
+                        detail = res.json().get("detail", detail)
+                    except Exception:
+                        pass
+                    raise HTTPException(status_code=res.status_code, detail=detail)
+                reasoner_data = res.json()
+            except httpx.RequestError:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Reasoning Engine Service (edova-reasoner at {REASONING_ENGINE_URL}) is currently unreachable. Please ensure it is running on port 8000."
+                )
+
+    ACTIVE_SESSION_PROBLEMS[session_key] = {
+        "question_id": question_id,
+        "session_id": reasoner_data["session_id"]
     }
-    if current_step:
-        scaffold_info = get_pedagogical_scaffold(
-            concept_title=concept.title,
-            context=problem_data.get("context", ""),
-            current_prompt=current_step.get("prompt", ""),
-            sal=state.scaffold_assistance_level,
-            step_data=current_step
-        )
+    state.active_session_id = reasoner_data["session_id"]
+    state.current_question_id = question_id
+    state.active_step_index = reasoner_data.get("active_step_index", 0)
+    db.commit()
+    db.refresh(state)
 
-    steps_history = build_steps_history(steps, state.active_step_index)
+    active_step = reasoner_data.get("active_step") or {}
+    metrics_data = reasoner_data.get("metrics") or {}
 
     metrics = CognitiveMetrics(
-        assistance_sal=round(state.scaffold_assistance_level, 2),
-        concept_mastery=round(state.mastery_score, 2),
-        active_attempts=0,
-        accuracy_rate=round((state.cognitive_profile or {}).get("accuracy_rate", 0.0), 2)
+        assistance_sal=round(metrics_data.get("assistance_sal", state.scaffold_assistance_level), 2),
+        concept_mastery=round(state.mastery_score or 0.0, 2),
+        active_attempts=metrics_data.get("active_attempts", 0),
+        accuracy_rate=round(metrics_data.get("accuracy_rate", (state.cognitive_profile or {}).get("accuracy_rate", 0.0)), 2)
     )
 
     return {
+        "session_id": reasoner_data["session_id"],
         "concept_id": concept.id,
         "concept_title": concept.title,
         "difficulty": concept.difficulty,
-        "sal": round(state.scaffold_assistance_level, 2),
-        "mastery_score": round(state.mastery_score, 2),
-        "active_step_index": state.active_step_index,
-        "total_steps": total_steps,
-        "is_fully_solved": is_fully_solved,
+        "sal": metrics.assistance_sal,
+        "mastery_score": round(state.mastery_score or 0.0, 2),
+        "questions_solved": state.questions_solved or 0,
+        "active_step_index": reasoner_data.get("active_step_index", 0),
+        "total_steps": reasoner_data.get("total_steps", 0),
+        "is_fully_solved": reasoner_data.get("is_fully_solved", False),
         "consecutive_correct": state.consecutive_correct,
-        "problem_context": problem_data.get("context", ""),
-        "initial_state": problem_data.get("initial_state", ""),
+        "problem_context": reasoner_data.get("context", problem_text),
+        "initial_state": "",
         "formula_reference": concept.formula_reference,
-        "working_equation": problem_data.get("initial_state", ""),
-        "current_step": current_step,
-        "scaffold": scaffold_info["scaffold"],
-        "scaffold_strategy": scaffold_info["strategy"],
-        "quick_options": scaffold_info["quick_options"],
-        "steps_history": steps_history,
+        "working_equation": "",
+        "current_step": active_step,
+        "scaffold": active_step.get("hint", ""),
+        "scaffold_strategy": "socratic",
+        "quick_options": active_step.get("quick_options", []),
+        "steps_history": reasoner_data.get("steps_history", []),
         "metrics": metrics,
-        "required_items": derive_required_items(steps),
+        "required_items": [],
     }
 
 @router.post("/reset")
@@ -178,6 +204,9 @@ def reset_student_concept(req: ResetRequest, authorization: str = Header(...), d
         state.mastery_score = 0.0
         state.scaffold_assistance_level = 1.0
         state.consecutive_correct = 0
+        state.questions_solved = 0
+        state.active_session_id = None
+        state.current_question_id = None
         db.commit()
 
     session_key = f"{student_id}:{req.concept_id}"

@@ -49,7 +49,7 @@ def get_teacher_overview(authorization: str = Header(...), db: Session = Depends
     student_roster = []
     for st_id in unique_students:
         s_states = [s for s in all_states if s.student_id == st_id]
-        mastered = sum(1 for s in s_states if s.mastery_score >= 0.8)
+        mastered = sum(1 for s in s_states if (getattr(s, 'questions_solved', 0) or 0) >= 5 or (s.mastery_score or 0.0) >= 1.0)
         avg_s_mastery = sum(s.mastery_score for s in s_states) / max(1, len(concepts))
 
         student_roster.append({

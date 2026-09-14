@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { initStorage } from './lib/api'
 import { useApp } from './store'
+import 'mathlive'
 import './index.css'
 
 // Load the device token + stable install UUID from secure storage before first render,

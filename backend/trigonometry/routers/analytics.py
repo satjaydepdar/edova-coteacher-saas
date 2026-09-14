@@ -47,8 +47,8 @@ def get_student_profile(authorization: str = Header(...), db: Session = Depends(
     states = db.query(StudentState).filter(StudentState.student_id == student_id).all()
     total_concepts = db.query(Concept).count()
 
-    mastered_count = sum(1 for s in states if s.mastery_score >= 0.8)
-    in_progress_count = sum(1 for s in states if 0.0 < s.mastery_score < 0.8)
+    mastered_count = sum(1 for s in states if (getattr(s, 'questions_solved', 0) or 0) >= 5 or (s.mastery_score or 0.0) >= 1.0)
+    in_progress_count = sum(1 for s in states if 0.0 < (s.mastery_score or 0.0) < 1.0 and (getattr(s, 'questions_solved', 0) or 0) < 5)
 
     avg_sal = sum(s.scaffold_assistance_level for s in states) / max(1, len(states)) if states else 1.0
     avg_mastery = sum(s.mastery_score for s in states) / max(1, total_concepts)

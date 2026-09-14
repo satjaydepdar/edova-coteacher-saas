@@ -3,13 +3,13 @@ import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'rea
 import {
   BookOpen,
   ChevronDown,
+  ChevronLeft,
   FlaskConical,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
   Play,
-  Sparkles,
   X,
 } from 'lucide-react'
 import { useApp } from '../store'
@@ -47,6 +47,7 @@ export default function Shell() {
   const [tree, setTree] = useState<Tree | null>(null)
   const [treeError, setTreeError] = useState<string | null>(null)
   const [navOpen, setNavOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   useEffect(() => {
     boot().catch(() => {})
@@ -143,38 +144,91 @@ export default function Shell() {
       )}
 
       <aside
-        className={`print:hidden fixed lg:sticky top-0 left-0 z-50 h-screen w-[300px] max-w-[85vw] lg:w-[280px] shrink-0 flex flex-col transition-transform duration-300 lg:translate-x-0 bg-forest ${
-          navOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`print:hidden fixed lg:sticky top-0 left-0 z-50 h-screen shrink-0 flex flex-col transition-all duration-300 ease-in-out bg-forest ${
+          navOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        } ${
+          isCollapsed ? 'w-[76px] lg:w-[76px]' : 'w-[300px] max-w-[85vw] lg:w-[280px]'
         }`}
       >
-        <div className="h-[72px] flex items-center gap-3 px-6 border-b border-white/[0.08] shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1">
-            <div className="font-display font-bold text-white leading-none text-[16px] flex items-center gap-1.5">
-              EDOVA <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-            </div>
-            <div className="text-[11px] text-white/50 mt-1 tracking-wide">{session.tenant.name.toUpperCase()}</div>
-          </div>
-          <button
-            onClick={() => setNavOpen(false)}
-            className="lg:hidden w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white/70"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        {/* Header with Expand / Collapse Toggle */}
+        <div
+          className={`h-[72px] flex items-center ${
+            isCollapsed ? 'justify-center px-2' : 'justify-between px-5'
+          } border-b border-white/[0.08] shrink-0 transition-all`}
+        >
+          {isCollapsed ? (
+            <button
+              onClick={() => setIsCollapsed(false)}
+              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-gold/20 hover:text-gold text-white flex items-center justify-center cursor-pointer transition-colors"
+              title="Expand sidebar"
+            >
+              <BookOpen className="w-5 h-5" />
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={() => setIsCollapsed(true)}
+                  className="w-9 h-9 rounded-xl bg-white/10 hover:bg-gold/20 hover:text-gold flex items-center justify-center text-white shrink-0 cursor-pointer transition-colors"
+                  title="Collapse sidebar"
+                >
+                  <BookOpen className="w-5 h-5" />
+                </button>
+                <div className="min-w-0">
+                  <div className="font-display font-bold text-white leading-none text-[16px] flex items-center gap-1.5">
+                    EDOVA <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+                  </div>
+                  <div className="text-[11px] text-white/50 mt-1 tracking-wide truncate">
+                    {session.tenant.name.toUpperCase()}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setIsCollapsed(true)}
+                  className="hidden lg:flex w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-gold/20 hover:text-gold items-center justify-center text-white/50 transition-colors cursor-pointer"
+                  title="Collapse sidebar"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setNavOpen(false)}
+                  className="lg:hidden w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white/70 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
+        {/* Modules Nav with Golden Highlight when Pointed / Active */}
+        <div
+          className={`flex-1 overflow-y-auto ${
+            isCollapsed ? 'px-2' : 'px-3'
+          } py-5 space-y-5 transition-all`}
+        >
           <div>
-            <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/30 px-3 mb-2">
-              Main
-            </div>
+            {!isCollapsed && (
+              <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/30 px-3 mb-2">
+                Main
+              </div>
+            )}
             <NavLink
               to="/dashboard"
-              className="w-full flex items-center gap-3 px-3 h-10 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-[14px] transition-colors"
+              title="Dashboard"
+              className={({ isActive }) =>
+                `w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } h-10 rounded-xl text-[14px] transition-all duration-200 ${
+                  isActive
+                    ? 'bg-gold text-black font-semibold shadow-xs'
+                    : 'text-white/70 hover:text-gold hover:bg-gold/15'
+                }`
+              }
             >
-              <LayoutDashboard className="w-4 h-4" /> Dashboard
+              <LayoutDashboard className="w-4 h-4 shrink-0" />
+              {!isCollapsed && <span>Dashboard</span>}
             </NavLink>
           </div>
 
@@ -182,88 +236,112 @@ export default function Shell() {
             <NavLink
               to="/"
               end
-              className="w-full flex items-center gap-3 px-3 h-10 rounded-xl bg-white/[0.08] text-white text-[14px] font-medium"
+              title="Video Lessons"
+              className={({ isActive }) =>
+                `w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } h-10 rounded-xl text-[14px] transition-all duration-200 ${
+                  isActive
+                    ? 'bg-gold text-black font-semibold shadow-xs'
+                    : 'text-white/70 hover:text-gold hover:bg-gold/15'
+                }`
+              }
             >
-              <Play className="w-4 h-4" /> Content Shelf
-              <ChevronDown className="w-4 h-4 ml-auto opacity-70" />
+              <Play className="w-4 h-4 shrink-0" />
+              {!isCollapsed && (
+                <>
+                  <span className="font-medium">Video Lessons</span>
+                  <ChevronDown className="w-4 h-4 ml-auto opacity-70" />
+                </>
+              )}
             </NavLink>
-            <div className="mt-2 ml-3 pl-5 border-l border-white/10 space-y-1 animate-fadeIn">
-              {subjects.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setSubjectId(s.id)}
-                  className={`w-full text-left px-3 h-8 rounded-lg text-[13px] flex items-center justify-between transition-colors ${
-                    subjectId === s.id
-                      ? 'bg-gold text-black font-semibold'
-                      : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
-                  }`}
-                >
-                  {s.name}
-                  {subjectId === s.id && <span className="w-1.5 h-1.5 rounded-full bg-black/60" />}
-                </button>
-              ))}
-            </div>
+            {!isCollapsed && (
+              <div className="mt-2 ml-3 pl-5 border-l border-white/10 space-y-1 animate-fadeIn">
+                {subjects.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSubjectId(s.id)}
+                    className={`w-full text-left px-3 h-8 rounded-lg text-[13px] flex items-center justify-between transition-colors cursor-pointer ${
+                      subjectId === s.id
+                        ? 'bg-gold text-black font-semibold shadow-xs'
+                        : 'text-white/60 hover:text-gold hover:bg-gold/15'
+                    }`}
+                  >
+                    <span className="truncate">{s.name}</span>
+                    {subjectId === s.id && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-black/60 shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
             <NavLink
               to="/labs"
+              title="Virtual Labs"
               className={({ isActive }) =>
-                `w-full flex items-center gap-3 px-3 h-10 rounded-xl text-[14px] transition-colors ${
+                `w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } h-10 rounded-xl text-[14px] transition-all duration-200 ${
                   isActive
-                    ? 'bg-white text-forest font-semibold shadow'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
+                    ? 'bg-gold text-black font-semibold shadow-xs'
+                    : 'text-white/70 hover:text-gold hover:bg-gold/15'
                 }`
               }
             >
-              <FlaskConical className="w-4 h-4" /> Virtual Labs
+              <FlaskConical className="w-4 h-4 shrink-0" />
+              {!isCollapsed && <span>Virtual Labs</span>}
             </NavLink>
           </div>
 
           <div>
             <NavLink
               to="/practice"
+              title="Practice Questions"
               className={({ isActive }) =>
-                `w-full flex items-center gap-3 px-3 h-10 rounded-xl text-[14px] transition-colors ${
+                `w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } h-10 rounded-xl text-[14px] transition-all duration-200 ${
                   isActive
-                    ? 'bg-white text-forest font-semibold shadow'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
+                    ? 'bg-gold text-black font-semibold shadow-xs'
+                    : 'text-white/70 hover:text-gold hover:bg-gold/15'
                 }`
               }
             >
-              <ListChecks className="w-4 h-4" /> Practice Questions
+              <ListChecks className="w-4 h-4 shrink-0" />
+              {!isCollapsed && <span>Practice Questions</span>}
             </NavLink>
           </div>
+        </div>
 
-          <div className="pt-6 mt-6 border-t border-white/10">
-            <div className="px-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px]">
+        {/* User / School Profile Card moved to bottom (LED Classroom Mode removed) */}
+        <div className="mt-auto border-t border-white/10 p-3 shrink-0">
+          {isCollapsed ? (
+            <div
+              className="flex justify-center"
+              title={`${session.tenant.name} • ${activeSubject?.name ?? ''}`}
+            >
+              <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shadow-xs">
                 {initials}
               </div>
-              <div>
-                <div className="text-white text-[13px] font-medium leading-none">
+            </div>
+          ) : (
+            <div className="px-2 py-1 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shrink-0 shadow-xs">
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-white text-[13px] font-medium leading-none truncate">
                   {session.tenant.name}
                 </div>
-                <div className="text-white/50 text-[11px] mt-1">
+                <div className="text-white/50 text-[11px] mt-1 truncate">
                   {activeSubject?.name ?? '—'} • {activeSubject?.standard_grade ?? ''}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        <div className="p-3 border-t border-white/10">
-          <div className="rounded-xl bg-white/[0.06] p-3 flex gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gold/20 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4 text-gold" />
-            </div>
-            <div>
-              <div className="text-white text-[12px] font-medium">LED Classroom Mode</div>
-              <div className="text-white/50 text-[11px] leading-snug mt-0.5">
-                Fullscreen video optimized for projector & smart boards.
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </aside>
 

@@ -1,86 +1,85 @@
-import type { ReactNode } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { useApp } from './store'
-import Activation from './pages/Activation'
-import Expired from './pages/Expired'
+import { useEffect } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useAuthStore } from './store/authStore'
+import LoginPage from './pages/LoginPage'
 import Shell from './components/Shell'
 import Lessons from './pages/Lessons'
 import ModuleDetail from './pages/ModuleDetail'
 import Practice from './pages/Practice'
 import Labs from './pages/Labs'
-import AdminLogin from './pages/admin/AdminLogin'
 import AdminShell from './pages/admin/AdminShell'
 import AdminContent from './pages/admin/AdminContent'
 import AdminSubject from './pages/admin/AdminSubject'
 import AdminSchools from './pages/admin/AdminSchools'
 import AdminUsers from './pages/admin/AdminUsers'
-import TeacherLogin from './pages/teacher/TeacherLogin'
 import DashboardOverview from './pages/teacher/DashboardOverview'
 import SectionDeepdive from './pages/teacher/SectionDeepdive'
 import StudentProfile from './pages/teacher/StudentProfile'
-import { useTeacher } from './store/teacherStore'
+import CalendarPage from './pages/teacher/CalendarPage'
+import SyllabusPage from './pages/teacher/SyllabusPage'
+import LessonPlannerPage from './pages/teacher/LessonPlannerPage'
+import AssignmentTrackerPage from './pages/teacher/AssignmentTrackerPage'
+import AssessmentBuilderPage from './pages/teacher/AssessmentBuilderPage'
+import LearningResourcesPage from './pages/teacher/LearningResourcesPage'
+import AttendancePage from './pages/teacher/AttendancePage'
+import LearningHubPage from './pages/student/LearningHubPage'
+import MyAssignmentsPage from './pages/student/MyAssignmentsPage'
+import StudentWikiPage from './pages/student/StudentWikiPage'
+import Settings from './pages/Settings'
 
-/** Admin CMS routes — independent of the device-activation flow below
- *  (CMS authenticates with user JWTs via adminStore, not device tokens).
- *  Paths live under /cms because /admin/* is the API namespace (Vite proxy). */
-function AdminRoutes() {
+export default function App() {
+  const { authed, user, init } = useAuthStore()
+
+  useEffect(() => {
+    void init()
+  }, [init])
+
+  if (!authed) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    )
+  }
+
+  const homePath = user?.role === 'STUDENT' ? '/learning' : '/dashboard'
+
   return (
     <Routes>
-      <Route path="/cms/login" element={<AdminLogin />} />
-      <Route path="/cms" element={<AdminShell />}>
+      <Route path="/login" element={<Navigate to={homePath} replace />} />
+      <Route path="/cms" element={user?.role === 'ADMIN' ? <AdminShell /> : <Navigate to="/dashboard" replace />}>
         <Route index element={<Navigate to="/cms/content" replace />} />
         <Route path="content" element={<AdminContent />} />
         <Route path="content/:subjectId" element={<AdminSubject />} />
         <Route path="schools" element={<AdminSchools />} />
         <Route path="users" element={<AdminUsers />} />
       </Route>
-      <Route path="*" element={<Navigate to="/cms/content" replace />} />
-    </Routes>
-  )
-}
-
-/** Dashboard pages sit inside Shell (same sidebar as Content Shelf/Labs/Practice)
- *  but authenticate separately via teacherStore (a real per-teacher JWT, not the
- *  shared device token) -- this guard redirects to the teacher login until that
- *  second, independent login has happened. */
-function DashboardGuard({ children }: { children: ReactNode }) {
-  const teacherAuthed = useTeacher((s) => s.authed)
-  if (!teacherAuthed) return <Navigate to="/dashboard/login" replace />
-  return <>{children}</>
-}
-
-export default function App() {
-  const authed = useApp((s) => s.authed)
-  const activationExpired = useApp((s) => s.activationExpired)
-  const { pathname } = useLocation()
-  if (pathname.startsWith('/cms')) return <AdminRoutes />
-  if (!authed) {
-    return (
-      <Routes>
-        <Route path="/activate" element={<Activation />} />
-        <Route path="*" element={<Navigate to="/activate" replace />} />
-      </Routes>
-    )
-  }
-  if (activationExpired) {
-    return <Expired />
-  }
-  return (
-    <Routes>
       <Route element={<Shell />}>
-        <Route index element={<Lessons />} />
+        <Route path="/" element={<Navigate to={homePath} replace />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/syllabus" element={<SyllabusPage />} />
+        <Route path="/lesson-planner" element={<LessonPlannerPage />} />
+        <Route path="/assignments" element={<AssignmentTrackerPage />} />
+        <Route path="/assessment-builder" element={<AssessmentBuilderPage />} />
+        <Route path="/resources" element={<LearningResourcesPage />} />
+        <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/lessons" element={<Lessons />} />
         <Route path="/module/:moduleId" element={<ModuleDetail />} />
         <Route path="/labs" element={<Labs />} />
         <Route path="/practice" element={<Practice />} />
-        <Route path="/dashboard/login" element={<TeacherLogin />} />
-        <Route path="/dashboard" element={<DashboardGuard><DashboardOverview /></DashboardGuard>} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/dashboard" element={<DashboardOverview />} />
         <Route
           path="/dashboard/section/:sectionId/chapter/:chapterId"
-          element={<DashboardGuard><SectionDeepdive /></DashboardGuard>}
+          element={<SectionDeepdive />}
         />
-        <Route path="/dashboard/student/:studentId" element={<DashboardGuard><StudentProfile /></DashboardGuard>} />
+        <Route path="/dashboard/student/:studentId" element={<StudentProfile />} />
+        <Route path="/learning" element={<LearningHubPage />} />
+        <Route path="/my-assignments" element={<MyAssignmentsPage />} />
+        <Route path="/wiki" element={<StudentWikiPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to={homePath} replace />} />
     </Routes>
   )
 }

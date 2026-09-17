@@ -1,18 +1,16 @@
 """FastAPI Router for Video Generation Pipeline Engine & S3 Ingestion Gateway."""
+import json
 import os
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
 import re
 from pathlib import Path
 from core import current_principal, db, q
 from services import s3_client
-from services.video_ingest_service import (
-    get_video_payload_status,
-    build_hls_manifest_for_video,
-)
+from services.video_ingest_service import build_hls_manifest_for_video
 
 ENGINE_URL = os.getenv("VIDEO_ENGINE_URL", "http://127.0.0.1:5050")
 RENDERER_OUT_DIR = (
@@ -32,6 +30,22 @@ class VideoGenerateIn(BaseModel):
     parameters: Optional[Dict[str, Any]] = None
     videoId: Optional[str] = None
     forceRefresh: Optional[bool] = False
+
+
+class VideoFromQuestionIn(BaseModel):
+    """QuestionInput (Astra video factory spec, section 1) -- the author supplies just
+    the question; everything else is optional metadata Astra can use if present."""
+    question: str
+    class_: Optional[str] = Field(default=None, alias="class")
+    subject: Optional[str] = None
+    chapter: Optional[str] = None
+    topic: Optional[str] = None
+    marks: Optional[float] = None
+    source: Optional[str] = None
+    difficulty: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
 
 
 class SaveOndemandIn(BaseModel):
@@ -341,3 +355,107 @@ async def stream_video(video_id: str, request: Request):
             )
         except httpx.RequestError as exc:
             raise HTTPException(status_code=503, detail=f"Video streaming error: {exc}")
+
+
+def _update_job(job_id: str, **fields) -> None:
+    if not fields:
+        return
+    cols = ", ".join(f"{k} = %s" for k in fields)
+    values = [json.dumps(v) if isinstance(v, (dict, list)) else v for v in fields.values()]
+    with db() as conn:
+        conn.execute(
+            f"UPDATE video_generation_jobs SET {cols}, updated_at = NOW() WHERE id = %s",
+            (*values, job_id),
+        )
+        conn.commit()
+
+
+@router.post("/generate-from-question", status_code=202)
+async def generate_video_from_question(payload: VideoFromQuestionIn, authorization: Optional[str] = Header(None)):
+    """Astra video factory pipeline entry point: Question -> Astra reasoning ->
+    Mathematical Verification Gate -> Socratic pedagogy -> VideoSpec -> render.
+    Never hands an unverified solution to the renderer -- if verification fails, this
+    returns without generating a video."""
+    from services.astra_reasoning_service import QuestionInput, analyze_and_solve
+    from services.llm_client import LlmCallError
+    from services.math_verification_service import verify_solution
+    from services.socratic_pedagogy_service import build_teaching_sequence
+    from services.video_spec_service import build_video_spec
+
+    created_by = None
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            principal = current_principal(authorization)
+            created_by = principal.get("user_id")
+        except Exception:
+            pass
+
+    with db() as conn:
+        row = conn.execute(
+            "INSERT INTO video_generation_jobs (question, question_metadata, created_by, status) "
+            "VALUES (%s, %s, %s, 'PENDING') RETURNING id",
+            (payload.question, payload.model_dump_json(exclude={"question"}, by_alias=True), created_by),
+        ).fetchone()
+        job_id = str(row[0])
+        conn.commit()
+
+    # 1. Astra reasoning -- not trusted; everything it returns gets checked next.
+    try:
+        astra_result = analyze_and_solve(QuestionInput(**payload.model_dump(by_alias=True, exclude_none=True)))
+    except (LlmCallError, HTTPException) as exc:
+        detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        _update_job(job_id, status="FAILED", error=f"Astra reasoning failed: {detail}")
+        raise HTTPException(422, {"job_id": job_id, "status": "FAILED", "reason": f"Astra reasoning failed: {detail}"})
+
+    problem_analysis = astra_result.get("problem_analysis", {})
+    solution_steps = astra_result.get("solution_steps", [])
+    final_answer = astra_result.get("final_answer")
+    _update_job(job_id, problem_analysis=problem_analysis, solution_steps=solution_steps)
+
+    # 2. Mathematical Verification Gate -- deterministic, SymPy-based, trusts nothing.
+    verification = verify_solution(problem_analysis, solution_steps, final_answer)
+    _update_job(job_id, verification_result=verification)
+
+    if verification["status"] != "VERIFIED":
+        status = "NEEDS_HUMAN_REVIEW" if verification["status"] == "NEEDS_REVIEW" else "FAILED"
+        _update_job(job_id, status=status)
+        return {
+            "job_id": job_id,
+            "status": status,
+            "verification": verification,
+            "message": "Solution failed verification -- no video was generated.",
+        }
+
+    # 3. Socratic pedagogy -- runs only on the VERIFIED steps.
+    final_answer_text = (final_answer or {}).get("answer_text", "")
+    try:
+        teaching_sequence = build_teaching_sequence(verification["verified_steps"], final_answer_text)
+    except (LlmCallError, HTTPException) as exc:
+        detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        _update_job(job_id, status="FAILED", error=f"Pedagogy generation failed: {detail}")
+        raise HTTPException(422, {"job_id": job_id, "status": "FAILED", "reason": f"Pedagogy generation failed: {detail}"})
+
+    # 4. Video Production Specification (deterministic mapping, no LLM call here)
+    video_spec = build_video_spec(payload.question, verification["verified_steps"], teaching_sequence)
+    _update_job(job_id, teaching_sequence=teaching_sequence, video_spec=video_spec,
+                video_id=video_spec["videoId"], status="AUTO_APPROVED")
+
+    # 5. Hand off to the render engine -- same engine the existing /generate path uses,
+    # but this time driven purely by the spec, no problemType branching.
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            res = await client.post(
+                f"{ENGINE_URL}/api/v1/generate",
+                json={"videoSpec": video_spec, "videoId": video_spec["videoId"]},
+            )
+            engine_result = res.json() if res.status_code in (200, 202) else {"error": res.text}
+        except httpx.RequestError as exc:
+            engine_result = {"error": f"engine unreachable: {exc}"}
+
+    return {
+        "job_id": job_id,
+        "status": "AUTO_APPROVED",
+        "video_id": video_spec["videoId"],
+        "verification": verification,
+        "engine": engine_result,
+    }

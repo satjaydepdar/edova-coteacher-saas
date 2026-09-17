@@ -6,6 +6,12 @@ export const SceneSchema = z.object({
   narration: z.string().min(1),
   padMs: z.number().int().default(400),  // breathing room after audio
   visual: z.record(z.unknown()),
+  // Astra-pipeline fields (backend/services/video_spec_service.py) -- optional so
+  // existing hand-authored scene types (math.groups, etc.) are unaffected.
+  purpose: z.string().optional(),           // e.g. "problem_introduction", "step_reveal"
+  socraticQuestion: z.string().optional(),  // posed before the reveal, if this step warrants one
+  thinkingPauseMs: z.number().int().optional(),
+  equation: z.string().optional(),          // the verified mathematical expression for this step
 });
 
 export const StoryboardSchema = z.object({

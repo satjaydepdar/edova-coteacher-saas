@@ -138,6 +138,11 @@ from trigonometry.routers.analytics import router as trig_analytics_router
 from trigonometry.routers.teacher import router as trig_teacher_router
 from trigonometry.routers.telemetry import router as trig_telemetry_router
 from trigonometry.routers.session_proxy import router as trig_session_router
+from coordinate_geometry.routers.concepts import router as coordgeo_concepts_router
+from coordinate_geometry.routers.student import router as coordgeo_student_router
+from coordinate_geometry.routers.analytics import router as coordgeo_analytics_router
+from coordinate_geometry.routers.teacher import router as coordgeo_teacher_router
+from coordinate_geometry.routers.telemetry import router as coordgeo_telemetry_router
 from routers.video_engine import router as video_engine_router
 from routers.settings import router as settings_router
 from routers.calendar import router as calendar_router
@@ -149,8 +154,10 @@ from routers.learning_resources import router as learning_resources_router
 from routers.attendance import router as attendance_router
 from routers.student_learning import router as student_learning_router
 from trigonometry.database import init_db as trig_init_db
+from coordinate_geometry.database import init_db as coordgeo_init_db
 
 trig_init_db()
+coordgeo_init_db()
 
 app.include_router(auth_router)
 app.include_router(teacher_router)
@@ -172,6 +179,11 @@ app.include_router(trig_analytics_router)
 app.include_router(trig_teacher_router)
 app.include_router(trig_telemetry_router)
 app.include_router(trig_session_router)
+app.include_router(coordgeo_concepts_router)
+app.include_router(coordgeo_student_router)
+app.include_router(coordgeo_analytics_router)
+app.include_router(coordgeo_teacher_router)
+app.include_router(coordgeo_telemetry_router)
 app.include_router(video_engine_router)
 app.include_router(settings_router)
 app.include_router(calendar_router)

@@ -174,6 +174,8 @@ export interface PracticeChapter {
   id: string
   name: string
   practice_available: boolean
+  practice_module: 'trigonometry' | 'coordinate_geometry' | null
+  is_default: boolean
 }
 
 export interface PracticeSubject {

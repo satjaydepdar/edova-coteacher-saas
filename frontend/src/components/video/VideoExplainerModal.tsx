@@ -25,6 +25,7 @@ interface VideoExplainerModalProps {
   problemType?: string
   parameters?: Record<string, any>
   defaultVideoId?: string
+  telemetryEndpoint?: string
 }
 
 interface SceneItem {
@@ -271,6 +272,7 @@ export default function VideoExplainerModal({
   problemType,
   parameters,
   defaultVideoId,
+  telemetryEndpoint = '/api/trig/telemetry/event',
 }: VideoExplainerModalProps) {
   const parsed = parseProblemContext(questionText, conceptId, conceptTitle)
   const targetVideoId = defaultVideoId || parsed.videoId
@@ -329,7 +331,7 @@ export default function VideoExplainerModal({
           s3_folder: s3Res.s3_folder || 'Ondemand videos',
           s3_key: s3Res.s3_key,
           problem_context: questionText,
-        })
+        }, telemetryEndpoint)
       })
       .catch(() => {
         trackTelemetryEvent(conceptId, 0, 'video_explainer_generated', {
@@ -337,7 +339,7 @@ export default function VideoExplainerModal({
           file_name: `${targetVideoId}.mp4`,
           s3_folder: 'Ondemand videos',
           problem_context: questionText,
-        })
+        }, telemetryEndpoint)
       })
 
     try {
@@ -439,7 +441,7 @@ export default function VideoExplainerModal({
       scene_title: scenes[idx]?.title,
       scenes_viewed: idx + 1,
       total_scenes: scenes.length,
-    })
+    }, telemetryEndpoint)
     if (hasMp4Video && videoRef.current) {
       const time = scenes[idx]?.timeSec ?? idx * 10
       videoRef.current.currentTime = time

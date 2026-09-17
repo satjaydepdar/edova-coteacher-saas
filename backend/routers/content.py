@@ -82,9 +82,17 @@ def subject_tree(subject_id: str, authorization: str = Header(...)):
 
 
 # --- Practice Questions filter bar: Class -> Subject -> Chapter, global content only.
-# `practice_available` is a manual allowlist, not schema-driven: today only Trigonometry
-# has a live DAG/question-bank module. Add a chapter name here once its module ships.
-PRACTICE_READY_CHAPTERS = {"Trigonometry"}
+# Manual allowlist, not schema-driven: each entry names the frontend module that
+# chapter's DAG/practice page is built from. Add a chapter here once its module ships.
+PRACTICE_READY_CHAPTERS = {
+    "Trigonometry": "trigonometry",
+    "Coordinate Geometry": "coordinate_geometry",
+}
+# Chapters are ordered by curriculum sequence_order, not "how complete is the
+# module" -- Coordinate Geometry (sequence 7) would otherwise beat Trigonometry
+# (sequence 99, the only one with real step-by-step solving) as the page's
+# default landing chapter. Pin the default explicitly instead.
+DEFAULT_PRACTICE_CHAPTER = "Trigonometry"
 
 
 @router.get("/api/student/practice/chapters")
@@ -108,6 +116,8 @@ def practice_chapters(authorization: str = Header(...)):
                 "id": str(ch_id),
                 "name": ch_name,
                 "practice_available": ch_name in PRACTICE_READY_CHAPTERS,
+                "practice_module": PRACTICE_READY_CHAPTERS.get(ch_name),
+                "is_default": ch_name == DEFAULT_PRACTICE_CHAPTER,
             })
 
     return {

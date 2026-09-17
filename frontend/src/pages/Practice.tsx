@@ -5,6 +5,7 @@ import RichView from '../lib/richtext/RichView'
 import { api, type StudentTest, type StudentTestDetail } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 import TrigonometryPractice from '../components/trig/TrigonometryPractice'
+import CoordinateGeometryPractice from '../components/coordgeo/CoordinateGeometryPractice'
 import { practiceApi, type PracticeChapter, type PracticeClass } from '../lib/trig/trigApiClient'
 
 function PracticeFilters({
@@ -139,15 +140,25 @@ export default function Practice() {
       .chapters()
       .then((r) => {
         setClasses(r.classes)
-        // Default to the first chapter with a live practice module (Trigonometry today).
+        // Default to the backend's designated default chapter (Trigonometry) if present,
+        // else the first chapter with any live practice module.
+        let fallback: { grade: string; subjectId: string; chapterId: string } | null = null
         for (const c of r.classes) {
           for (const s of c.subjects) {
-            const ready = s.chapters.find((ch) => ch.practice_available)
-            if (ready) {
-              setSelection({ grade: c.grade, subjectId: s.id, chapterId: ready.id })
+            const isDefault = s.chapters.find((ch) => ch.is_default)
+            if (isDefault) {
+              setSelection({ grade: c.grade, subjectId: s.id, chapterId: isDefault.id })
               return
             }
+            if (!fallback) {
+              const ready = s.chapters.find((ch) => ch.practice_available)
+              if (ready) fallback = { grade: c.grade, subjectId: s.id, chapterId: ready.id }
+            }
           }
+        }
+        if (fallback) {
+          setSelection(fallback)
+          return
         }
         const firstSubject = r.classes[0]?.subjects[0]
         if (firstSubject) {
@@ -253,8 +264,10 @@ export default function Practice() {
         />
       )}
 
-      {selectedChapter?.practice_available ? (
+      {selectedChapter?.practice_module === 'trigonometry' ? (
         <TrigonometryPractice />
+      ) : selectedChapter?.practice_module === 'coordinate_geometry' ? (
+        <CoordinateGeometryPractice />
       ) : (
         <div className="py-16 text-center bg-white rounded-[18px] border border-black/[0.06] mx-6 my-6">
           <p className="text-[14px] font-medium">

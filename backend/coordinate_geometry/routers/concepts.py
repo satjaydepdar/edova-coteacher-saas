@@ -1,31 +1,28 @@
-"""Ported from edova-pilot-v4/backend/app/api/concepts.py.
-Adapted: student_id comes from the verified auth token (current_principal),
-never trusted from the request -- pilot-v4 took it as an optional query param."""
+"""Mirrors trigonometry/routers/concepts.py, including the dependency-order fix
+applied there (concepts are topologically sorted, not returned in incidental
+row order)."""
 import re
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from sqlalchemy.orm import Session
+from fastapi import Depends
 
 from core import current_principal
-from trigonometry.database import get_db
-from trigonometry.models import Concept, StudentState
+from coordinate_geometry.database import get_db
+from coordinate_geometry.models import Concept, StudentState
 
-router = APIRouter(prefix="/api/trig/concepts", tags=["Trigonometry Concepts"])
+router = APIRouter(prefix="/api/coordgeo/concepts", tags=["Coordinate Geometry Concepts"])
 
 def _student_id(p: dict) -> str:
     return p["user_id"] or f"device:{p['key_id']}"
 
-
 def _sort_key(concept_id: str) -> tuple:
-    # A plain string sort would put "trig-2" (if it ever existed) after "trig-110" --
-    # not currently reachable with today's fixed-width trig-1XX ids, but the coordgeo
-    # module hit exactly this with double-digit ids, so fixing it here too.
+    # "coordgeo-c10" must sort after "coordgeo-c9" -- a plain string sort puts it
+    # right after "coordgeo-c1" instead, since digit count isn't accounted for.
     m = re.search(r"(\d+)$", concept_id)
     return (concept_id[: m.start()], int(m.group(1))) if m else (concept_id, -1)
 
-
 def _topo_order(concepts: list[Concept]) -> list[Concept]:
-    """Dependency order (prerequisites before dependents), not incidental row order."""
     by_id = {c.id: c for c in concepts}
     visited: set[str] = set()
     ordered: list[Concept] = []
@@ -44,7 +41,7 @@ def _topo_order(concepts: list[Concept]) -> list[Concept]:
 
 @router.get("")
 def list_concepts(authorization: str = Header(...), db: Session = Depends(get_db)):
-    """Returns all 10 CBSE Trigonometry DAG concepts, in dependency order, with unlock status for the caller."""
+    """Returns all 12 Coordinate Geometry DAG concepts, in dependency order, with unlock status for the caller."""
     p = current_principal(authorization)
     student_id = _student_id(p)
     concepts = _topo_order(db.query(Concept).all())
@@ -65,7 +62,6 @@ def list_concepts(authorization: str = Header(...), db: Session = Depends(get_db
 
         curr_state = student_states.get(c.id)
         mastery = curr_state.mastery_score if curr_state else 0.0
-        sal = curr_state.scaffold_assistance_level if curr_state else 1.0
 
         result.append({
             "id": c.id,
@@ -78,14 +74,12 @@ def list_concepts(authorization: str = Header(...), db: Session = Depends(get_db
             "is_unlocked": is_unlocked,
             "is_completed": mastery >= 0.8,
             "mastery_score": round(mastery, 2),
-            "sal": round(sal, 2)
         })
 
     return result
 
 @router.get("/{concept_id}")
 def get_concept(concept_id: str, authorization: str = Header(...), db: Session = Depends(get_db)):
-    """Fetches full details and problem sets for a specific concept."""
     current_principal(authorization)
     concept = db.query(Concept).filter(Concept.id == concept_id).first()
     if not concept:
@@ -99,5 +93,5 @@ def get_concept(concept_id: str, authorization: str = Header(...), db: Session =
         "description": concept.description,
         "formula_reference": concept.formula_reference,
         "prerequisites": [p.id for p in concept.prerequisites],
-        "problem_data": concept.problem_data
+        "problem_data": concept.problem_data,
     }

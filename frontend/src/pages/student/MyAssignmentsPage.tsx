@@ -4,10 +4,8 @@ import {
   Calendar,
   Search,
   CheckCircle2,
-  Clock,
   X,
   Send,
-  Award,
 } from 'lucide-react'
 import { useStudentStore, type StudentAssignmentItem } from '../../store/studentStore'
 
@@ -106,76 +104,64 @@ export default function MyAssignmentsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-full bg-[#FBF9F3] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
       <div>
-        <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814] flex items-center gap-2.5">
-          <span className="p-2 rounded-xl bg-[#1a2421]/5 text-[#111814] border border-[#EDE8DD]">
-            <ClipboardCheck className="w-6 h-6 text-[#111814]" />
-          </span>
+        <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
           My Assignments
         </h1>
         <p className="text-[13px] text-[#8A8A7A] mt-1">Complete homework, take quizzes, and track feedback from your teacher.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-danger/10 flex items-center justify-center text-danger border border-danger/20 shrink-0">
-            <Clock className="w-5 h-5" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          { label: 'Overdue', value: overdueCount, sub: 'Past due date', color: '#D9534F' },
+          { label: 'Due Today', value: dueTodayCount, sub: 'Wrap up today', color: '#DDB56E' },
+          { label: 'Graded', value: gradedCount, sub: 'Feedback ready', color: '#4A7C59' },
+        ].map((z) => (
+          <div key={z.label} className="relative rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-3.5 overflow-hidden">
+            <div className="font-mono text-[9.5px] tracking-[0.08em] text-[#9AA09B] leading-tight mb-1.5 uppercase">
+              {z.label}
+            </div>
+            <div className="font-serif text-[22px] font-medium leading-none tracking-[-0.02em] mb-1 text-[#111814]">
+              {z.value}
+            </div>
+            <div className="font-mono text-[10px] text-[#8A8F8B]">{z.sub}</div>
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EDE8DD]">
+              <div className="h-full" style={{ width: '100%', background: z.color }} />
+            </div>
           </div>
-          <div>
-            <div className="text-xs text-[#111814]/60 font-medium">Overdue</div>
-            <div className="text-xl font-bold text-[#111814]">{overdueCount}</div>
-          </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-[#DDB56E]/15 flex items-center justify-center text-[#8C6D23] border border-[#DDB56E]/30 shrink-0">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-[#111814]/60 font-medium">Due Today</div>
-            <div className="text-xl font-bold text-[#111814]">{dueTodayCount}</div>
-          </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-[#7FBF7A]/15 flex items-center justify-center text-[#111814] border border-[#7FBF7A]/30 shrink-0">
-            <Award className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-[#111814]/60 font-medium">Graded</div>
-            <div className="text-xl font-bold text-[#111814]">{gradedCount}</div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card">
-        <div className="flex flex-1 items-center gap-2.5">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#111814]/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search assignments..."
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-[#EDE8DD]/70 bg-[#FAF9F5] text-[#111814] placeholder:text-[#111814]/40 focus:outline-none focus:border-[#DDB56E] transition-colors"
-            />
-          </div>
-          <select
-            value={subjectFilter}
-            onChange={(e) => setSubjectFilter(e.target.value)}
-            className="text-xs py-2 px-2.5 rounded-xl border border-[#EDE8DD] bg-[#FAF9F5] text-[#111814] outline-none focus:border-[#DDB56E] shrink-0"
-          >
-            {SUBJECT_CHOICES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="w-4 h-4 text-[#9a958c] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search assignments..."
+            className="w-full h-9 pl-9 pr-4 rounded-full border border-[#EDE8DD] bg-white text-[13px] text-[#111814] placeholder:text-[#9a958c] focus:outline-none focus:border-[#1a2421] transition-colors"
+          />
         </div>
+        <select
+          value={subjectFilter}
+          onChange={(e) => setSubjectFilter(e.target.value)}
+          className="h-9 px-3 rounded-full bg-white border border-[#EDE8DD] text-[12px] font-medium text-[#1A221E] shrink-0"
+        >
+          {SUBJECT_CHOICES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {STATUS_CHOICES.map((st) => (
             <button
               key={st.id}
               onClick={() => setStatusFilter(st.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                statusFilter === st.id ? 'bg-[#1a2421] text-white shadow-xs' : 'bg-[#F5F1E6] text-[#111814]/70 hover:text-[#111814]'
+              className={`h-9 px-3.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all cursor-pointer border ${
+                statusFilter === st.id
+                  ? 'bg-[#1a2421] text-white border-[#1a2421]'
+                  : 'bg-white text-[#5a554e] border-[#EDE8DD] hover:border-[#1a2421]'
               }`}
             >
               {st.label}
@@ -206,10 +192,10 @@ export default function MyAssignmentsPage() {
               <div key={asg.id} className="bg-[#FCFBF8] border border-[#EDE8DD] rounded-2xl p-5 shadow-card flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1a2421]/5 text-[#111814] border border-[#EDE8DD]">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1a2421]/5 text-[#111814] border border-[#EDE8DD]">
                       {asg.subject}
                     </span>
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${statusBadge(asg.submission_status)}`}>
+                    <span className={`font-mono text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full border ${statusBadge(asg.submission_status)}`}>
                       {asg.submission_status === 'not_started' ? 'Not Started' : asg.submission_status.charAt(0).toUpperCase() + asg.submission_status.slice(1)}
                     </span>
                   </div>

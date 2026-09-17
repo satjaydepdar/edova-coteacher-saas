@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Sparkles,
-  Flame,
-  Trophy,
-  Clock,
-  AlertTriangle,
   CheckCircle2,
   BookOpen,
   FlaskConical,
@@ -43,13 +38,10 @@ export default function LearningHubPage() {
   const needsPractice = mistakes.filter((m) => m.status === 'needs_practice')
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-full bg-[#FBF9F3] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
       {/* Header */}
       <div>
-        <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814] flex items-center gap-2.5">
-          <span className="p-2 rounded-xl bg-[#1a2421]/5 text-[#111814] border border-[#EDE8DD]">
-            <Sparkles className="w-6 h-6 text-[#DDB56E]" />
-          </span>
+        <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
           Learning Hub
         </h1>
         <p className="text-[13px] text-[#8A8A7A] mt-1">
@@ -58,46 +50,22 @@ export default function LearningHubPage() {
       </div>
 
       {/* Study Plan Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-[#DDB56E]/15 flex items-center justify-center text-[#8C6D23] border border-[#DDB56E]/30 shrink-0">
-            <Trophy className="w-5 h-5" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Experience Points', value: `${studyPlan?.xp ?? '—'} XP`, sub: 'Total earned', color: '#DDB56E' },
+          { label: 'Daily Streak', value: `${studyPlan?.streak_days ?? '—'}`, sub: 'Days in a row', color: '#D9534F' },
+          { label: 'Urgent Tasks', value: studyPlan?.urgent_tasks.length ?? 0, sub: 'Need attention', color: '#111814' },
+          { label: 'Needs Practice', value: needsPractice.length, sub: 'Unresolved mistakes', color: '#D9534F' },
+        ].map((z) => (
+          <div key={z.label} className="relative rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-3.5 overflow-hidden">
+            <div className="font-mono text-[9.5px] tracking-[0.08em] text-[#9AA09B] leading-tight mb-1.5 uppercase">{z.label}</div>
+            <div className="font-serif text-[22px] font-medium leading-none tracking-[-0.02em] mb-1 text-[#111814]">{z.value}</div>
+            <div className="font-mono text-[10px] text-[#8A8F8B]">{z.sub}</div>
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EDE8DD]">
+              <div className="h-full" style={{ width: '100%', background: z.color }} />
+            </div>
           </div>
-          <div>
-            <div className="text-xs text-[#111814]/60 font-medium">Experience Points</div>
-            <div className="text-xl font-bold text-[#111814]">{studyPlan?.xp ?? '—'} XP</div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-[#1a2421]/5 flex items-center justify-center text-[#111814] border border-[#EDE8DD] shrink-0">
-            <Flame className="w-5 h-5 text-danger" />
-          </div>
-          <div>
-            <div className="text-xs text-[#111814]/60 font-medium">Daily Streak</div>
-            <div className="text-xl font-bold text-[#111814]">{studyPlan?.streak_days ?? '—'} days</div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-[#1a2421]/5 flex items-center justify-center text-[#111814] border border-[#EDE8DD] shrink-0">
-            <Clock className="w-5 h-5 text-[#111814]" />
-          </div>
-          <div>
-            <div className="text-xs text-[#111814]/60 font-medium">Urgent Tasks</div>
-            <div className="text-xl font-bold text-[#111814]">{studyPlan?.urgent_tasks.length ?? 0}</div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-danger/10 flex items-center justify-center text-danger border border-danger/20 shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-[#111814]/60 font-medium">Needs Practice</div>
-            <div className="text-xl font-bold text-[#111814]">{needsPractice.length}</div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Quick links to shared learning tools */}
@@ -135,7 +103,7 @@ export default function LearningHubPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1.5 p-1 rounded-full bg-[#F5F1E6] w-fit">
+      <div className="flex items-center gap-1.5">
         {[
           { id: 'plan' as Tab, label: 'Study Plan' },
           { id: 'mistakes' as Tab, label: 'Mistake Journal' },
@@ -144,8 +112,8 @@ export default function LearningHubPage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-              tab === t.id ? 'bg-[#1a2421] text-white shadow-xs' : 'text-[#111814]/60 hover:text-[#111814]'
+            className={`h-9 px-3.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all cursor-pointer border ${
+              tab === t.id ? 'bg-[#1a2421] text-white border-[#1a2421]' : 'bg-white text-[#5a554e] border-[#EDE8DD] hover:border-[#1a2421]'
             }`}
           >
             {t.label}
@@ -207,7 +175,7 @@ export default function LearningHubPage() {
               <div key={m.id} className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1a2421]/5 text-[#111814] border border-[#EDE8DD]">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-[#8A8F8B]">
                       {m.chapter}
                     </span>
                     <span className="text-[11px] text-[#111814]/50">{m.topic}</span>

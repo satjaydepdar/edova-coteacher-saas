@@ -52,13 +52,10 @@ export default function StudentWikiPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-full bg-[#FBF9F3] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814] flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-[#1a2421]/5 text-[#111814] border border-[#EDE8DD]">
-              <NotebookPen className="w-6 h-6 text-[#DDB56E]" />
-            </span>
+          <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
             My Wiki
           </h1>
           <p className="text-[13px] text-[#8A8A7A] mt-1">Quotes, formulas, and notes you've saved while studying.</p>
@@ -72,21 +69,21 @@ export default function StudentWikiPage() {
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center gap-3 p-3 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-[#111814]/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="w-4 h-4 text-[#9a958c] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search your notes..."
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-[#EDE8DD]/70 bg-[#FAF9F5] text-[#111814] placeholder:text-[#111814]/40 focus:outline-none focus:border-[#DDB56E]"
+            className="w-full h-9 pl-9 pr-4 rounded-full border border-[#EDE8DD] bg-white text-[13px] text-[#111814] placeholder:text-[#9a958c] focus:outline-none focus:border-[#1a2421] transition-colors"
           />
         </div>
         <select
           value={chapterFilter}
           onChange={(e) => setChapterFilter(e.target.value)}
-          className="text-xs py-2 px-2.5 rounded-xl border border-[#EDE8DD] bg-[#FAF9F5] text-[#111814] outline-none focus:border-[#DDB56E] shrink-0"
+          className="h-9 px-3 rounded-full bg-white border border-[#EDE8DD] text-[12px] font-medium text-[#1A221E] shrink-0"
         >
           {chapters.map((c) => (
             <option key={c} value={c}>{c}</option>
@@ -106,7 +103,7 @@ export default function StudentWikiPage() {
             return (
               <div key={note.id} className="p-4 rounded-2xl bg-[#FCFBF8] border border-[#EDE8DD] shadow-card space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1a2421]/5 text-[#111814] border border-[#EDE8DD]">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#8A8F8B]">
                     {note.chapter}
                   </span>
                   <Icon className="w-4 h-4 text-[#DDB56E] shrink-0" />

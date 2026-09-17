@@ -1,4 +1,11 @@
 {
   "name": "@vf/pipeline",
-  "dependencies": { "@vf/math": "*", "@vf/storyboard": "*", "bullmq": "^5.0.0", "ioredis": "^5.4.0" }
+  "dependencies": {
+    "@vf/math": "*",
+    "@vf/storyboard": "*",
+    "@aws-sdk/client-polly": "^3.632.0",
+    "@aws-sdk/client-s3": "^3.632.0",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.4.0"
+  }
 }

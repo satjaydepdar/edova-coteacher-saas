@@ -1,0 +1,42 @@
+# Local rehearsal of the production topology: backend and video-engine run as two
+# SEPARATE containers on a Docker network, talking over a service name instead of
+# 127.0.0.1 -- the same shape as two ECS services in one VPC talking over Cloud Map /
+# an internal ALB. If it works here, the "it only worked because both apps were on
+# the same machine" class of bug (see video_engine.py) can't sneak back in.
+#
+# Does NOT include Postgres -- point EDOVA_DB_DSN at a real RDS instance, including
+# for local rehearsal, so this compose file can't drift from what production uses.
+#
+# Usage:
+#   cp .env.production.example .env.production   # fill in real values
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up --build
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8001:8001"
+    environment:
+      EDOVA_DB_DSN: ${EDOVA_DB_DSN}
+      EDOVA_JWT_SECRET: ${EDOVA_JWT_SECRET}
+      EDOVA_S3_BUCKET: ${EDOVA_S3_BUCKET:-innuxai-edova-coteacher}
+      EDOVA_S3_REGION: ${EDOVA_S3_REGION:-ap-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # Service name, not 127.0.0.1 -- resolves via Docker's internal DNS to the
+      # video-engine container below. In ECS this becomes a Cloud Map / internal-ALB
+      # DNS name instead.
+      VIDEO_ENGINE_URL: http://video-engine:5050
+    depends_on:
+      - video-engine
+
+  video-engine:
+    build: ./video-factory
+    ports:
+      - "5050:5050"
+    environment:
+      EDOVA_S3_BUCKET: ${EDOVA_S3_BUCKET:-innuxai-edova-coteacher}
+      EDOVA_S3_REGION: ${EDOVA_S3_REGION:-ap-south-1}
+      EDOVA_POLLY_VOICE: ${EDOVA_POLLY_VOICE:-Joanna}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}

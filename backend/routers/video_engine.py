@@ -96,8 +96,27 @@ def format_ondemand_filename(
     return f"trig_{clean_slug}.mp4"
 
 
+def record_ready_video(video_id: str, s3_key: str, duration_seconds: int = 38) -> None:
+    """Records a video the engine already persisted to S3 itself. No bytes ever pass
+    through this process -- the engine (a separate container/service in production)
+    uploads directly to S3 and hands us just the key."""
+    try:
+        with db() as conn:
+            conn.execute(
+                "INSERT INTO video_payloads (module_id, transcode_status, s3_key_prefix, duration_seconds) "
+                "VALUES (%s, 'READY', %s, %s) "
+                "ON CONFLICT (module_id) DO UPDATE SET transcode_status = 'READY', s3_key_prefix = EXCLUDED.s3_key_prefix",
+                (video_id, s3_key, duration_seconds),
+            )
+    except Exception:
+        pass
+
+
 def get_video_bytes_for_id(video_id: str) -> bytes:
-    """Fetches MP4 bytes from local renderer output directory or demo video."""
+    """Local-dev-only: fetches MP4 bytes from the renderer's local output directory.
+    Only reachable when the engine is unreachable AND running on localhost -- in a
+    real deployment the engine is a separate container and this directory won't exist,
+    so this path is never used in production (see is_local_engine check below)."""
     exact_path = RENDERER_OUT_DIR / f"{video_id}.mp4"
     if exact_path.exists() and exact_path.stat().st_size > 0:
         return exact_path.read_bytes()
@@ -181,6 +200,11 @@ async def generate_video(
         except Exception:
             pass
 
+    # Only treat "engine offline" as a dev fallback when it's actually configured to
+    # point at localhost -- in production ENGINE_URL is a real internal service
+    # address, and an unreachable engine there is a real outage, not a dev signal.
+    is_local_engine = "127.0.0.1" in ENGINE_URL or "localhost" in ENGINE_URL
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             res = await client.post(
@@ -194,22 +218,21 @@ async def generate_video(
                 )
             result = res.json()
 
-            # If ready, automatically ensure saved into S3 'Ondemand videos/'
-            if result.get("status") == "READY" and result.get("videoId"):
-                try:
-                    s3_res = save_ondemand_video_to_s3(
-                        video_id=result["videoId"],
-                        problem_type=payload.problemType,
-                        parameters=payload.parameters,
-                        question=payload.question,
-                    )
-                    result["s3"] = s3_res
-                except Exception:
-                    pass
+            # Cached/immediate READY: the engine already uploaded this render to S3
+            # itself (see video-factory/apps/pipeline/src/s3.ts) -- just record the key.
+            if result.get("status") == "READY" and result.get("s3Key"):
+                record_ready_video(result["videoId"], result["s3Key"])
 
+            # Otherwise this is an async job (QUEUED/SYNTHESIZING_AUDIO/RENDERING_VIDEO)
+            # -- caller polls GET /api/video/status/{jobId} until READY.
             return result
         except httpx.RequestError as exc:
-            # If video engine process is offline in dev, generate local S3 ondemand archive
+            if not is_local_engine:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Video generation engine unreachable: {exc}",
+                )
+            # Local dev only: engine isn't running, fall back to a canned S3 sample.
             v_id = payload.videoId or "custom-trig"
             s3_res = save_ondemand_video_to_s3(
                 video_id=v_id,
@@ -222,7 +245,7 @@ async def generate_video(
                 "videoId": v_id,
                 "status": "READY",
                 "progress": 100,
-                "currentStage": "Video ready in S3 Ondemand videos",
+                "currentStage": "Video ready in S3 Ondemand videos (local dev fallback)",
                 "s3": s3_res,
             }
 
@@ -252,7 +275,10 @@ async def get_job_status(job_id: str):
             res = await client.get(f"{ENGINE_URL}/api/v1/jobs/{job_id}")
             if res.status_code != 200:
                 raise HTTPException(status_code=res.status_code, detail="Job not found")
-            return res.json()
+            result = res.json()
+            if result.get("status") == "READY" and result.get("s3Key"):
+                record_ready_video(result["videoId"], result["s3Key"])
+            return result
         except httpx.RequestError as exc:
             raise HTTPException(status_code=503, detail=f"Engine error: {exc}")
 

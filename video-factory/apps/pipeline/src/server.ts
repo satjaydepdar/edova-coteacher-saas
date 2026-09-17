@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { buildTrigDepressionRiver } from "../../../packages/math/src/builders/trig-depression";
 import { buildHcfMaxSeating } from "../../../packages/math/src/builders/hcf-max-seating";
 import { synthesizeStoryboard } from "./tts";
+import { uploadOndemandVideo } from "./s3";
 import type { Storyboard } from "@vf/storyboard";
 
 export interface JobState {
@@ -15,6 +16,7 @@ export interface JobState {
   currentStage: string;
   error?: string;
   videoUrl?: string;
+  s3Key?: string;
   storyboard?: Storyboard;
   createdAt: number;
   completedAt?: number;
@@ -91,16 +93,12 @@ async function runOnDemandPipeline(job: JobState, problemType: string, params: R
     const outPath = path.resolve(OUT_DIR, outFileName);
 
     await new Promise<void>((resolve, reject) => {
-      // Execute remotion render
-      const cmd = "cmd.exe";
-      const args = [
-        "/d",
-        "/s",
-        "/c",
-        `npx remotion render src/index.ts Explainer out/${outFileName} --props=${propsRelative}`
-      ];
+      // Execute remotion render directly (no shell string) so this runs the same
+      // way on Linux/ECS as it does in local Windows dev.
+      const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+      const args = ["remotion", "render", "src/index.ts", "Explainer", `out/${outFileName}`, `--props=${propsRelative}`];
 
-      const child = spawn(cmd, args, {
+      const child = spawn(npxCmd, args, {
         cwd: RENDERER_DIR,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -135,10 +133,16 @@ async function runOnDemandPipeline(job: JobState, problemType: string, params: R
       });
     });
 
+    // 4. Persist the finished render to S3 (Ondemand videos/) so it survives
+    // container restarts/redeploys -- OUT_DIR is ephemeral container disk.
+    job.currentStage = "Uploading to S3";
+    const s3Key = await uploadOndemandVideo(`${job.videoId}.mp4`, fs.readFileSync(outPath));
+
     job.status = "READY";
     job.progress = 100;
     job.currentStage = "Video ready for playback";
     job.videoUrl = `/api/v1/video/${job.videoId}`;
+    job.s3Key = s3Key;
     job.completedAt = Date.now();
   } catch (err: any) {
     console.error(`[Pipeline Error for ${job.videoId}]:`, err);

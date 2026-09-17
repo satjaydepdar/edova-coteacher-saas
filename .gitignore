@@ -15,6 +15,7 @@ edova-coteacher-lms-master/
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # --- python ---
 __pycache__/

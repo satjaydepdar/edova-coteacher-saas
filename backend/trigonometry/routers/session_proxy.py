@@ -14,6 +14,8 @@ from fastapi import Depends
 
 from trigonometry.database import get_db
 from trigonometry.models import StudentState, InteractionLog, TelemetryEvent
+from services.problem_spec_classifier import classify_problem
+from services.llm_client import LlmCallError
 
 logger = logging.getLogger("edova.trigonometry")
 
@@ -39,7 +41,14 @@ async def init_session(
     }
     if payload.get("problem_spec") is not None:
         forward_payload["problem_spec"] = payload.get("problem_spec")
-    
+    elif forward_payload["problem_text"]:
+        # No curated problem_spec (e.g. "Custom Problem" free text) -- the reasoner
+        # no longer parses raw text itself, so build the spec here.
+        try:
+            forward_payload["problem_spec"] = classify_problem(forward_payload["problem_text"])
+        except LlmCallError as exc:
+            raise HTTPException(status_code=502, detail=f"Could not understand this problem statement: {exc}")
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             res = await client.post(f"{REASONING_ENGINE_URL}/api/v1/session/init", json=forward_payload)

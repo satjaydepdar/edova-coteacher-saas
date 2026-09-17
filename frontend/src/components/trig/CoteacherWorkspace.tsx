@@ -14,7 +14,7 @@ import {
 import MathDisplay from './MathDisplay'
 import MathLiveInput from './MathLiveInput'
 import FormattedMathText from './FormattedMathText'
-import TrigonometryDagModal from './TrigonometryDagModal'
+import ConceptDagModal from '../dag/ConceptDagModal'
 import VideoExplainerModal from '../video/VideoExplainerModal'
 import { trackTelemetryEvent } from '../../lib/trig/tracer'
 import {
@@ -1337,9 +1337,10 @@ export default function CoteacherWorkspace({
       )}
 
       {/* Interactive Trigonometry DAG Modal */}
-      <TrigonometryDagModal
+      <ConceptDagModal
         isOpen={showDagModal}
         onClose={() => setShowDagModal(false)}
+        subjectLabel="CBSE CLASS 10 DAG"
         concepts={availableConcepts}
         activeConceptId={conceptId}
         onSelectConcept={(selectedId) => {

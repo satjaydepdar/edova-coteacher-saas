@@ -478,8 +478,8 @@ export default function CoteacherWorkspace({
             </div>
 
             {/* CARD 1: QUESTION CARD */}
-            <div className="relative bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] overflow-hidden min-w-0 w-full">
-              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#ece8df] to-transparent" />
+            <div className="relative bg-[#FEFEFB] rounded-[28px] border border-[#ece8df] shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden min-w-0 w-full">
+              <div className="absolute top-0 left-0 right-0 h-[6px]" style={{ background: '#8BA888' }} />
               <div className="p-7 lg:p-9">
                 <div className="max-w-[720px]">
                   {!hasStartedProblem ? (
@@ -582,7 +582,8 @@ export default function CoteacherWorkspace({
             </div>
 
             {/* CARD 2: EDOVA EQUATION BOARD */}
-            <div className="bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] overflow-hidden min-w-0">
+            <div className="relative bg-[#FEFEFB] rounded-[28px] border border-[#ece8df] shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden min-w-0">
+              <div className="absolute top-0 left-0 right-0 h-[6px]" style={{ background: '#7A9DB8' }} />
               <div className="px-7 lg:px-8 h-[52px] flex items-center justify-between border-b border-[#ece8df] bg-[#fbfaf7]">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[11px] tracking-[0.14em] text-[#1a2421] font-medium uppercase">
@@ -645,8 +646,8 @@ export default function CoteacherWorkspace({
               >
                 <div className="max-w-[560px]">
                   {/* Ghost Example Box */}
-                  <div className="rounded-xl border border-dashed border-[#ddd8cc] bg-[#fdfaf5]/80 p-4">
-                    <div className="font-mono text-[10px] tracking-[0.12em] text-[#7a756c] mb-2 font-medium">
+                  <div className="rounded-xl border border-dashed border-[#C48A7A]/50 bg-[#F0D5C8]/40 p-4">
+                    <div className="font-mono text-[10px] tracking-[0.12em] text-[#C48A7A] mb-2 font-medium">
                       GHOST EXAMPLE • REFERENCE ONLY
                     </div>
                     <div className="font-mono text-[13px] text-[#6b6760] leading-relaxed">
@@ -705,7 +706,8 @@ export default function CoteacherWorkspace({
             </div>
 
             {/* CARD 3: YOUR DERIVATIONS */}
-            <div className="bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] p-7 lg:p-8 min-w-0">
+            <div className="relative bg-[#E6EDE6] rounded-[28px] border border-[#ece8df] shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden p-7 lg:p-8 min-w-0">
+              <div className="absolute top-0 left-0 right-0 h-[6px]" style={{ background: 'linear-gradient(90deg, #8BA888, #9B8FB4)' }} />
               <div className="flex items-center justify-between">
                 <h3 className="font-serif text-[18px] text-[#1a2421] font-semibold">
                   Your Derivations
@@ -716,7 +718,7 @@ export default function CoteacherWorkspace({
               </div>
 
               {allStudentSteps.length === 0 && !hasStartedProblem ? (
-                <div className="mt-8 rounded-[20px] bg-[#fbf8f1] border border-[#ece6d8] p-8 text-center">
+                <div className="mt-8 rounded-[20px] bg-white border border-[#ece6d8] p-8 text-center">
                   <div className="mx-auto w-12 h-12 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
                     <span className="text-[18px] opacity-60">◐</span>
                   </div>
@@ -769,7 +771,7 @@ export default function CoteacherWorkspace({
                       {allStudentSteps.map((stepText, idx) => (
                         <div
                           key={idx}
-                          className="flex gap-3 items-center justify-between p-3.5 rounded-xl bg-[#fbf8f1] border border-[#ece6d8]"
+                          className="flex gap-3 items-center justify-between p-3.5 rounded-xl bg-white border border-[#ece6d8]"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span className="w-6 h-6 rounded-full bg-[#1a2421] text-white grid place-items-center font-mono text-[10px] shrink-0 font-bold">
@@ -859,7 +861,7 @@ export default function CoteacherWorkspace({
                         }}
                         placeholder="e.g. sin(θ) = opposite / hypotenuse"
                         disabled={!hasStartedProblem}
-                        className="w-full h-[48px] rounded-full bg-[#fbf8f1] border border-[#ece6d8] px-5 pr-[130px] font-mono text-[13px] text-[#1a2421] placeholder:text-[#b8b2a5] focus:outline-none focus:border-[#1a2421]/30 focus:bg-white disabled:opacity-60 transition"
+                        className="w-full h-[48px] rounded-full bg-white border border-[#ece6d8] px-5 pr-[130px] font-mono text-[13px] text-[#1a2421] placeholder:text-[#b8b2a5] focus:outline-none focus:border-[#1a2421]/30 focus:bg-white disabled:opacity-60 transition"
                       />
                       <button
                         type="button"
@@ -968,7 +970,7 @@ export default function CoteacherWorkspace({
                   <span className="font-serif text-[15px] font-semibold text-[#1a2421]">
                     {formulaReferenceTitle}
                   </span>
-                  <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[10px] font-mono text-[#2a5a28]">
+                  <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-[#E0DAE8] border border-[#D4C8E0] text-[10px] font-mono text-[#5A4E7A]">
                     {formulaReferenceItems.length} FORMULAS
                   </span>
                 </div>
@@ -1053,40 +1055,52 @@ export default function CoteacherWorkspace({
                   label: 'Concept Mastery',
                   value: `${Math.round(metrics.concept_mastery * 100)}%`,
                   sub: 'Baseline',
-                  color: '#1A221E',
+                  color: '#2E4D3A',
+                  bg: '#D4E4D1',
+                  text: '#2E4D3A',
                   progress: Math.round(metrics.concept_mastery * 100),
                 },
                 {
                   label: 'Assistance SAL',
                   value: `${Math.round(metrics.assistance_sal * 100)}%`,
                   sub: metrics.assistance_sal >= 0.7 ? 'Adaptive' : 'Low assist',
-                  color: '#4A7C59',
+                  color: '#7A4D3E',
+                  bg: '#F0D5C8',
+                  text: '#7A4D3E',
                   progress: Math.round(metrics.assistance_sal * 100),
                 },
                 {
                   label: 'Active Attempts',
                   value: `${metrics.active_attempts}`,
                   sub: 'This session',
-                  color: metrics.active_attempts > 1 ? '#DDB56E' : '#1A221E',
+                  color: '#3A4E68',
+                  bg: '#D6E2EB',
+                  text: '#3A4E68',
                   progress: Math.min(100, metrics.active_attempts * 25),
                 },
                 {
                   label: 'Accuracy Rate',
                   value: `${Math.round(metrics.accuracy_rate * 100)}%`,
                   sub: 'Verified',
-                  color: '#1A221E',
+                  color: '#5A4E7A',
+                  bg: '#E0DAE8',
+                  text: '#5A4E7A',
                   progress: Math.round(metrics.accuracy_rate * 100),
                 },
               ].map((z) => (
-                <div key={z.label} className="relative rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-3.5 overflow-hidden">
-                  <div className="font-mono text-[9.5px] tracking-[0.08em] text-[#9AA09B] leading-tight mb-1.5">
+                <div
+                  key={z.label}
+                  className="relative rounded-[14px] border border-black/5 p-3.5 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
+                  style={{ background: z.bg }}
+                >
+                  <div className="font-mono text-[9.5px] tracking-[0.08em] leading-tight mb-1.5 opacity-70" style={{ color: z.text }}>
                     {z.label.toUpperCase()}
                   </div>
-                  <div className="font-display text-[22px] font-[600] leading-none tracking-[-0.02em] mb-1">
+                  <div className="font-display text-[22px] font-[600] leading-none tracking-[-0.02em] mb-1" style={{ color: z.text }}>
                     {z.value}
                   </div>
-                  <div className="font-mono text-[10px] text-[#8A8F8B]">{z.sub}</div>
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EDE8DD]">
+                  <div className="font-mono text-[10px] opacity-70" style={{ color: z.text }}>{z.sub}</div>
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-black/10">
                     <div
                       className="h-full transition-all duration-700 ease-out"
                       style={{ width: `${z.progress}%`, background: z.color }}
@@ -1097,7 +1111,7 @@ export default function CoteacherWorkspace({
             </div>
 
             {/* LEARNING TRAJECTORY DYNAMICS */}
-            <div className="rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-4">
+            <div className="rounded-[14px] bg-[#FFFFFF] border border-[#8BA888]/40 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B]">
                   LEARNING TRAJECTORY DYNAMICS
@@ -1165,45 +1179,45 @@ export default function CoteacherWorkspace({
               </div>
             </div>
 
-            {/* FLUENCY • SPEED Dark Card */}
+            {/* ARCHETYPE MASTERY Card */}
             <div
-              className="rounded-[14px] bg-[#1A221E] p-4 border border-[#2A332F] relative overflow-hidden"
-              style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 24px rgba(0,0,0,0.18)' }}
+              className="rounded-[14px] bg-[#F5DDD1] p-4 border border-[#F0D5C8] relative overflow-hidden"
+              style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}
             >
-              <div className="absolute right-[-20px] top-[-20px] w-28 h-28 rounded-full bg-[#DDB56E]/[0.08] blur-[1px]" />
+              <div className="absolute right-[-20px] top-[-20px] w-28 h-28 rounded-full bg-[#C48A7A]/[0.12] blur-[1px]" />
               <div className="relative">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-mono text-[9px] tracking-[0.14em] text-[#9CA3AF] uppercase opacity-90">
+                  <span className="font-mono text-[9px] tracking-[0.14em] text-[#7A4D3E] uppercase opacity-90">
                     ARCHETYPE MASTERY
                   </span>
-                  <span className="font-mono text-[9px] px-2 py-1 rounded-full bg-[#232E27] border border-[#2A332F] text-[#DDB56E] font-semibold">
+                  <span className="font-mono text-[9px] px-2 py-1 rounded-full bg-white/70 border border-[#F0D5C8] text-[#7A4D3E] font-semibold">
                     {metrics.questions_solved || 0}/5 Solved
                   </span>
                 </div>
 
                 <div className="flex items-end gap-3 mb-4">
-                  <div className="font-display text-[28px] font-[700] leading-none text-[#FFFFFF] tracking-[-0.02em]">
+                  <div className="font-display text-[28px] font-[700] leading-none text-[#121A16] tracking-[-0.02em]">
                     {`${Math.round((metrics.concept_mastery || 0) * 100)}%`}
                   </div>
-                  <div className="font-mono text-[11px] text-[#EDE8DD] mb-0.5 opacity-90">
+                  <div className="font-mono text-[11px] text-[#7A4D3E] mb-0.5 opacity-90">
                     {(metrics.questions_solved || 0) >= 5 ? '★ Mastered' : `${5 - (metrics.questions_solved || 0)} more to master`}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="rounded-[8px] bg-[#232E27] border border-[#2A332F] p-2.5">
-                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#9CA3AF] uppercase">
+                  <div className="rounded-[8px] bg-white/60 border border-[#F0D5C8] p-2.5">
+                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#7A4D3E] uppercase">
                       Accuracy Rate
                     </div>
-                    <div className="font-medium text-[14px] text-[#FFFFFF] mt-1">
+                    <div className="font-medium text-[14px] text-[#121A16] mt-1">
                       {hasStartedProblem && completedSteps.length > 0 ? `${Math.round(metrics.accuracy_rate * 100)}%` : '—'}
                     </div>
                   </div>
-                  <div className="rounded-[8px] bg-[#232E27] border border-[#2A332F] p-2.5">
-                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#9CA3AF] uppercase">
+                  <div className="rounded-[8px] bg-white/60 border border-[#F0D5C8] p-2.5">
+                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#7A4D3E] uppercase">
                       Current SAL
                     </div>
-                    <div className="font-medium text-[14px] text-[#DDB56E] mt-1 font-mono">
+                    <div className="font-medium text-[14px] text-[#C48A7A] mt-1 font-mono">
                       {metrics.assistance_sal.toFixed(2)}
                     </div>
                   </div>
@@ -1218,8 +1232,8 @@ export default function CoteacherWorkspace({
                         key={qIdx}
                         className="flex-1 h-3 rounded-[4px] transition-all duration-500 border"
                         style={{
-                          background: isSolved ? '#DDB56E' : '#232E27',
-                          borderColor: isSolved ? '#DDB56E' : '#2A332F',
+                          background: isSolved ? '#C48A7A' : 'rgba(255,255,255,0.5)',
+                          borderColor: isSolved ? '#C48A7A' : '#F0D5C8',
                           opacity: isSolved ? 1 : 0.6,
                         }}
                         title={`Question ${qIdx + 1}: ${isSolved ? 'Solved' : 'Pending'}`}
@@ -1228,33 +1242,33 @@ export default function CoteacherWorkspace({
                   })}
                 </div>
 
-                <div className="mt-3 font-mono text-[10px] text-[#EDE8DD] opacity-80">
+                <div className="mt-3 font-mono text-[10px] text-[#7A4D3E] opacity-80">
                   No time pressure • Focus on derivation quality
                 </div>
               </div>
             </div>
 
             {/* SESSION CONTEXT Card */}
-            <div className="rounded-[14px] border border-[#EDE8DD] bg-white p-4">
-              <div className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B] mb-3">
+            <div className="rounded-[14px] border border-[#D6E2EB] bg-[#E6EEF5] p-4">
+              <div className="font-mono text-[10px] tracking-[0.08em] text-[#3A4E68] mb-3">
                 SESSION CONTEXT
               </div>
               <div className="space-y-2.5">
                 <div className="flex justify-between font-mono text-[11px]">
-                  <span className="text-[#8A8F8B]">Concept</span>
-                  <span className="text-[#1A221E] font-medium max-w-[150px] truncate">
+                  <span className="text-[#3A4E68]/70">Concept</span>
+                  <span className="text-[#3A4E68] font-medium max-w-[150px] truncate">
                     {conceptTitle || subjectFallbackName}
                   </span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px]">
-                  <span className="text-[#8A8F8B]">Variant</span>
-                  <span className="text-[#1A221E]">
+                  <span className="text-[#3A4E68]/70">Variant</span>
+                  <span className="text-[#3A4E68]">
                     {hasStartedProblem ? (isGenericSession ? 'Engine • Dynamic' : '#1847 • Fresh') : '— • Ready'}
                   </span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px]">
-                  <span className="text-[#8A8F8B]">Mode</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[10px]">
+                  <span className="text-[#3A4E68]/70">Mode</span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/70 border border-[#D6E2EB] text-[10px] text-[#3A4E68]">
                     Practice • ∞ steps
                   </span>
                 </div>

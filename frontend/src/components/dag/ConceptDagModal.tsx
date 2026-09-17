@@ -138,15 +138,47 @@ export default function ConceptDagModal({
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(0.88)
   const [isPanning, setIsPanning] = useState(false)
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
+  // Students can drag nodes wherever they like -- session-local (not persisted,
+  // not shared), reset whenever a different concept set loads.
+  const [positionOverrides, setPositionOverrides] = useState<Record<string, { x: number; y: number }>>({})
 
   const containerRef = useRef<HTMLDivElement>(null)
   const isPanningRef = useRef(false)
   const panStartRef = useRef({ x: 0, y: 0 })
   const toastTimeoutRef = useRef<number | null>(null)
+  const dragNodeRef = useRef<{
+    nodeId: string
+    startPointer: { x: number; y: number }
+    startNodePos: { x: number; y: number }
+    hasMoved: boolean
+  } | null>(null)
 
   useEffect(() => {
     setSelectedId(activeConceptId)
   }, [activeConceptId])
+
+  useEffect(() => {
+    setPositionOverrides({})
+  }, [concepts])
+
+  const effectiveNodes = useMemo(
+    () => nodes.map((n) => (positionOverrides[n.id] ? { ...n, ...positionOverrides[n.id] } : n)),
+    [nodes, positionOverrides],
+  )
+
+  // Lock body scroll while open: besides being correct modal behavior, a
+  // scrollbar on the underlying page makes 100vw measure wider than the
+  // actually-visible viewport in Chrome, which was pushing this modal's
+  // right-anchored inspector panel off-screen at non-100% browser zoom.
+  useEffect(() => {
+    if (!isOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [isOpen])
 
   const showToast = (msg: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
@@ -193,7 +225,10 @@ export default function ConceptDagModal({
     showToast(`Reset view: all ${nodes.length} nodes fitted`)
   }
 
-  const activeNode = useMemo(() => nodes.find((n) => n.id === selectedId) || nodes[0], [nodes, selectedId])
+  const activeNode = useMemo(
+    () => effectiveNodes.find((n) => n.id === selectedId) || effectiveNodes[0],
+    [effectiveNodes, selectedId],
+  )
 
   const highlightedChain = useMemo(() => {
     const currentId = hoveredId || selectedId
@@ -253,13 +288,50 @@ export default function ConceptDagModal({
     containerRef.current?.setPointerCapture?.(e.pointerId)
   }
 
+  const handleNodePointerDown = (e: React.PointerEvent, nodeId: string) => {
+    if (e.button !== 0) return
+    e.stopPropagation() // don't also start a canvas pan
+    const target = effectiveNodes.find((n) => n.id === nodeId)
+    if (!target) return
+    dragNodeRef.current = {
+      nodeId,
+      startPointer: { x: e.clientX, y: e.clientY },
+      startNodePos: { x: target.x, y: target.y },
+      hasMoved: false,
+    }
+    setDraggingNodeId(nodeId)
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+  }
+
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (dragNodeRef.current) {
+      const drag = dragNodeRef.current
+      const dx = (e.clientX - drag.startPointer.x) / zoom
+      const dy = (e.clientY - drag.startPointer.y) / zoom
+      if (!drag.hasMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) drag.hasMoved = true
+      if (drag.hasMoved) {
+        const clampedX = Math.max(10, Math.min(canvasWidth - NODE_WIDTH - 10, Math.round(drag.startNodePos.x + dx)))
+        const clampedY = Math.max(10, Math.min(canvasHeight - NODE_HEIGHT - 10, Math.round(drag.startNodePos.y + dy)))
+        setPositionOverrides((prev) => ({ ...prev, [drag.nodeId]: { x: clampedX, y: clampedY } }))
+      }
+      return
+    }
     if (isPanningRef.current) {
       setPan({ x: e.clientX - panStartRef.current.x, y: e.clientY - panStartRef.current.y })
     }
   }
 
   const handlePointerUp = () => {
+    if (dragNodeRef.current) {
+      const drag = dragNodeRef.current
+      if (!drag.hasMoved) {
+        // A clean click, not a drag -- select it and open the inspector.
+        setSelectedId(drag.nodeId)
+        setIsInspectorOpen(true)
+      }
+      dragNodeRef.current = null
+      setDraggingNodeId(null)
+    }
     isPanningRef.current = false
     setIsPanning(false)
   }
@@ -287,9 +359,9 @@ export default function ConceptDagModal({
 
   if (!isOpen) return null
 
-  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const byId = new Map(effectiveNodes.map((n) => [n.id, n]))
   const edges: { from: LaidOutNode; to: LaidOutNode }[] = []
-  for (const n of nodes) {
+  for (const n of effectiveNodes) {
     for (const prereqId of n.prerequisites) {
       const from = byId.get(prereqId)
       if (from) edges.push({ from, to: n })
@@ -300,7 +372,7 @@ export default function ConceptDagModal({
   const masteryPct = concepts.length ? Math.round((masteredCount / concepts.length) * 100) : 0
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#FBF9F3] text-[#111814] flex flex-col h-screen w-screen overflow-hidden font-sans select-none antialiased">
+    <div className="fixed inset-0 z-50 bg-[#FBF9F3] text-[#111814] flex flex-col overflow-hidden font-sans select-none antialiased">
       <header className="sticky top-0 z-20 h-[64px] bg-white border-b border-[#EDE8DD] flex items-center justify-between px-4 md:px-6 shrink-0 shadow-xs">
         <div className="flex items-center gap-3 md:gap-4">
           <button
@@ -492,33 +564,42 @@ export default function ConceptDagModal({
               })}
             </svg>
 
-            {nodes.map((node) => {
+            {effectiveNodes.map((node) => {
               const isSelected = selectedId === node.id
               const isHovered = hoveredId === node.id
+              const isDragging = draggingNodeId === node.id
               const isDimmedByFilter = !filteredNodeIds.has(node.id)
               const isDimmedByFocus = Boolean(focusSet && !focusSet.has(node.id))
               const isLongTitle = node.title.length > 28
-              const zIndex = isSelected ? 20 : isHovered ? 10 : 2
+              const zIndex = isDragging ? 30 : isSelected ? 20 : isHovered ? 10 : 2
               const opacity = isDimmedByFilter ? 0.25 : isDimmedByFocus ? 0.2 : 1
-              const scale = isDimmedByFocus ? 0.9 : 1
+              const scale = isDragging ? 1.02 : isDimmedByFocus ? 0.9 : 1
 
               return (
                 <div
                   key={node.id}
                   data-node="true"
-                  onClick={() => {
-                    setSelectedId(node.id)
-                    setIsInspectorOpen(true)
-                  }}
+                  onPointerDown={(e) => handleNodePointerDown(e, node.id)}
                   onPointerEnter={() => setHoveredId(node.id)}
                   onPointerLeave={() => setHoveredId(null)}
-                  className={`absolute w-[220px] min-h-[96px] h-auto rounded-[16px] flex flex-col justify-between select-none cursor-pointer transition-shadow ${
+                  title="Drag to reposition"
+                  className={`absolute w-[220px] min-h-[96px] h-auto rounded-[16px] flex flex-col justify-between select-none transition-shadow ${
+                    isDragging ? 'cursor-grabbing' : 'cursor-grab'
+                  } ${
                     node.status === 'active'
                       ? 'bg-[#1A221E] text-white border-[2px] border-[#DDB56E] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.12)]'
                       : node.status === 'locked'
                       ? 'bg-[#FFFFFF] border border-[#E2DDD1] text-[#9CA3AF]'
                       : 'bg-[#FFFFFF] border border-[#EDE8DD] text-[#111814] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)]'
-                  } ${isSelected ? 'translate-y-[-2px] shadow-[0_4px_16px_rgba(0,0,0,0.12)]' : isHovered && !isDimmedByFocus ? 'translate-y-[-2px] shadow-[0_8px_24px_rgba(0,0,0,0.08)]' : ''}`}
+                  } ${
+                    isDragging
+                      ? 'shadow-[0_12px_32px_rgba(0,0,0,0.22)]'
+                      : isSelected
+                      ? 'translate-y-[-2px] shadow-[0_4px_16px_rgba(0,0,0,0.12)]'
+                      : isHovered && !isDimmedByFocus
+                      ? 'translate-y-[-2px] shadow-[0_8px_24px_rgba(0,0,0,0.08)]'
+                      : ''
+                  }`}
                   style={{
                     left: node.x,
                     top: node.y,
@@ -585,7 +666,7 @@ export default function ConceptDagModal({
             style={{ right: isInspectorOpen ? '364px' : '24px', width: 140, height: 90 }}
           >
             <div className="w-full h-full relative bg-[#FBF9F3] rounded-[8px] overflow-hidden border border-[#EDE8DD]/60">
-              {nodes.map((n) => {
+              {effectiveNodes.map((n) => {
                 const mx = (n.x / canvasWidth) * 120 + 2
                 const my = (n.y / canvasHeight) * 72 + 2
                 return (

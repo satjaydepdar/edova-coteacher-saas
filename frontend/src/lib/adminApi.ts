@@ -138,6 +138,17 @@ export interface AdminUser {
   created_at: string
 }
 
+export interface AdminLlmProvider {
+  id: string
+  provider_name: string
+  model_name: string
+  api_key_masked: string
+  is_default: boolean
+  is_video_engine: boolean
+  created_at: string
+  updated_at: string
+}
+
 // --- auth ---
 export const adminAuth = {
   login: (email: string, password: string) =>
@@ -234,6 +245,18 @@ export const adminUsers = {
     call(`/admin/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ password }) }),
   remove: (userId: string) =>
     call<{ id: string; revoked: boolean }>(`/admin/users/${userId}`, { method: 'DELETE' }),
+}
+
+// --- LLM providers (sole owner: platform admin) ---
+export const adminLlmProviders = {
+  list: () => call<{ providers: AdminLlmProvider[] }>(`/admin/llm-providers`),
+  create: (b: { provider_name: string; model_name: string; api_key: string }) =>
+    call<AdminLlmProvider>(`/admin/llm-providers`, { method: 'POST', body: JSON.stringify(b) }),
+  update: (id: string, b: Partial<{ provider_name: string; model_name: string; api_key: string }>) =>
+    call<AdminLlmProvider>(`/admin/llm-providers/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
+  remove: (id: string) => call<{ status: string; deleted_id: string }>(`/admin/llm-providers/${id}`, { method: 'DELETE' }),
+  setDefault: (id: string) => call<{ status: string; default_id: string }>(`/admin/llm-providers/${id}/set-default`, { method: 'POST' }),
+  setVideoEngine: (id: string) => call<{ status: string; video_engine_id: string }>(`/admin/llm-providers/${id}/set-video-engine`, { method: 'POST' }),
 }
 
 /** Reorder via 3 PATCH swap: unique(subject/chapter, sequence_order) forbids

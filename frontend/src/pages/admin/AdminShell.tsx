@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
-import { BookCopy, Building2, LogOut, Users } from 'lucide-react'
+import { BookCopy, Building2, LogOut, Sparkles, Users } from 'lucide-react'
 import { useAdmin } from '../../store/adminStore'
 import { useAuthStore } from '../../store/authStore'
 
@@ -8,6 +8,7 @@ const NAV = [
   { to: '/cms/content', label: 'Content', icon: BookCopy },
   { to: '/cms/schools', label: 'Schools', icon: Building2 },
   { to: '/cms/users', label: 'Users', icon: Users },
+  { to: '/cms/llm-providers', label: 'LLM Providers', icon: Sparkles },
 ]
 
 export default function AdminShell() {

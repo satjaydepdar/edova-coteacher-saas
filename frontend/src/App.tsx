@@ -12,6 +12,7 @@ import AdminContent from './pages/admin/AdminContent'
 import AdminSubject from './pages/admin/AdminSubject'
 import AdminSchools from './pages/admin/AdminSchools'
 import AdminUsers from './pages/admin/AdminUsers'
+import AdminLlmProviders from './pages/admin/AdminLlmProviders'
 import DashboardOverview from './pages/teacher/DashboardOverview'
 import SectionDeepdive from './pages/teacher/SectionDeepdive'
 import StudentProfile from './pages/teacher/StudentProfile'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="content/:subjectId" element={<AdminSubject />} />
         <Route path="schools" element={<AdminSchools />} />
         <Route path="users" element={<AdminUsers />} />
+        <Route path="llm-providers" element={<AdminLlmProviders />} />
       </Route>
       <Route element={<Shell />}>
         <Route path="/" element={<Navigate to={homePath} replace />} />

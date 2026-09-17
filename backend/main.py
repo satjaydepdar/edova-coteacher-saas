@@ -129,6 +129,7 @@ from routers.admin_tests import router as admin_tests_router
 from routers.admin_content import router as admin_content_router
 from routers.admin_cms_browse import router as admin_cms_browse_router
 from routers.admin_tenants import router as admin_tenants_router
+from routers.admin_llm_providers import router as admin_llm_providers_router
 from routers.public_funnel import router as public_funnel_router
 from routers.analytics import router as analytics_router
 from trigonometry.routers.concepts import router as trig_concepts_router
@@ -162,6 +163,7 @@ app.include_router(admin_tests_router)
 app.include_router(admin_content_router)
 app.include_router(admin_cms_browse_router)
 app.include_router(admin_tenants_router)
+app.include_router(admin_llm_providers_router)
 app.include_router(public_funnel_router)
 app.include_router(analytics_router)
 app.include_router(trig_concepts_router)

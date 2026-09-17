@@ -1,4 +1,3 @@
-import os
 import math
 import logging
 from typing import Dict, Any, List, Optional, Set, Tuple
@@ -160,21 +159,42 @@ class MathSolverService:
 
 class GeminiSocraticService:
     """
-    Socratic Co-Teacher Service with Google Gemini LLM, Knowledge Graph readiness gating,
-    and rich heuristic Socratic domain engines.
+    Socratic Co-Teacher Service with an LLM (provider/model/key come from the
+    admin-managed llm_providers registry, "default" purpose -- see
+    services/llm_config_service.py), Knowledge Graph readiness gating, and rich
+    heuristic Socratic domain engines.
     """
     def __init__(self):
-        self.api_key = os.environ.get("GEMINI_API_KEY")
-        self.model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
         self.model = None
-        if self.api_key:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=self.api_key, transport="rest")
-                self.model = genai.GenerativeModel(self.model_name)
-                logger.info(f"Google Gemini LLM Socratic Co-Teacher initialized with model: {self.model_name}")
-            except Exception as ex:
-                logger.warning(f"Could not initialize Gemini LLM: {ex}. Using heuristic Socratic engine.")
+        self.model_name = None
+        self._configured_key = None
+        self._ensure_model()
+
+    def _ensure_model(self):
+        """Re-checks the admin-configured default LLM and (re)initializes the client
+        if it changed -- so an admin swapping the default model takes effect on the
+        next request, no restart needed. Best-effort: any failure here just falls
+        back to the heuristic Socratic engine, same as before."""
+        try:
+            from services.llm_config_service import get_llm_config_or_none
+            cfg = get_llm_config_or_none("default")
+        except Exception as ex:
+            logger.warning(f"Could not read default LLM config: {ex}. Using heuristic Socratic engine.")
+            return
+        if not cfg or cfg["provider_name"].lower() != "google":
+            # Non-Google default: this service only speaks the Gemini SDK today.
+            return
+        if cfg["api_key"] == self._configured_key and cfg["model_name"] == self.model_name:
+            return  # already configured with current settings
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=cfg["api_key"], transport="rest")
+            self.model = genai.GenerativeModel(cfg["model_name"])
+            self.model_name = cfg["model_name"]
+            self._configured_key = cfg["api_key"]
+            logger.info(f"Gemini Socratic Co-Teacher initialized with model: {cfg['model_name']}")
+        except Exception as ex:
+            logger.warning(f"Could not initialize Gemini LLM: {ex}. Using heuristic Socratic engine.")
 
     async def get_socratic_response(
         self,
@@ -187,6 +207,7 @@ class GeminiSocraticService:
         concept_id: Optional[str] = None,
         mastered_concept_ids: Optional[List[str]] = None
     ) -> Dict[str, Any]:
+        self._ensure_model()
         msg_lower = message.lower().strip()
         mastered_set: Set[str] = set(mastered_concept_ids or [])
         sim_id_lower = (simulation_id or "").lower()

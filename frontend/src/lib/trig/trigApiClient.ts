@@ -170,6 +170,27 @@ export const trigApi = {
     call<GenericSessionInitResponse>(`/api/trig/session/${sessionId}`),
 }
 
+export interface PracticeChapter {
+  id: string
+  name: string
+  practice_available: boolean
+}
+
+export interface PracticeSubject {
+  id: string
+  name: string
+  chapters: PracticeChapter[]
+}
+
+export interface PracticeClass {
+  grade: string
+  subjects: PracticeSubject[]
+}
+
+export const practiceApi = {
+  chapters: () => call<{ classes: PracticeClass[] }>('/api/student/practice/chapters'),
+}
+
 export interface GenericSessionStepPayload {
   step_index: number
   prompt: string

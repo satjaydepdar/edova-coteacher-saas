@@ -352,9 +352,6 @@ export default function CoteacherWorkspace({
             <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
               Practice Questions
             </h1>
-            <span className="hidden md:inline-flex items-center px-2.5 py-1 rounded-full bg-[#1a2421] text-[#fdfaf5] font-mono text-[10px] tracking-[0.12em]">
-              CBSE CLASS 10 • MATH
-            </span>
           </div>
 
           <div className="flex items-center gap-2.5">

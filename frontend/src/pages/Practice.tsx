@@ -5,6 +5,61 @@ import RichView from '../lib/richtext/RichView'
 import { api, type StudentTest, type StudentTestDetail } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 import TrigonometryPractice from '../components/trig/TrigonometryPractice'
+import { practiceApi, type PracticeChapter, type PracticeClass } from '../lib/trig/trigApiClient'
+
+function PracticeFilters({
+  classes, grade, subjectId, chapterId, onChange,
+}: {
+  classes: PracticeClass[]
+  grade: string
+  subjectId: string
+  chapterId: string
+  onChange: (next: { grade: string; subjectId: string; chapterId: string }) => void
+}) {
+  const subjects = classes.find((c) => c.grade === grade)?.subjects ?? []
+  const chapters = subjects.find((s) => s.id === subjectId)?.chapters ?? []
+
+  const selectCls = 'h-9 px-3 rounded-full bg-white border border-[#EDE8DD] text-[12px] font-medium text-[#1A221E]'
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-[#EDE8DD] bg-[#FCFBF8]">
+      <select
+        className={selectCls}
+        value={grade}
+        onChange={(e) => {
+          const nextGrade = e.target.value
+          const nextSubject = classes.find((c) => c.grade === nextGrade)?.subjects[0]
+          onChange({ grade: nextGrade, subjectId: nextSubject?.id ?? '', chapterId: nextSubject?.chapters[0]?.id ?? '' })
+        }}
+      >
+        {classes.map((c) => (
+          <option key={c.grade} value={c.grade}>Class {c.grade}</option>
+        ))}
+      </select>
+      <select
+        className={selectCls}
+        value={subjectId}
+        onChange={(e) => {
+          const nextSubject = subjects.find((s) => s.id === e.target.value)
+          onChange({ grade, subjectId: e.target.value, chapterId: nextSubject?.chapters[0]?.id ?? '' })
+        }}
+      >
+        {subjects.map((s) => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
+      <select
+        className={selectCls}
+        value={chapterId}
+        onChange={(e) => onChange({ grade, subjectId, chapterId: e.target.value })}
+      >
+        {chapters.map((c: PracticeChapter) => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 const STATUS_STYLE: Record<StudentTest['status'], string> = {
   OPEN: 'bg-emerald-50 text-emerald-700',
@@ -71,11 +126,41 @@ export default function Practice() {
   const [tests, setTests] = useState<StudentTest[]>([])
   const [viewingTest, setViewingTest] = useState<StudentTestDetail | null>(null)
   const [showAssignedTests, setShowAssignedTests] = useState(false)
+  const [classes, setClasses] = useState<PracticeClass[]>([])
+  const [selection, setSelection] = useState({ grade: '', subjectId: '', chapterId: '' })
 
   useEffect(() => {
     if (!isStudent) return
     api.studentTests().then((r) => setTests(r.tests)).catch(() => setTests([]))
   }, [isStudent])
+
+  useEffect(() => {
+    practiceApi
+      .chapters()
+      .then((r) => {
+        setClasses(r.classes)
+        // Default to the first chapter with a live practice module (Trigonometry today).
+        for (const c of r.classes) {
+          for (const s of c.subjects) {
+            const ready = s.chapters.find((ch) => ch.practice_available)
+            if (ready) {
+              setSelection({ grade: c.grade, subjectId: s.id, chapterId: ready.id })
+              return
+            }
+          }
+        }
+        const firstSubject = r.classes[0]?.subjects[0]
+        if (firstSubject) {
+          setSelection({ grade: r.classes[0].grade, subjectId: firstSubject.id, chapterId: firstSubject.chapters[0]?.id ?? '' })
+        }
+      })
+      .catch(() => setClasses([]))
+  }, [])
+
+  const selectedChapter = classes
+    .find((c) => c.grade === selection.grade)?.subjects
+    .find((s) => s.id === selection.subjectId)?.chapters
+    .find((ch) => ch.id === selection.chapterId)
 
   const openTest = tests.find((t) => t.status === 'OPEN')
   const otherTests = tests.filter((t) => t.test_id !== openTest?.test_id)
@@ -158,7 +243,25 @@ export default function Practice() {
         </div>
       )}
 
-      <TrigonometryPractice />
+      {classes.length > 0 && (
+        <PracticeFilters
+          classes={classes}
+          grade={selection.grade}
+          subjectId={selection.subjectId}
+          chapterId={selection.chapterId}
+          onChange={setSelection}
+        />
+      )}
+
+      {selectedChapter?.practice_available ? (
+        <TrigonometryPractice />
+      ) : (
+        <div className="py-16 text-center bg-white rounded-[18px] border border-black/[0.06] mx-6 my-6">
+          <p className="text-[14px] font-medium">
+            {selectedChapter ? `Practice content for "${selectedChapter.name}" is coming soon.` : 'Select a chapter to begin.'}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

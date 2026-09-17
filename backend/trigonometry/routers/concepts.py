@@ -13,12 +13,31 @@ router = APIRouter(prefix="/api/trig/concepts", tags=["Trigonometry Concepts"])
 def _student_id(p: dict) -> str:
     return p["user_id"] or f"device:{p['key_id']}"
 
+
+def _topo_order(concepts: list[Concept]) -> list[Concept]:
+    """Dependency order (prerequisites before dependents), not incidental row order."""
+    by_id = {c.id: c for c in concepts}
+    visited: set[str] = set()
+    ordered: list[Concept] = []
+
+    def visit(cid: str) -> None:
+        if cid in visited or cid not in by_id:
+            return
+        visited.add(cid)
+        for pr in by_id[cid].prerequisites:
+            visit(pr.id)
+        ordered.append(by_id[cid])
+
+    for c in sorted(concepts, key=lambda c: c.id):
+        visit(c.id)
+    return ordered
+
 @router.get("")
 def list_concepts(authorization: str = Header(...), db: Session = Depends(get_db)):
-    """Returns all 10 CBSE Trigonometry DAG concepts along with unlock status for the caller."""
+    """Returns all 10 CBSE Trigonometry DAG concepts, in dependency order, with unlock status for the caller."""
     p = current_principal(authorization)
     student_id = _student_id(p)
-    concepts = db.query(Concept).all()
+    concepts = _topo_order(db.query(Concept).all())
 
     states = db.query(StudentState).filter(StudentState.student_id == student_id).all()
     student_states = {s.concept_id: s for s in states}

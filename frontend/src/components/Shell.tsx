@@ -79,6 +79,7 @@ export default function Shell() {
   const [classFilter, setClassFilter] = useState('ALL')
   const [typeFilter, setTypeFilter] = useState<ModuleType | 'ALL'>('ALL')
   const [lessonsExpanded, setLessonsExpanded] = useState(true)
+  const [learningHubExpanded, setLearningHubExpanded] = useState(true)
   const [labSubject, setLabSubject] = useState<'maths' | 'science' | 'social' | 'english'>('science')
   const [labChapterId, setLabChapterId] = useState('ALL')
   const [labTopicId, setLabTopicId] = useState('ALL')
@@ -126,6 +127,7 @@ export default function Shell() {
   const chapters = useMemo(() => tree?.chapters ?? [], [tree])
   const activeSubject = subjects.find((s) => s.id === subjectId)
   const isStudent = user?.role === 'STUDENT'
+  const isAdmin = user?.role === 'ADMIN'
 
   if (bootError) {
     return (
@@ -309,25 +311,154 @@ export default function Shell() {
           </div>
           )}
 
-          {/* STUDENT WORKSPACE GROUP (students always; teachers/admins can still view & test) */}
+          {/* STUDENT WORKSPACE GROUP (Student and School Admin logins only) */}
+          {(isStudent || isAdmin) && (
           <div className="space-y-1">
             {!isCollapsed && (
               <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/35 px-3 mb-1.5 font-[Inter]">
                 Student Workspace
               </div>
             )}
-            <NavLink
-              to="/learning"
-              title="Learning Hub"
-              className={({ isActive }) =>
-                `w-full flex items-center ${
-                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
-              }
-            >
-              <GraduationCap className="w-4 h-4 shrink-0" />
-              {!isCollapsed && <span>Learning Hub</span>}
-            </NavLink>
+            <div>
+              <div className="flex items-center">
+                <NavLink
+                  to="/learning"
+                  title="Learning Hub"
+                  onClick={() => {
+                    if (!learningHubExpanded) setLearningHubExpanded(true)
+                  }}
+                  className={({ isActive }) =>
+                    `flex-1 flex items-center ${
+                      isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                    } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
+                  }
+                >
+                  <GraduationCap className="w-4 h-4 shrink-0" />
+                  {!isCollapsed && <span>Learning Hub</span>}
+                </NavLink>
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setLearningHubExpanded((prev) => !prev)
+                    }}
+                    title={learningHubExpanded ? 'Collapse Learning Hub' : 'Expand Learning Hub'}
+                    className="w-8 h-8 ml-1 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                  >
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        learningHubExpanded ? 'rotate-0 text-white' : '-rotate-90 text-white/50'
+                      }`}
+                    />
+                  </button>
+                )}
+              </div>
+
+              {!isCollapsed && learningHubExpanded && (
+                <div className="mt-2 ml-3 pl-5 border-l border-white/10 space-y-1 animate-fadeIn">
+                  <div>
+                    <div className="flex items-center">
+                      <NavLink
+                        to="/lessons"
+                        title="Video Lessons"
+                        onClick={() => {
+                          if (!lessonsExpanded) setLessonsExpanded(true)
+                        }}
+                        className={`flex-1 flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
+                          isLessonsActive ? activeNavClass : inactiveNavClass
+                        }`}
+                      >
+                        <Play className="w-4 h-4 shrink-0" />
+                        <span className="font-medium">Video Lessons</span>
+                      </NavLink>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setLessonsExpanded((prev) => !prev)
+                        }}
+                        title={lessonsExpanded ? 'Collapse subjects' : 'Expand subjects'}
+                        className="w-7 h-7 ml-1 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                      >
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            lessonsExpanded ? 'rotate-0 text-white' : '-rotate-90 text-white/50'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    {lessonsExpanded && (
+                      <div className="mt-1 ml-3 pl-4 border-l border-white/10 space-y-1 animate-fadeIn">
+                        {subjects.map((s) => {
+                          const isSubjectActive = isLessonsActive && subjectId === s.id
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => {
+                                setSubjectId(s.id)
+                                if (!isLessonsActive) navigate('/lessons')
+                              }}
+                              className={`w-full text-left px-3 h-7 rounded-lg text-[12.5px] flex items-center justify-between transition-colors cursor-pointer font-[Inter] ${
+                                isSubjectActive
+                                  ? activeNavClass
+                                  : 'text-white/60 hover:bg-[rgba(127,191,122,0.15)] hover:text-[#FBF7EE]'
+                              }`}
+                            >
+                              <span className="truncate">{s.name}</span>
+                              {isSubjectActive && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#7FBF7A] shrink-0" />
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <NavLink
+                    to="/labs"
+                    title="Virtual Labs"
+                    className={({ isActive }) =>
+                      `w-full flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
+                        isActive ? activeNavClass : inactiveNavClass
+                      }`
+                    }
+                  >
+                    <FlaskConical className="w-4 h-4 shrink-0" />
+                    <span>Virtual Labs</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/practice"
+                    title="Practice Questions"
+                    className={({ isActive }) =>
+                      `w-full flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
+                        isActive ? activeNavClass : inactiveNavClass
+                      }`
+                    }
+                  >
+                    <ListChecks className="w-4 h-4 shrink-0" />
+                    <span>Practice Questions</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/resources"
+                    title="Learning Resources"
+                    className={({ isActive }) =>
+                      `w-full flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
+                        isActive ? activeNavClass : inactiveNavClass
+                      }`
+                    }
+                  >
+                    <FolderOpen className="w-4 h-4 shrink-0" />
+                    <span>Learning Resources</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
 
             <NavLink
               to="/my-assignments"
@@ -355,6 +486,7 @@ export default function Shell() {
               {!isCollapsed && <span>My Wiki</span>}
             </NavLink>
           </div>
+          )}
 
           {/* TEACHING GROUP */}
           <div className="space-y-1">
@@ -416,23 +548,6 @@ export default function Shell() {
 
             {!isStudent && (
             <NavLink
-              to="/resources"
-              title="Learning Resources"
-              className={({ isActive }) =>
-                `w-full flex items-center ${
-                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
-              }
-            >
-              <FolderOpen className="w-4 h-4 shrink-0" />
-              {!isCollapsed && (
-                <span className="font-[Inter] text-[14px]">Learning Resources</span>
-              )}
-            </NavLink>
-            )}
-
-            {!isStudent && (
-            <NavLink
               to="/attendance"
               title="Attendance"
               className={({ isActive }) =>
@@ -447,104 +562,6 @@ export default function Shell() {
               )}
             </NavLink>
             )}
-
-            <div>
-              <div className="flex items-center">
-                <NavLink
-                  to="/lessons"
-                  title="Video Lessons"
-                  onClick={() => {
-                    if (!lessonsExpanded) setLessonsExpanded(true)
-                  }}
-                  className={`flex-1 flex items-center ${
-                    isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                  } h-10 rounded-xl ${
-                    isLessonsActive ? activeNavClass : inactiveNavClass
-                  }`}
-                >
-                  <Play className="w-4 h-4 shrink-0" />
-                  {!isCollapsed && <span className="font-medium">Video Lessons</span>}
-                </NavLink>
-                {!isCollapsed && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setLessonsExpanded((prev) => !prev)
-                    }}
-                    title={lessonsExpanded ? 'Collapse subjects' : 'Expand subjects'}
-                    className="w-8 h-8 ml-1 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
-                  >
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform duration-200 ${
-                        lessonsExpanded ? 'rotate-0 text-white' : '-rotate-90 text-white/50'
-                      }`}
-                    />
-                  </button>
-                )}
-              </div>
-              {!isCollapsed && lessonsExpanded && (
-                <div className="mt-2 ml-3 pl-5 border-l border-white/10 space-y-1 animate-fadeIn">
-                  {subjects.map((s) => {
-                    const isSubjectActive = isLessonsActive && subjectId === s.id
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          setSubjectId(s.id)
-                          if (!isLessonsActive) navigate('/lessons')
-                        }}
-                        className={`w-full text-left px-3 h-8 rounded-lg text-[13px] flex items-center justify-between transition-colors cursor-pointer font-[Inter] ${
-                          isSubjectActive
-                            ? activeNavClass
-                            : 'text-white/60 hover:bg-[rgba(127,191,122,0.15)] hover:text-[#FBF7EE]'
-                        }`}
-                      >
-                        <span className="truncate">{s.name}</span>
-                        {isSubjectActive && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#7FBF7A] shrink-0" />
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <NavLink
-                to="/labs"
-                title="Virtual Labs"
-                className={({ isActive }) =>
-                  `w-full flex items-center ${
-                    isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                  } h-10 rounded-xl ${
-                    isActive ? activeNavClass : inactiveNavClass
-                  }`
-                }
-              >
-                <FlaskConical className="w-4 h-4 shrink-0" />
-                {!isCollapsed && <span>Virtual Labs</span>}
-              </NavLink>
-            </div>
-
-            <div>
-              <NavLink
-                to="/practice"
-                title="Practice Questions"
-                className={({ isActive }) =>
-                  `w-full flex items-center ${
-                    isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                  } h-10 rounded-xl ${
-                    isActive ? activeNavClass : inactiveNavClass
-                  }`
-                }
-              >
-                <ListChecks className="w-4 h-4 shrink-0" />
-                {!isCollapsed && <span>Practice Questions</span>}
-              </NavLink>
-            </div>
 
             <div>
               <div

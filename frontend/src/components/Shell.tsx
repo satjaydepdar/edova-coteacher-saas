@@ -828,24 +828,6 @@ export default function Shell() {
                     <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
                   </div>
 
-                  <div className="relative">
-                    <select
-                      value={typeFilter}
-                      onChange={(e) => {
-                        setTypeFilter(e.target.value as ModuleType | 'ALL')
-                        backToShelf()
-                      }}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer"
-                    >
-                      {(Object.keys(TYPE_LABEL) as (ModuleType | 'ALL')[]).map((t) => (
-                        <option key={t} value={t}>
-                          {TYPE_LABEL[t]}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
                   <div className="hidden md:flex items-center gap-2 ml-2 pl-4 border-l border-black/10">
                     <span className="text-[11px] tracking-widest uppercase opacity-40 font-semibold font-[Inter]">
                       Subject

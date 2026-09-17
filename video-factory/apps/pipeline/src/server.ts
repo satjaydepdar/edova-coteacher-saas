@@ -6,7 +6,7 @@ import { buildTrigDepressionRiver } from "../../../packages/math/src/builders/tr
 import { buildHcfMaxSeating } from "../../../packages/math/src/builders/hcf-max-seating";
 import { synthesizeStoryboard } from "./tts";
 import { uploadOndemandVideo } from "./s3";
-import type { Storyboard } from "@vf/storyboard";
+import { StoryboardSchema, type Storyboard } from "@vf/storyboard";
 
 export interface JobState {
   id: string;
@@ -50,15 +50,27 @@ function computeVideoId(problemType: string, params: Record<string, any>): strin
   return `custom-${Date.now()}`;
 }
 
-async function runOnDemandPipeline(job: JobState, problemType: string, params: Record<string, any>, question?: string) {
+async function runOnDemandPipeline(
+  job: JobState,
+  problemType: string,
+  params: Record<string, any>,
+  question?: string,
+  videoSpec?: unknown,
+) {
   try {
-    // 1. Build Storyboard
+    // 1. Build (or accept a pre-built) Storyboard
     job.status = "QUEUED";
     job.progress = 5;
     job.currentStage = "Assembling dynamic storyboard";
 
     let sb: Storyboard;
-    if (problemType === "hcf-max-seating") {
+    if (videoSpec) {
+      // Astra pipeline path (backend/services/video_spec_service.py): the caller has
+      // already done reasoning + verification + pedagogy -- this is pure rendering,
+      // no problem-type branching, matching the "Remotion renders, never decides
+      // content" principle.
+      sb = StoryboardSchema.parse(videoSpec);
+    } else if (problemType === "hcf-max-seating") {
       sb = buildHcfMaxSeating();
     } else {
       // Default to trig-depression
@@ -195,13 +207,14 @@ const server = http.createServer(async (req, res) => {
   if (pathname === "/api/v1/generate" && req.method === "POST") {
     try {
       const payload = await parseJsonBody(req);
+      const videoSpec = payload.videoSpec;
       const problemType = payload.problemType || "trig-depression";
       const params = payload.parameters || {};
       const question = payload.question;
       const forceRefresh = Boolean(payload.forceRefresh);
 
-      // Deterministic video ID
-      const videoId = payload.videoId || computeVideoId(problemType, params);
+      // Deterministic video ID -- the Astra pipeline names its own (video_spec_service.py)
+      const videoId = videoSpec?.videoId || payload.videoId || computeVideoId(problemType, params);
       const mp4Path = path.resolve(OUT_DIR, `${videoId}.mp4`);
 
       // 1. Check if already exists and not forceRefresh
@@ -253,7 +266,7 @@ const server = http.createServer(async (req, res) => {
       VIDEO_ID_TO_JOB.set(videoId, jobId);
 
       // Trigger pipeline asynchronously
-      runOnDemandPipeline(newJob, problemType, params, question);
+      runOnDemandPipeline(newJob, problemType, params, question, videoSpec);
 
       res.writeHead(202, { "Content-Type": "application/json" });
       res.end(JSON.stringify(newJob));

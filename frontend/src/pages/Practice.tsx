@@ -3,6 +3,7 @@ import { ArrowLeft, Download, ListChecks, Printer } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import RichView from '../lib/richtext/RichView'
 import { api, type StudentTest, type StudentTestDetail } from '../lib/api'
+import { useAuthStore } from '../store/authStore'
 import TrigonometryPractice from '../components/trig/TrigonometryPractice'
 
 const STATUS_STYLE: Record<StudentTest['status'], string> = {
@@ -64,14 +65,17 @@ function TestDetailView({ test, onBack }: { test: StudentTestDetail; onBack: () 
 }
 
 export default function Practice() {
+  const { user } = useAuthStore()
+  const isStudent = user?.role === 'STUDENT'
   const [error, setError] = useState<string | null>(null)
   const [tests, setTests] = useState<StudentTest[]>([])
   const [viewingTest, setViewingTest] = useState<StudentTestDetail | null>(null)
   const [showAssignedTests, setShowAssignedTests] = useState(false)
 
   useEffect(() => {
+    if (!isStudent) return
     api.studentTests().then((r) => setTests(r.tests)).catch(() => setTests([]))
-  }, [])
+  }, [isStudent])
 
   const openTest = tests.find((t) => t.status === 'OPEN')
   const otherTests = tests.filter((t) => t.test_id !== openTest?.test_id)
@@ -90,8 +94,8 @@ export default function Practice() {
 
   return (
     <div className="min-h-full w-full bg-[#FBF9F3] text-[#1A221E] antialiased">
-      {/* Assigned Tests Notification / Drawer Banner (if teacher has scheduled tests) */}
-      {tests.length > 0 && (
+      {/* Assigned Tests Notification / Drawer Banner (Only for Student login) */}
+      {isStudent && tests.length > 0 && (
         <div className="border-b border-[#EDE8DD] bg-[#FCFBF8] px-6 py-2 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 font-mono">
             <span className="w-2 h-2 rounded-full bg-[#DDB56E] animate-pulse" />
@@ -123,7 +127,7 @@ export default function Practice() {
         </div>
       )}
 
-      {showAssignedTests && tests.length > 0 && (
+      {isStudent && showAssignedTests && tests.length > 0 && (
         <div className="p-4 bg-white border-b border-[#EDE8DD] max-w-[960px] mx-auto my-3 rounded-2xl card-shadow">
           <div className="text-[11px] font-semibold uppercase tracking-wide opacity-40 mb-3 font-mono">Assigned Tests</div>
           <div className="divide-y divide-[#EDE8DD]">

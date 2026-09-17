@@ -100,19 +100,24 @@ def activate(body: ActivateIn):
 
 @router.get("/api/activation/session")
 def activation_session(authorization: str = Header(...)):
-    """App boot: validate the stored device token; 403 -> show activation/expired screen."""
+    """App boot: validate the stored device token or user token; 403 -> show activation/expired screen."""
     payload = decode_payload(authorization)
-    if payload.get("typ") != "device":
-        raise HTTPException(401, "device token required")
-    with db() as conn:
-        row = q(conn, DEVICE_ENTITLEMENT_SQL, (payload["kid"], payload["did"])).fetchone()
-        if row is None:
-            raise HTTPException(403, "activation invalid or subscription expired")
-        exp = q(conn, "SELECT expires_at FROM activation_keys WHERE id = %s",
-                (payload["kid"],)).fetchone()[0]
-    return {"tenant": {"name": row[1], "type": row[2]},
-            "features": {"allow_video": row[3], "allow_lab": row[4], "allow_quiz": row[5], "tier_level": row[6]},
-            "expires_at": exp.isoformat()}
+    if payload.get("typ") == "device":
+        with db() as conn:
+            row = q(conn, DEVICE_ENTITLEMENT_SQL, (payload["kid"], payload["did"])).fetchone()
+            if row is None:
+                raise HTTPException(403, "activation invalid or subscription expired")
+            exp = q(conn, "SELECT expires_at FROM activation_keys WHERE id = %s",
+                    (payload["kid"],)).fetchone()[0]
+        return {"tenant": {"name": row[1], "type": row[2]},
+                "features": {"allow_video": row[3], "allow_lab": row[4], "allow_quiz": row[5], "tier_level": row[6]},
+                "expires_at": exp.isoformat()}
+    p = current_principal(authorization)
+    return {
+        "tenant": {"name": p["tenant_name"], "type": p["tenant_type"]},
+        "features": p["features"],
+        "expires_at": "2099-12-31T23:59:59"
+    }
 
 
 @router.get("/api/app/subjects")

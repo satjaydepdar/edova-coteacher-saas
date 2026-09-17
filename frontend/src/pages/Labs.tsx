@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { ArrowLeft, Construction } from 'lucide-react'
 import { useWorkspace } from '../components/Shell'
 import CurriculumCatalog from '../components/CurriculumCatalog'
@@ -6,20 +6,11 @@ import SocraticLabEmbed from '../components/SocraticLabEmbed'
 import { SimulationItem } from '../data/curriculumData'
 
 export default function Labs() {
-  const { tree } = useWorkspace()
+  const { labSubject, labChapterId, setLabChapterId, labTopicId, setLabTopicId } = useWorkspace()
 
   // Navigation & View State
   const [activeSimulation, setActiveSimulation] = useState<SimulationItem | null>(null)
   const [unimplementedLabTitle, setUnimplementedLabTitle] = useState<string | null>(null)
-
-  // Map workspace subject to curriculum key
-  const currentSubject = useMemo<'maths' | 'science' | 'social' | 'english'>(() => {
-    const name = (tree?.subject_name || '').toLowerCase()
-    if (name.includes('science') || name.includes('physics') || name.includes('chem')) return 'science'
-    if (name.includes('social')) return 'social'
-    if (name.includes('english')) return 'english'
-    return 'maths'
-  }, [tree?.subject_name])
 
   const handleLaunchSimulation = (sim: SimulationItem) => {
     if (sim.hasSimulation) {
@@ -74,7 +65,11 @@ export default function Labs() {
         /* View 3: 3-Level Natural Language Curriculum Discovery Portal */
         <div className="flex-1 flex flex-col min-h-full">
           <CurriculumCatalog
-            activeSubject={currentSubject}
+            activeSubject={labSubject}
+            selectedChapterId={labChapterId === 'ALL' ? null : labChapterId}
+            onSelectChapterId={(id) => setLabChapterId(id ?? 'ALL')}
+            selectedSubTopicId={labTopicId === 'ALL' ? null : labTopicId}
+            onSelectSubTopicId={(id) => setLabTopicId(id ?? 'ALL')}
             onLaunchSimulation={handleLaunchSimulation}
           />
         </div>

@@ -1,0 +1,10 @@
+{
+  "name": "@vf/core",
+  "main": "src/index.ts",
+  "dependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "remotion": "^4.0.0",
+    "zod": "^3.23.0"
+  }
+}

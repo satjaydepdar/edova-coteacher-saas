@@ -60,9 +60,44 @@ def list_keys(prefix: str, max_keys: int = 1000) -> list[str]:
 
 
 def put_bytes(key: str, data: bytes, content_type: str) -> None:
-    """CMS upload path (Phase 2 admin endpoints consume this)."""
-    client().put_object(Bucket=S3_BUCKET, Key=key, Body=data, ContentType=content_type)
+    """Uploads data to S3 with local disk mirror fallback for dev resiliency."""
+    # Always save a local mirror under storage/s3/{key}
+    try:
+        local_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "storage",
+            "s3",
+            os.path.dirname(key),
+        )
+        os.makedirs(local_dir, exist_ok=True)
+        local_path = os.path.join(local_dir, os.path.basename(key))
+        with open(local_path, "wb") as f:
+            f.write(data)
+    except Exception:
+        pass
+
+    # Attempt actual S3 upload
+    try:
+        client().put_object(Bucket=S3_BUCKET, Key=key, Body=data, ContentType=content_type)
+    except Exception as exc:
+        # Graceful fallback if AWS credentials are not set locally in dev
+        import logging
+        logging.getLogger("s3_client").warning(
+            f"S3 upload to {key} failed (using local mirror): {exc}"
+        )
+
+
+def upload_ondemand_video(file_name: str, data: bytes, content_type: str = "video/mp4") -> str:
+    """Saves an on-demand generated video to S3 under the 'Ondemand videos/' folder."""
+    # Sanitize file name
+    clean_name = os.path.basename(file_name)
+    if not clean_name.endswith(".mp4"):
+        clean_name += ".mp4"
+    s3_key = f"Ondemand videos/{clean_name}"
+    put_bytes(s3_key, data, content_type)
+    return s3_key
 
 
 def delete_key(key: str) -> None:
     client().delete_object(Bucket=S3_BUCKET, Key=key)
+

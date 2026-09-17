@@ -232,6 +232,8 @@ export const adminUsers = {
     call<{ id: string }>(`/admin/users`, { method: 'POST', body: JSON.stringify(b) }),
   resetPassword: (userId: string, password: string) =>
     call(`/admin/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ password }) }),
+  remove: (userId: string) =>
+    call<{ id: string; revoked: boolean }>(`/admin/users/${userId}`, { method: 'DELETE' }),
 }
 
 /** Reorder via 3 PATCH swap: unique(subject/chapter, sequence_order) forbids

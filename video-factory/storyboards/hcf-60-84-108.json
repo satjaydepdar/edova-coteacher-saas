@@ -1,0 +1,117 @@
+{
+  "videoId": "hcf-60-84-108",
+  "title": "Maximum per room — HCF of 60, 84, 108",
+  "template": "hcf-max-seating",
+  "schemaVersion": "1.0",
+  "question": "CASE STUDY 2 — seminar participants; maximum per room (a)14 (b)12 (c)16 (d)18",
+  "aspect": "16:9",
+  "fps": 30,
+  "scenes": [
+    {
+      "id": "s1",
+      "type": "math.groups",
+      "narration": "A seminar has 60 Hindi, 84 English, 108 Maths participants.",
+      "padMs": 400,
+      "visual": {
+        "groups": [
+          {
+            "label": "Hindi",
+            "n": 60
+          },
+          {
+            "label": "English",
+            "n": 84
+          },
+          {
+            "label": "Maths",
+            "n": 108
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2",
+      "type": "math.factorPills",
+      "narration": "The room size must divide every count exactly. The numbers that do are the common factors: 1, 2, 3, 4, 6, 12.",
+      "padMs": 500,
+      "visual": {
+        "groups": [
+          {
+            "label": "Hindi",
+            "n": 60
+          },
+          {
+            "label": "English",
+            "n": 84
+          },
+          {
+            "label": "Maths",
+            "n": 108
+          }
+        ]
+      }
+    },
+    {
+      "id": "s3",
+      "type": "math.primeFactorisation",
+      "narration": "Exam method: prime factorisation. Take the primes common to all, with the lowest powers: 2 times 2 times 3 equals 12.",
+      "padMs": 500,
+      "visual": {
+        "groups": [
+          {
+            "label": "Hindi",
+            "n": 60
+          },
+          {
+            "label": "English",
+            "n": 84
+          },
+          {
+            "label": "Maths",
+            "n": 108
+          }
+        ]
+      }
+    },
+    {
+      "id": "s4",
+      "type": "math.verify",
+      "narration": "Check: 60 divided by 12 is 5 rooms, 84 divided by 12 is 7 rooms, 108 divided by 12 is 9 rooms. No one is left out.",
+      "padMs": 500,
+      "visual": {
+        "groups": [
+          {
+            "label": "Hindi",
+            "n": 60
+          },
+          {
+            "label": "English",
+            "n": 84
+          },
+          {
+            "label": "Maths",
+            "n": 108
+          }
+        ],
+        "hcf": 12
+      }
+    },
+    {
+      "id": "s5",
+      "type": "core.answer",
+      "narration": "The maximum number of participants per room is 12. Answer: option b.",
+      "padMs": 600,
+      "visual": {
+        "headline": "Maximum per room = 12",
+        "sub": "Answer: option (b) · 60, 84, 108 -> 12"
+      }
+    }
+  ],
+  "componentLock": {
+    "math.groups": "0.1.0",
+    "math.factorPills": "0.1.0",
+    "math.primeFactorisation": "0.1.0",
+    "math.verify": "0.1.0",
+    "core.answer": "0.1.0"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "name": "@vf/pipeline",
+  "dependencies": { "@vf/math": "*", "@vf/storyboard": "*", "bullmq": "^5.0.0", "ioredis": "^5.4.0" }
+}

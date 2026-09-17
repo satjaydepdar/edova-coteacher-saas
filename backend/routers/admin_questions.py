@@ -50,7 +50,7 @@ def admin_session(authorization: str = Header(...)):
                       "WHERE u.id = %s AND t.id = %s", (admin["user_id"], admin["tenant_id"])).fetchone()
     return {"user_id": admin["user_id"], "email": row[0], "full_name": row[1],
             "tenant_id": str(admin["tenant_id"]), "tenant_name": row[2],
-            "is_platform": admin["is_platform"]}
+            "is_platform": admin["is_platform"], "role": admin.get("role", "ADMIN")}
 
 
 def content_hash(subject_id: str, chapter_id: str, year: int, question_text: str) -> str:

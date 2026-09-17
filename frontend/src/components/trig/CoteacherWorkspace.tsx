@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   RotateCcw,
@@ -6,11 +6,16 @@ import {
   Sparkles,
   X,
   RotateCw,
+  Maximize2,
+  Minimize2,
+  Plus,
+  Edit3,
 } from 'lucide-react'
 import MathDisplay from './MathDisplay'
 import MathLiveInput from './MathLiveInput'
 import FormattedMathText from './FormattedMathText'
 import TrigonometryDagModal from './TrigonometryDagModal'
+import VideoExplainerModal from '../video/VideoExplainerModal'
 import { trackTelemetryEvent } from '../../lib/trig/tracer'
 import {
   trigApi,
@@ -39,6 +44,8 @@ export default function CoteacherWorkspace({
 
   const [loading, setLoading] = useState(false)
   const [hasStartedProblem, setHasStartedProblem] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [enteredSteps, setEnteredSteps] = useState<string[]>([])
 
   const [conceptTitle, setConceptTitle] = useState('')
   const [problemContext, setProblemContext] = useState('')
@@ -75,6 +82,7 @@ export default function CoteacherWorkspace({
   const [showFormulaDrawer, setShowFormulaDrawer] = useState(false)
   const [showConceptDropdown, setShowConceptDropdown] = useState(false)
   const [showDagModal, setShowDagModal] = useState(false)
+  const [showVideoModal, setShowVideoModal] = useState(false)
 
   // Generic Neuro-Symbolic Reasoning Engine states
   const [isGenericSession, setIsGenericSession] = useState(false)
@@ -200,6 +208,7 @@ export default function CoteacherWorkspace({
 
   const handleNextProblem = () => {
     trackTelemetryEvent(conceptId, activeStepIndex, 'next_problem_click', { concept_id: conceptId })
+    setEnteredSteps([])
     fetchState(false, true)
     setFeedback(null)
   }
@@ -208,18 +217,34 @@ export default function CoteacherWorkspace({
     const finalAnswer = answerValue || userAnswer
     if (!finalAnswer || isSubmitting || !conceptId) return
 
+    const trimmed = finalAnswer.trim()
+    const isEditingPastStep = editingStepIndex !== null
+    const stepIdx = isEditingPastStep ? editingStepIndex : activeStepIndex
+
+    if (isEditingPastStep) {
+      setEnteredSteps((prev) => {
+        const next = [...prev]
+        if (editingStepIndex !== null && editingStepIndex < next.length) {
+          next[editingStepIndex] = trimmed
+        }
+        return next
+      })
+      setEditingStepIndex(null)
+    } else {
+      setEnteredSteps((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]))
+    }
+    setUserAnswer('')
+
     if (!genericSessionId) {
-      setSystemError('No active reasoning session. Please refresh or select a concept.')
+      setFeedback('✓ Step recorded on Equation Board')
       return
     }
 
     setIsSubmitting(true)
     setSystemError(null)
-    const isEditingPastStep = editingStepIndex !== null
-    const stepIdx = isEditingPastStep ? editingStepIndex : activeStepIndex
 
     try {
-      const res = await trigApi.submitStep(genericSessionId, stepIdx, finalAnswer.trim())
+      const res = await trigApi.submitStep(genericSessionId, stepIdx, trimmed)
       if (res.is_correct) {
         setStepsHistory(res.steps_history)
         if (!isEditingPastStep) {
@@ -230,8 +255,6 @@ export default function CoteacherWorkspace({
             setTotalSteps(res.steps_history.length)
           }
         }
-        setEditingStepIndex(null)
-        setUserAnswer('')
         setMetrics(res.metrics)
         if (res.is_fully_solved) {
           setIsFullySolved(true)
@@ -258,6 +281,7 @@ export default function CoteacherWorkspace({
 
   const handleReset = async () => {
     if (!conceptId) return
+    setEnteredSteps([])
     try {
       await trigApi.reset(conceptId)
     } finally {
@@ -273,6 +297,28 @@ export default function CoteacherWorkspace({
   }
 
   const completedSteps = stepsHistory.filter((s) => s.completed)
+
+  const allStudentSteps = useMemo(() => {
+    const backendSteps = completedSteps.map((s) => s.result || s.instruction).filter(Boolean)
+    const combined: string[] = []
+    const seen = new Set<string>()
+
+    for (const step of enteredSteps) {
+      const clean = step.trim()
+      if (clean && !seen.has(clean)) {
+        seen.add(clean)
+        combined.push(clean)
+      }
+    }
+    for (const step of backendSteps) {
+      const clean = step.trim()
+      if (clean && !seen.has(clean)) {
+        seen.add(clean)
+        combined.push(clean)
+      }
+    }
+    return combined
+  }, [completedSteps, enteredSteps])
 
   const defaultFormulas = [
     '\\sin(\\theta) = \\frac{\\text{Opposite}}{\\text{Hypotenuse}}',
@@ -295,345 +341,389 @@ export default function CoteacherWorkspace({
     : 'AK'
 
   return (
-    <div className="relative min-h-full w-full bg-[#FBF9F3] text-[#1A221E] selection:bg-[#DDB56E]/30 flex flex-col font-sans">
+    <div className="relative min-h-full w-full bg-[#fdfaf5] text-[#1a2421] selection:bg-[#ddb56e]/30 flex flex-col font-sans">
       {/* Background Dotted Grid Texture */}
-      <div className="pointer-events-none absolute inset-0 dotted-grid opacity-[0.32]" />
+      <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.32]" />
 
-      {/* Top Bar — Exact Mockup Specifications */}
-      <header className="relative z-10 h-[72px] px-6 lg:px-6 flex items-center justify-between border-b border-[#EDE8DD] bg-[#FBF9F3]/80 backdrop-blur-[8px] sticky top-0 shrink-0">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="h-8 px-3.5 rounded-full bg-white border border-[#EDE8DD] text-[12.5px] font-medium text-[#1A221E] card-shadow flex items-center gap-1.5 btn-secondary cursor-pointer"
-          >
-            <span className="text-[13px]">←</span> Go back
-          </button>
-          <div className="hidden md:flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[9px] bg-[#1A221E] flex items-center justify-center">
-              <span className="text-[#DDB56E] text-[14px]">◫</span>
-            </div>
-            <h1 className="font-display text-[24px] font-[550] tracking-[-0.02em] leading-none">
+      {/* Top Bar — Editorial Polished */}
+      <div className="sticky top-0 z-20 backdrop-blur-xl bg-[#fdfaf5]/90 border-b border-[#ece8df]">
+        <div className="px-5 lg:px-10 h-[68px] flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
               Practice Questions
             </h1>
-            <span className="ml-2 font-mono text-[10px] px-2 py-1 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[#8A7D67]">
-              CBSE Class 10
+            <span className="hidden md:inline-flex items-center px-2.5 py-1 rounded-full bg-[#1a2421] text-[#fdfaf5] font-mono text-[10px] tracking-[0.12em]">
+              CBSE CLASS 10 • MATH
             </span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <div className="hidden md:flex items-center gap-2 font-mono text-[10px] text-[#8A8F8B]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59] animate-pulse" />
-            <span>Sync • {conceptTitle.split(' ')[0] || 'Trigonometry'}</span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-[#1A221E] text-white flex items-center justify-center text-[11px] font-medium">
-            {initials}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="hidden md:inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white border border-[#ece8df] text-[12px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[#f6f1e7] transition cursor-pointer"
+            >
+              <span className="text-[14px]">←</span> Go back
+            </button>
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[11px] font-mono text-[#2a5a28]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>SYNC RIGHT-ANGLED • LIVE</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#1a2421] text-white flex items-center justify-center text-[11px] font-medium ml-1">
+              {initials}
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Workspace Area: Main Content Column + Collapsible Telemetry Sidebar */}
       <div className="flex flex-1 min-w-0 relative overflow-hidden">
-        <main className="flex-1 min-w-0 max-w-full flex flex-col relative overflow-hidden">
+        <main className="flex-1 min-w-0 max-w-full flex flex-col relative overflow-hidden bg-[#fdfaf5]">
           <div
-            className={`relative z-10 flex-1 px-5 lg:px-6 py-7 flex flex-col gap-4 w-full mx-auto min-w-0 transition-all duration-300 ${
-              isRightPanelOpen ? 'max-w-[760px]' : 'max-w-[960px]'
+            className={`relative z-10 flex-1 px-5 lg:px-10 py-6 lg:py-8 space-y-5 w-full mx-auto min-w-0 transition-all duration-300 ${
+              isRightPanelOpen ? 'max-w-[840px]' : 'max-w-[920px]'
             }`}
             style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
             {/* Concept Selection Bar */}
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-[10px] tracking-[0.14em] text-[#8A8F8B]">CONCEPT</span>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowConceptDropdown(!showConceptDropdown)}
-                    className="h-9 pl-3 pr-8 rounded-full bg-white border border-[#EDE8DD] card-shadow text-[13px] font-medium flex items-center gap-2 min-w-[220px] max-w-[280px] btn-secondary cursor-pointer"
-                  >
-                    <span className="w-5 h-5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] flex items-center justify-center text-[10px]">
-                      ◍
-                    </span>
-                    <span className="truncate">{conceptTitle || 'Select a concept'}</span>
-                    <span className="ml-auto text-[11px] text-[#9AA09B]">
-                      {showConceptDropdown ? '⌃' : '⌄'}
-                    </span>
-                  </button>
-
-                  {showConceptDropdown && (
-                    <div className="absolute top-[44px] left-0 w-[300px] max-w-[calc(100vw-32px)] rounded-[14px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden z-20 p-1.5 space-y-0.5">
-                      {availableConcepts.map((c) => {
-                        const isCurrent = c.id === conceptId
-                        const isLocked = c.is_unlocked === false
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            disabled={isLocked}
-                            onClick={() => {
-                              onSelectConcept && onSelectConcept(c.id)
-                              setConceptTitle(c.title)
-                              setHasStartedProblem(false)
-                              setShowConceptDropdown(false)
-                            }}
-                            className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition-colors ${
-                              isCurrent
-                                ? 'bg-[#1A221E] text-white'
-                                : isLocked
-                                ? 'opacity-40 cursor-not-allowed text-[#8A8F8B]'
-                                : 'hover:bg-[#FBF9F3] text-[#1A221E]'
-                            }`}
-                          >
-                            <div className="truncate pr-2">
-                              <span className="font-mono text-[10px] block opacity-70">{c.id}</span>
-                              <span className="font-medium truncate block">{c.title}</span>
-                            </div>
-                            {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-[#DDB56E] shrink-0" />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* View DAG Map button with the exact 3-node network SVG icon */}
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setShowDagModal(true)}
-                  className="h-7 px-3 rounded-full bg-[#FFFFFF] border border-[#E2DDD1] text-[#6B7280] text-[12px] font-[500] flex items-center gap-1.5 hover:bg-[#FBF9F3] transition-colors card-shadow cursor-pointer"
-                  style={{ height: '28px', borderRadius: '999px' }}
+                  onClick={() => setShowConceptDropdown(!showConceptDropdown)}
+                  className="inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-white border border-[#ece8df] shadow-[0_1px_2px_rgba(0,0,0,0.04)] text-[13px] cursor-pointer"
                 >
-                  <span className="text-[#A0A090] flex items-center">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="4" cy="4" r="1.6" stroke="#A0A090" strokeWidth="1.1" fill="none" />
-                      <circle cx="12" cy="4" r="1.6" stroke="#A0A090" strokeWidth="1.1" fill="none" />
-                      <circle cx="8" cy="12" r="1.6" stroke="#A0A090" strokeWidth="1.1" fill="none" />
-                      <path d="M5.2 5.1L6.8 10.1M10.8 5.1L9.2 10.1M5.6 4H10.4" stroke="#A0A090" strokeWidth="1" strokeLinecap="round" opacity="0.9" />
-                    </svg>
-                  </span>
-                  <span>View DAG Map</span>
+                  <span className="font-mono text-[10px] tracking-[0.14em] text-[#9a958c]">CONCEPT</span>
+                  <span className="font-medium text-[#1a2421]">{conceptTitle || 'Right-Angled Triangle'}</span>
+                  <span className="text-[#9a958c]">⌄</span>
                 </button>
+
+                {showConceptDropdown && (
+                  <div className="absolute top-[44px] left-0 w-[300px] max-w-[calc(100vw-32px)] rounded-2xl bg-white border border-[#ece8df] shadow-[0_12px_32px_rgba(0,0,0,0.12)] p-2 z-30 space-y-1">
+                    {availableConcepts.map((c) => {
+                      const isCurrent = c.id === conceptId
+                      const isLocked = c.is_unlocked === false
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => {
+                            onSelectConcept && onSelectConcept(c.id)
+                            setConceptTitle(c.title)
+                            setHasStartedProblem(false)
+                            setEnteredSteps([])
+                            setShowConceptDropdown(false)
+                          }}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] flex items-center justify-between transition-colors ${
+                            isCurrent
+                              ? 'bg-[#1a2421] text-white'
+                              : isLocked
+                              ? 'opacity-40 cursor-not-allowed text-[#8a8f8b]'
+                              : 'hover:bg-[#f6f1e7] text-[#5a554e]'
+                          }`}
+                        >
+                          <div className="truncate pr-2">
+                            <span className="font-mono text-[10px] block opacity-70">{c.id}</span>
+                            <span className="font-medium truncate block">{c.title}</span>
+                          </div>
+                          {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-[#8be78a] shrink-0" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
-              <div className="ml-auto hidden md:flex items-center gap-2 font-mono text-[10px] text-[#A0A7A2]">
-                <span>Bank • {availableConcepts.length || 10} concepts</span>
-                <span className="w-px h-3 bg-[#EDE8DD]" />
-                <span>∞ variants</span>
+              <button
+                type="button"
+                onClick={() => setShowDagModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1a2421] text-white text-[12px] font-medium hover:bg-black transition cursor-pointer shadow-xs"
+              >
+                <span>◈</span>
+                <span>View DAG Map</span>
+              </button>
+
+              <div className="ml-auto flex items-center gap-2 font-mono text-[11px] text-[#9a958c]">
+                <span className="w-7 h-7 rounded-full bg-white border border-[#ece8df] grid place-items-center text-[#1a2421] font-medium shadow-xs">
+                  {availableConcepts.length || 10}
+                </span>
+                <span>CONCEPT VARIANTS IN BANK</span>
               </div>
             </div>
 
             {/* CARD 1: QUESTION CARD */}
-            <div className="relative rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
-              {/* Subtle SVG right-triangle watermark in top-right */}
-              <svg
-                className="pointer-events-none absolute right-[-10px] top-[-20px] w-[320px] h-[200px] opacity-[0.06] max-w-[60%]"
-                viewBox="0 0 300 200"
-              >
-                <path d="M 40 160 L 240 160 L 40 30 Z" fill="none" stroke="#1A221E" strokeWidth="1.2" strokeLinejoin="round" />
-                <path d="M 40 30 L 40 160" strokeDasharray="4 6" stroke="#1A221E" strokeWidth="0.8" />
-                <circle cx="40" cy="30" r="3" fill="#1A221E" />
-                <text x="18" y="100" fontFamily="Newsreader" fontSize="14" fill="#1A221E">A</text>
-                <text x="35" y="18" fontFamily="Newsreader" fontSize="14" fill="#1A221E">B</text>
-                <text x="250" y="172" fontFamily="Newsreader" fontSize="14" fill="#1A221E">C</text>
-              </svg>
-
-              <div className="relative p-6">
-                <div className="flex items-start justify-between gap-4 mb-5">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] font-mono text-[10px] tracking-[0.02em] text-[#8A7D67] max-w-full truncate">
-                    <span className="w-1 h-1 rounded-full bg-[#DDB56E]" />
-                    <span className="truncate">{conceptTitle || 'Trigonometry'} • Bank</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {[0, 1, 2, 3, 4].map((z) => (
-                      <div
-                        key={z}
-                        className={`h-1.5 rounded-full transition-all ${
-                          (hasStartedProblem && z <= activeStepIndex) || z === 0
-                            ? 'w-6 bg-[#1A221E]'
-                            : 'w-1.5 bg-[#EDE8DD]'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {!hasStartedProblem ? (
-                  <>
-                    <h2 className="font-display text-[26px] md:text-[30px] font-[550] tracking-[-0.02em] leading-[1.1] mb-3 max-w-[520px]">
-                      Ready to practice this concept?
-                    </h2>
-                    <p className="text-[13.5px] leading-[1.6] text-[#5A645E] max-w-[560px]">
-                      You're viewing <span className="font-medium text-[#1A221E] bg-[#F6F1E6] px-1.5 py-0.5 rounded-[6px] border border-[#EDE8DD]">{conceptTitle || 'Trigonometry'}</span>. Click <span className="font-medium text-[#1A221E]">Next Problem</span> to load a randomized instance with a clean slate.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="font-display text-[20px] md:text-[24px] font-[550] tracking-[-0.02em] leading-[1.25] mb-4 max-w-[620px]">
-                      <FormattedMathText text={problemContext} />
-                    </h2>
-                    <div className="flex items-center gap-2 font-mono text-[10px] text-[#8A8F8B]">
-                      <span className="px-2 py-1 rounded-full bg-[#E6F0E8] text-[#2E5A3A] border border-[#CFE0D3]">
-                        {isGenericSession ? 'Engine • Dynamic' : 'Randomized • Seed ' + (Math.floor(Math.random() * 9000) + 1000)}
-                      </span>
-                      <span>•</span>
-                      <span>Focus: derivation</span>
-                    </div>
-                  </>
-                )}
-
-                <div className="mt-7 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowCustomModal(true)}
-                    className="h-10 px-4 rounded-full bg-[#E6F0E8] border border-[#CFE0D3] text-[#2E5A3A] text-[13px] font-[600] btn-secondary flex items-center gap-2 cursor-pointer"
-                  >
-                    <span className="text-[12px]">✦</span> Custom Problem
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleNextProblem}
-                    disabled={loading}
-                    className="h-10 px-5 rounded-full bg-[#1A221E] text-white text-[13px] font-[600] btn-primary flex items-center gap-2 disabled:opacity-60 cursor-pointer"
-                  >
-                    {loading ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-[2px] border-white/30 border-t-white rounded-full animate-spin" />
-                        Loading…
-                      </>
-                    ) : hasStartedProblem ? (
-                      <>
-                        <span>↻</span> New Variant
-                      </>
-                    ) : (
-                      <>
-                        Next Problem <span className="opacity-70">→</span>
-                      </>
-                    )}
-                  </button>
-
-                  {hasStartedProblem && (
-                    <button
-                      type="button"
-                      onClick={handleReset}
-                      title="Reset Practice Steps"
-                      className="h-10 w-10 rounded-full border border-[#EDE8DD] bg-white text-[#8A8F8B] hover:text-[#1A221E] flex items-center justify-center transition-colors cursor-pointer shadow-xs"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
+            <div className="relative bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] overflow-hidden min-w-0 w-full">
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#ece8df] to-transparent" />
+              <div className="p-7 lg:p-9">
+                <div className="max-w-[720px]">
+                  {!hasStartedProblem ? (
+                    <>
+                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f6f1e7] border border-[#ece6d8] font-mono text-[10px] tracking-[0.12em] text-[#7a756c]">
+                        READY STATE • INSTANCE 01
+                      </div>
+                      <h2 className="font-serif text-[28px] lg:text-[32px] leading-[1.05] tracking-[-0.03em] mt-4 text-[#111814]">
+                        Ready to practice<br className="hidden sm:inline" /> this concept?
+                      </h2>
+                      <p className="mt-4 text-[14px] leading-[1.6] text-[#6b6760] max-w-[460px]">
+                        You're viewing <span className="font-medium text-[#1a2421]">{conceptTitle || 'Trigonometry'}</span>. Click Next Problem to load a randomized instance with verified derivations and adaptive hints.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#eef6ec] border border-[#d6ecd2] font-mono text-[10px] tracking-[0.12em] text-[#2a5a28]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {isGenericSession ? 'DYNAMIC ENGINE • LIVE' : `RANDOMIZED • SEED ${Math.floor(Math.random() * 9000) + 1000}`}
+                      </div>
+                      <h2 className="font-serif text-[22px] lg:text-[26px] leading-[1.25] tracking-[-0.02em] mt-4 text-[#111814]">
+                        <FormattedMathText text={problemContext} />
+                      </h2>
+                      <p className="mt-3 text-[13px] leading-[1.6] text-[#6b6760] max-w-[500px]">
+                        Focus on the rigorous derivation sequence. Add each algebraic step in the derivation editor below.
+                      </p>
+                    </>
                   )}
 
-                  <span className="font-mono text-[10px] text-[#9AA09B] ml-2 hidden md:inline">
-                    {hasStartedProblem ? 'Press to re-randomize' : 'Space ↵ to start'}
-                  </span>
+                  <div className="mt-7 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleNextProblem}
+                      disabled={loading}
+                      className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#111111] text-white text-[13px] font-medium shadow-xs hover:bg-black transition cursor-pointer disabled:opacity-60"
+                    >
+                      {loading ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Loading…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{hasStartedProblem ? 'New Variant' : 'Next Problem'}</span>
+                          <span className="w-5 h-5 rounded-full bg-white text-black grid place-items-center text-[11px] font-bold group-hover:translate-x-0.5 transition">
+                            →
+                          </span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowVideoModal(true)}
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#f6f1e7] border border-[#ece6d8] text-[13px] font-medium text-[#5a554e] hover:bg-[#efe8d8] transition cursor-pointer shadow-xs"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-white border border-[#ece6d8] grid place-items-center text-[11px] text-[#8a6d2b]">
+                        ▶
+                      </span>
+                      <span>Generate Video Explainer</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomModal(true)}
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#f6f1e7] border border-[#ece6d8] text-[13px] font-medium text-[#5a554e] hover:bg-[#efe8d8] transition cursor-pointer shadow-xs"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-white border border-[#ece6d8] grid place-items-center text-[12px] text-[#4a7c59]">
+                        ✦
+                      </span>
+                      <span>Custom Problem</span>
+                    </button>
+
+                    {hasStartedProblem && (
+                      <button
+                        type="button"
+                        onClick={handleReset}
+                        title="Reset steps"
+                        className="w-11 h-11 rounded-full bg-white border border-[#ece8df] grid place-items-center text-[#8a8f8b] hover:text-[#1a2421] transition shadow-xs cursor-pointer"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap items-center gap-3 font-mono text-[10px] text-[#9a958c]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 rounded-full border border-[#ddd8cc] grid place-items-center text-[8px] font-bold text-[#4a7c59]">
+                        ✓
+                      </span>
+                      CBSE ALIGNED
+                    </span>
+                    <span>•</span>
+                    <span>NO TIMER</span>
+                    <span>•</span>
+                    <span>DERIVATION FIRST</span>
+                  </div>
                 </div>
               </div>
-
-              {/* Bottom Gold Gradient Line */}
-              <div className="h-px w-full bg-gradient-to-r from-[#EDE8DD] via-[#DDB56E]/40 to-[#EDE8DD]" />
             </div>
 
             {/* CARD 2: EDOVA EQUATION BOARD */}
-            <div className="rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
-              <div className="h-[44px] px-5 flex items-center justify-between border-b border-[#EDE8DD] bg-[#FCFBF8]">
-                <span className="font-mono text-[10px] tracking-[0.14em] text-[#8A8F8B]">
-                  EDOVA EQUATION BOARD
-                </span>
+            <div className="bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] overflow-hidden min-w-0">
+              <div className="px-7 lg:px-8 h-[52px] flex items-center justify-between border-b border-[#ece8df] bg-[#fbfaf7]">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[11px] tracking-[0.14em] text-[#1a2421] font-medium uppercase">
+                    EDOVA EQUATION BOARD
+                  </span>
+                  <span className="hidden md:inline-flex items-center gap-2 font-mono text-[10px] text-[#9a958c]">
+                    <span className="w-1 h-1 rounded-full bg-[#d8d2c3]" />
+                    {allStudentSteps.length} verified • {allStudentSteps.length} total • steps • {hasStartedProblem ? (isFullySolved ? 'Solved' : 'Active') : 'Ready'} • {allStudentSteps.length} steps
+                  </span>
+                </div>
+
                 <div className="flex items-center gap-2">
-                  <div className="hidden md:flex items-center gap-2 font-mono text-[10px]">
-                    <span className="px-2 py-1 rounded-full bg-white border border-[#EDE8DD] text-[#6A7570] flex items-center">
-                      <span className="inline-block w-1 h-1 rounded-full bg-[#4A7C59] mr-1.5 animate-pulse" />
-                      {completedSteps.length} verified • 0 total • ∞ steps
-                    </span>
-                    <span className="px-2 py-1 rounded-full bg-[#1A221E] text-white flex items-center gap-1.5">
-                      <span className="w-1 h-1 rounded-full bg-[#DDB56E] animate-pulse" />
-                      {hasStartedProblem ? (isFullySolved ? 'Solved' : 'Active') : 'Ready'} • {completedSteps.length} steps
-                    </span>
+                  <div
+                    title="Add Derivation Step"
+                    className="w-6 h-6 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center text-[12px] text-[#1a2421] select-none"
+                  >
+                    ⊕
                   </div>
+                  <div
+                    title="Derivation View"
+                    className="w-6 h-6 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center text-[10px] text-[#1a2421] select-none"
+                  >
+                    ⤢
+                  </div>
+
+                  {/* Expand / Collapse Button with green dash indicator */}
+                  <button
+                    type="button"
+                    title={isExpanded ? 'Collapse board' : 'Expand board'}
+                    aria-label={isExpanded ? 'Collapse board' : 'Expand board'}
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="relative w-7 h-7 rounded-full bg-white border border-[#ece6d8] grid place-items-center text-[#1a2421] hover:bg-[#1a2421] hover:text-white hover:border-[#1a2421] transition-all duration-200 cursor-pointer shadow-xs"
+                  >
+                    <span className="absolute -top-[5px] -right-[2px] w-[12px] h-[3px] rounded-full bg-emerald-400 shadow-[0_0_0_2px_#fbfaf7]" />
+                    {isExpanded ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="4 14 10 14 10 20" />
+                        <polyline points="20 10 14 10 14 4" />
+                        <line x1="14" y1="10" x2="21" y2="3" />
+                        <line x1="3" y1="21" x2="10" y2="14" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 3 21 3 21 9" />
+                        <polyline points="9 21 3 21 3 15" />
+                        <line x1="21" y1="3" x2="14" y2="10" />
+                        <line x1="3" y1="21" x2="10" y2="14" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
-              <div className="relative min-h-[160px] dotted-grid-strong bg-[#FFFEFD]">
-                {!hasStartedProblem || completedSteps.length === 0 ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 py-8">
-                    <div className="w-10 h-10 rounded-[12px] bg-[#F6F1E6] border border-[#EDE8DD] flex items-center justify-center mb-3">
-                      <span className="font-mono text-[16px] text-[#B8A88E]">∅</span>
+              {/* Board Body: 180px collapsed vs 500px expanded with smooth transition and dot-grid */}
+              <div
+                className={`dot-grid relative p-6 lg:p-8 overflow-hidden transition-all duration-500 ease-[cubic-bezier(.25,.8,.25,1)] ${
+                  isExpanded ? 'overflow-y-auto' : ''
+                }`}
+                style={{ height: isExpanded ? 500 : 180 }}
+              >
+                <div className="max-w-[560px]">
+                  {/* Ghost Example Box */}
+                  <div className="rounded-xl border border-dashed border-[#ddd8cc] bg-[#fdfaf5]/80 p-4">
+                    <div className="font-mono text-[10px] tracking-[0.12em] text-[#7a756c] mb-2 font-medium">
+                      GHOST EXAMPLE • REFERENCE ONLY
                     </div>
-                    <p className="font-mono text-[11px] tracking-[0.02em] text-[#9AA09B] max-w-[320px] leading-[1.6]">
-                      No derivations yet. Enter Step 1 below in <span className="text-[#1A221E] font-medium">Your Derivations</span> to begin.
-                    </p>
+                    <div className="font-mono text-[13px] text-[#6b6760] leading-relaxed">
+                      Ex: <span className="text-[#1a2421] font-medium">Step 1:</span> In ΔABC, ∠B = 90° → AB² + BC² = AC²
+                    </div>
+                    <div className="mt-2 font-mono text-[11px] text-[#7a756c]">
+                      Ex: Step 2: Let AB = 3, BC = 4 → AC = √(9+16) = 5
+                    </div>
                   </div>
-                ) : (
-                  <div className="p-5 md:p-6 space-y-3">
-                    <div className="max-w-[680px] space-y-3">
-                      {completedSteps.map((step, idx) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <div className="w-7 h-7 rounded-full bg-[#1A221E] text-white flex items-center justify-center text-[11px] font-mono shrink-0 mt-0.5">
-                            {idx + 1}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-mono text-[12.5px] leading-[1.7] text-[#1A221E] bg-[#F6F1E6] border border-[#EDE8DD] rounded-[10px] px-3.5 py-2.5">
-                              <MathDisplay math={step.result || step.instruction} />
-                            </div>
-                            <div className="mt-1 font-mono text-[11px] text-[#4A7C59] px-1 flex items-center gap-1">
-                              <span>✓</span> Verified by symbolic checker
-                            </div>
-                          </div>
+
+                  {/* Empty state when no derivations entered */}
+                  {allStudentSteps.length === 0 && (
+                    <div className="mt-6 flex items-center gap-3 text-[#9a958c]">
+                      <div className="w-8 h-8 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
+                        <span className="text-[14px] text-[#8a8f8b]">＋</span>
+                      </div>
+                      <div className="font-mono text-[11px]">
+                        No derivations yet. Enter Step 1 below
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ALL STUDENT ENTERED STEPS - Always shown here */}
+                  {allStudentSteps.length > 0 && (
+                    <div className="mt-6 space-y-3">
+                      {allStudentSteps.map((stepText, idx) => (
+                        <div
+                          key={idx}
+                          className="rounded-xl bg-[#1a2421] text-[#e8e2d6] px-4 py-3 font-mono text-[13px] flex items-center gap-3 shadow-sm animate-fadeIn"
+                        >
+                          <span className="text-[#a8e6a0] font-semibold shrink-0">
+                            Step {idx + 1}:
+                          </span>
+                          <span className="flex-1 overflow-x-auto">
+                            <MathDisplay math={stepText} />
+                          </span>
+                          <span className="text-[#8be78a] text-xs shrink-0 font-sans flex items-center gap-1">
+                            <span>✓</span> Verified
+                          </span>
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                <div className="pointer-events-none absolute inset-0 border border-[#1A221E]/[0.02] rounded-b-[16px]" />
+                {/* Ambient watermark circle in bottom right */}
+                <div className="absolute right-8 bottom-8 w-16 h-16 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center opacity-60 pointer-events-none">
+                  <span className="text-[22px] text-[#c2bdb0]">＋</span>
+                </div>
+
+                {/* Bottom gradient fade when collapsed */}
+                {!isExpanded && (
+                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#fbfaf7]/90 to-transparent" />
+                )}
               </div>
             </div>
 
             {/* CARD 3: YOUR DERIVATIONS */}
-            <div className="rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
-              <div className="h-[44px] px-5 flex items-center justify-between border-b border-[#EDE8DD]">
-                <span className="font-display text-[14px] font-[550] tracking-[-0.01em]">
+            <div className="bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] p-7 lg:p-8 min-w-0">
+              <div className="flex items-center justify-between">
+                <h3 className="font-serif text-[18px] text-[#1a2421] font-semibold">
                   Your Derivations
-                </span>
-                <span className="font-mono text-[10px] text-[#9AA09B]">
-                  {hasStartedProblem ? '⌘+Enter to verify' : 'Idle'}
+                </h3>
+                <span className="font-mono text-[10px] tracking-[0.12em] text-[#9a958c]">
+                  {allStudentSteps.length} STEPS • {hasStartedProblem ? (isFullySolved ? 'COMPLETED' : 'IN PROGRESS') : 'WAITING'}
                 </span>
               </div>
 
-              {!hasStartedProblem ? (
-                <div className="p-10 flex flex-col items-center justify-center text-center">
-                  <div className="w-12 h-12 rounded-[14px] bg-[#FBF9F3] border border-[#EDE8DD] flex items-center justify-center mb-4">
-                    <span className="text-[18px] opacity-60">⟁</span>
+              {allStudentSteps.length === 0 && !hasStartedProblem ? (
+                <div className="mt-8 rounded-[20px] bg-[#fbf8f1] border border-[#ece6d8] p-8 text-center">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
+                    <span className="text-[18px] opacity-60">◐</span>
                   </div>
-                  <p className="font-mono text-[11px] text-[#8A8F8B] mb-5">
-                    No active derivation in progress.
-                  </p>
+                  <div className="mt-4 font-serif text-[16px] text-[#1a2421]">No steps yet</div>
+                  <div className="mt-1 font-mono text-[11px] text-[#9a958c]">
+                    Start with Next Problem to unlock the derivation editor
+                  </div>
                   <button
                     type="button"
                     onClick={handleNextProblem}
-                    className="h-9 px-4 rounded-full bg-[#1A221E] text-white text-[12.5px] font-[600] btn-primary flex items-center gap-2 cursor-pointer"
+                    className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#111111] text-white text-[13px] font-medium hover:bg-black transition cursor-pointer"
                   >
-                    <span className="text-[10px]">▶</span> Start Step 1 with Next Problem
+                    <span>Start Step 1 with Next Problem</span>
+                    <span className="w-5 h-5 rounded-full bg-white text-black grid place-items-center text-[12px]">→</span>
                   </button>
                 </div>
               ) : isFullySolved ? (
-                <div className="p-6 text-center space-y-3 bg-[#E6F0E8]/40">
-                  <div className="w-10 h-10 rounded-full bg-[#E6F0E8] border border-[#CFE0D3] text-[#2E5A3A] flex items-center justify-center mx-auto text-base font-bold">
+                <div className="mt-6 p-6 rounded-[20px] text-center space-y-3 bg-[#eef6ec] border border-[#d6ecd2]">
+                  <div className="w-10 h-10 rounded-full bg-[#c9f0c2] text-[#1a2421] flex items-center justify-center mx-auto text-base font-bold">
                     ✓
                   </div>
-                  <h3 className="font-display text-[18px] font-semibold text-[#1A221E]">
+                  <h3 className="font-serif text-[18px] font-semibold text-[#1a2421]">
                     Concept Mastered Successfully!
                   </h3>
-                  <p className="text-[13px] text-[#5A645E]">
+                  <p className="text-[13px] text-[#5a554e]">
                     You have solved all derivation steps with high autonomy.
                   </p>
                   <div className="flex justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={handleNextProblem}
-                      className="h-9 px-5 rounded-full bg-[#1A221E] text-white text-[12.5px] font-[600] btn-primary flex items-center gap-2 cursor-pointer"
+                      className="h-9 px-5 rounded-full bg-[#111111] text-white text-[12.5px] font-medium hover:bg-black flex items-center gap-2 cursor-pointer"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
                       <span>Next Problem</span>
@@ -641,45 +731,51 @@ export default function CoteacherWorkspace({
                     <button
                       type="button"
                       onClick={handleReset}
-                      className="h-9 px-4 rounded-full bg-white border border-[#EDE8DD] text-[#1A221E] text-[12.5px] font-medium card-shadow hover:bg-[#FBF9F3] transition-colors cursor-pointer"
+                      className="h-9 px-4 rounded-full bg-white border border-[#ece8df] text-[#1a2421] text-[12.5px] font-medium hover:bg-[#fbf8f1] transition-colors cursor-pointer"
                     >
                       Practice Again
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-5 space-y-3">
-                  {/* Past steps edit list */}
-                  {completedSteps.length > 0 && (
-                    <div className="space-y-2 mb-3">
-                      {completedSteps.map((step, idx) => (
+                <>
+                  {allStudentSteps.length > 0 && (
+                    <div className="mt-6 space-y-3">
+                      {allStudentSteps.map((stepText, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-3 rounded-xl bg-[#FCFBF8] border border-[#EDE8DD] text-xs font-mono"
+                          className="flex gap-3 items-center justify-between p-3.5 rounded-xl bg-[#fbf8f1] border border-[#ece6d8]"
                         >
-                          <div className="flex items-center gap-2.5">
-                            <span className="font-bold text-[#1A221E]">Step {idx + 1}:</span>
-                            <span className="text-[#1A221E]">
-                              <MathDisplay math={step.result || step.instruction} />
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-6 h-6 rounded-full bg-[#1a2421] text-white grid place-items-center font-mono text-[10px] shrink-0 font-bold">
+                              {idx + 1}
                             </span>
-                            <span className="text-[#2E5A3A] font-bold">✓</span>
+                            <span className="font-mono text-[13px] text-[#1a2421] truncate">
+                              <MathDisplay math={stepText} />
+                            </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleEditPastStep(step, idx)}
-                            className="px-3 py-1 rounded-lg border border-[#EDE8DD] bg-white text-xs font-sans text-[#1A221E] hover:bg-[#F7F5EF] transition-colors shadow-xs font-semibold cursor-pointer"
-                          >
-                            Edit
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[#2a5a28] text-xs font-mono font-semibold">✓</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingStepIndex(idx)
+                                setUserAnswer(stepText)
+                              }}
+                              className="px-2.5 py-1 rounded-lg border border-[#ece6d8] bg-white text-[11px] font-sans text-[#1a2421] hover:bg-[#f6f1e7] transition shadow-xs cursor-pointer font-medium"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Quick Scaffold Options */}
+                  {/* Quick Scaffold Options if available */}
                   {quickOptions.length > 0 && metrics.assistance_sal >= 0.7 && metrics.active_attempts > 0 && (
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] uppercase font-mono text-[#2E5A3A] tracking-wider font-semibold">
+                    <div className="mt-5 space-y-1.5">
+                      <span className="text-[10px] uppercase font-mono text-[#2a5a28] tracking-wider font-semibold">
                         Quick Scaffold Options:
                       </span>
                       <div className="flex flex-wrap gap-2">
@@ -691,7 +787,7 @@ export default function CoteacherWorkspace({
                               trackTelemetryEvent(conceptId, activeStepIndex, 'quick_option_click', { option: opt })
                               handleStepSubmit(opt)
                             }}
-                            className="bg-[#E6F0E8] hover:bg-[#D6E6D9] border border-[#CFE0D3] text-[#2E5A3A] text-xs px-3.5 py-1.5 rounded-full font-mono transition-all shadow-xs active:scale-95 font-semibold cursor-pointer"
+                            className="bg-[#eef6ec] hover:bg-[#d6ecd2] border border-[#d6ecd2] text-[#2a5a28] text-xs px-3.5 py-1.5 rounded-full font-mono transition shadow-xs active:scale-95 font-semibold cursor-pointer"
                           >
                             <MathDisplay math={opt} />
                           </button>
@@ -701,101 +797,89 @@ export default function CoteacherWorkspace({
                   )}
 
                   {/* Input container */}
-                  <div className="rounded-[12px] border border-[#EDE8DD] bg-[#FCFBF8] overflow-hidden focus-within:border-[#DDB56E] focus-within:ring-[3px] focus-within:ring-[#DDB56E]/20 transition-all">
-                    <div className="px-4 py-2.5 border-b border-[#EDE8DD] flex items-center justify-between bg-white">
-                      <span className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B]">
-                        STEP {editingStepIndex !== null ? editingStepIndex + 1 : activeStepIndex + 1} • LaTeX supported
+                  <div className="mt-6">
+                    <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.12em] text-[#9a958c] mb-2">
+                      <span>DERIVATION INPUT</span>
+                      <span className="w-1 h-1 rounded-full bg-[#d8d2c3]" />
+                      <span className={hasStartedProblem ? "text-emerald-700 font-semibold" : ""}>
+                        {hasStartedProblem ? "READY" : "LOCKED"}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] text-[#9AA09B]">{userAnswer.length} chars</span>
-                      </div>
+                      {editingStepIndex !== null && (
+                        <div className="ml-auto flex items-center gap-2">
+                          <span className="text-amber-800 font-medium">
+                            Editing Step {editingStepIndex + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingStepIndex(null)
+                              setUserAnswer('')
+                            }}
+                            className="text-xs text-[#9a958c] hover:text-[#1a2421] underline cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    <MathLiveInput
-                      value={userAnswer}
-                      onChange={setUserAnswer}
-                      onSubmit={() => {
-                        if (userAnswer.trim() && !isSubmitting) handleStepSubmit()
-                      }}
-                      placeholder="Type your derivation here, e.g., AC^2 = 3^2+4^2 = 9+16 = 25"
-                      className="w-full min-h-[96px] p-4 font-mono text-[13px] leading-[1.7] text-[#1A221E]"
-                    />
+                    <div className="relative">
+                      <input
+                        value={userAnswer}
+                        onChange={(e) => setUserAnswer(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && userAnswer.trim() && !isSubmitting) {
+                            handleStepSubmit()
+                          }
+                        }}
+                        placeholder="e.g. sin(θ) = opposite / hypotenuse"
+                        disabled={!hasStartedProblem}
+                        className="w-full h-[48px] rounded-full bg-[#fbf8f1] border border-[#ece6d8] px-5 pr-[130px] font-mono text-[13px] text-[#1a2421] placeholder:text-[#b8b2a5] focus:outline-none focus:border-[#1a2421]/30 focus:bg-white disabled:opacity-60 transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleStepSubmit()}
+                        disabled={!hasStartedProblem || !userAnswer.trim() || isSubmitting}
+                        className="absolute right-1.5 top-1.5 h-[36px] px-4 rounded-full bg-[#1a2421] text-white font-mono text-[11px] tracking-[0.08em] disabled:opacity-30 hover:bg-black transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>VERIFYING…</span>
+                          </>
+                        ) : editingStepIndex !== null ? (
+                          'UPDATE STEP ↵'
+                        ) : (
+                          'ADD STEP ↵'
+                        )}
+                      </button>
+                    </div>
 
-                    {/* Live KaTeX preview inside input box if non-empty */}
+                    {/* KaTeX live preview below input */}
                     {userAnswer.trim() && (
-                      <div className="px-4 py-2 bg-[#F6F1E6]/50 border-t border-[#EDE8DD] flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 font-mono text-[#1A221E] overflow-x-auto">
-                          <span className="text-[10px] text-[#8A8F8B] uppercase shrink-0">Preview:</span>
+                      <div className="mt-2.5 px-4 py-2 bg-[#fdfaf5] border border-[#ece6d8] rounded-full flex items-center justify-between text-xs animate-fadeIn">
+                        <div className="flex items-center gap-2 font-mono text-[#1a2421] overflow-x-auto">
+                          <span className="text-[10px] text-[#9a958c] uppercase shrink-0 font-medium">
+                            Preview:
+                          </span>
                           <MathDisplay math={userAnswer} />
                         </div>
-                        <span className="text-[10px] font-mono text-[#8A8F8B] shrink-0 ml-2 hidden sm:inline">
-                          ⌘+Enter to verify
+                        <span className="text-[10px] font-mono text-[#9a958c] shrink-0 ml-2 hidden sm:inline">
+                          Press Enter ↵ to submit
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStepSubmit()}
-                        disabled={!userAnswer.trim() || isSubmitting}
-                        className="h-8 px-4 rounded-full bg-[#1A221E] text-white text-[12px] font-[600] btn-primary disabled:opacity-40 disabled:transform-none flex items-center gap-1.5 cursor-pointer"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Verifying…
-                          </>
-                        ) : (
-                          'Verify Step'
-                        )}
-                      </button>
-                      <span className="font-mono text-[10px] text-[#9AA09B]">
-                        AI checks algebra • no penalty
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {socraticScaffold && (
-                        <button
-                          type="button"
-                          onClick={() => setIsHintOpen(!isHintOpen)}
-                          className={`h-8 px-3 rounded-full text-xs font-mono font-medium flex items-center gap-1.5 border transition-all cursor-pointer ${
-                            isHintOpen
-                              ? 'bg-[#DDB56E]/20 text-[#8A7D67] border-[#DDB56E]'
-                              : 'bg-white border-[#EDE8DD] text-[#8A8F8B] hover:bg-[#FBF9F3]'
-                          }`}
-                        >
-                          <Lightbulb className="w-3.5 h-3.5 text-[#DDB56E]" />
-                          <span>{isHintOpen ? 'Hide Clue' : 'Guided Clue'}</span>
-                        </button>
-                      )}
-
-                      {editingStepIndex !== null && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingStepIndex(null)
-                            setUserAnswer('')
-                          }}
-                          className="text-xs font-mono text-[#8A8F8B] hover:text-[#1A221E] px-2 cursor-pointer"
-                        >
-                          Cancel Edit
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
+                  {/* Feedback and Guided Clues */}
                   {feedback && (
                     <div
-                      className={`p-3 rounded-xl border text-xs font-mono transition-all ${
+                      className={`mt-4 p-3 rounded-xl border text-xs font-mono transition-all ${
                         feedback.startsWith('✓')
-                          ? 'bg-[#E6F0E8] border-[#CFE0D3] text-[#2E5A3A]'
+                          ? 'bg-[#eef6ec] border-[#d6ecd2] text-[#2a5a28]'
                           : feedback.startsWith('?')
-                          ? 'bg-[#EAF2FB] border-[#A9C6E8] text-[#1D4E89]'
-                          : 'bg-[#FEF3C7] border-[#FCD34D] text-[#92400E]'
+                          ? 'bg-[#eaf2fb] border-[#a9c6e8] text-[#1d4e89]'
+                          : 'bg-[#fef3c7] border-[#fcd34d] text-[#92400e]'
                       }`}
                     >
                       {feedback}
@@ -803,63 +887,69 @@ export default function CoteacherWorkspace({
                   )}
 
                   {systemError && (
-                    <div className="p-3 rounded-xl border bg-[#FBF9F3] border-[#EDE8DD] text-xs font-mono text-[#8A8F8B]">
+                    <div className="mt-3 p-3 rounded-xl border bg-[#fbf8f1] border-[#ece6d8] text-xs font-mono text-[#7a756c]">
                       {systemError}
                     </div>
                   )}
 
-                  {/* Socratic Guided Clue */}
-                  {isHintOpen && socraticScaffold && (
-                    <div className="p-4 rounded-xl bg-[#F6F1E6] border border-[#DDB56E]/50 space-y-2 text-[#1A221E]">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8A7D67] flex items-center gap-1.5">
-                          <Lightbulb className="w-3.5 h-3.5 text-[#DDB56E]" />
-                          Socratic Guided Clue
-                        </span>
-                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#EDE8DD] text-[#8A7D67]">
-                          SAL: {Math.round(metrics.assistance_sal * 100)}%
-                        </span>
-                      </div>
-                      <div className="text-[13px] leading-relaxed font-sans text-[#1A221E]">
-                        <FormattedMathText text={socraticScaffold} />
-                      </div>
-                      {currentPrompt && (
-                        <div className="pt-2 border-t border-[#EDE8DD] text-xs font-semibold text-[#1A221E] flex items-start gap-2">
-                          <span className="w-4 h-4 rounded-full bg-[#1A221E] text-white text-[10px] font-bold font-mono flex items-center justify-center shrink-0 mt-0.5">
-                            {activeStepIndex + 1}
-                          </span>
-                          <FormattedMathText text={currentPrompt} />
+                  {socraticScaffold && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsHintOpen(!isHintOpen)}
+                        className={`h-8 px-3 rounded-full text-xs font-mono font-medium flex items-center gap-1.5 border transition-all cursor-pointer ${
+                          isHintOpen
+                            ? 'bg-[#f6f1e7] text-[#1a2421] border-[#ece6d8]'
+                            : 'bg-white border-[#ece8df] text-[#8a8f8b] hover:bg-[#fbf8f1]'
+                        }`}
+                      >
+                        <Lightbulb className="w-3.5 h-3.5 text-[#ddb56e]" />
+                        <span>{isHintOpen ? 'Hide Clue' : 'Guided Clue'}</span>
+                      </button>
+
+                      {isHintOpen && (
+                        <div className="mt-2.5 p-4 rounded-xl bg-[#f6f1e7] border border-[#ece6d8] space-y-2 text-[#1a2421]">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7a756c] flex items-center gap-1.5">
+                              <Lightbulb className="w-3.5 h-3.5 text-[#ddb56e]" />
+                              Socratic Guided Clue
+                            </span>
+                            <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#ece6d8] text-[#7a756c]">
+                              SAL: {Math.round(metrics.assistance_sal * 100)}%
+                            </span>
+                          </div>
+                          <div className="text-[13px] leading-relaxed font-sans text-[#1a2421]">
+                            <FormattedMathText text={socraticScaffold} />
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
-                </div>
+                </>
               )}
             </div>
 
-            {/* CARD 4: CBSE TRIGONOMETRY FORMULAS REFERENCE ACCORDION */}
-            <div className="rounded-[16px] bg-white border border-[#EDE8DD] card-shadow overflow-hidden min-w-0">
+            {/* CARD 4: CBSE TRIGONOMETRY FORMULAS REFERENCE */}
+            <div className="bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] overflow-hidden min-w-0">
               <button
                 type="button"
                 onClick={() => setShowFormulaDrawer(!showFormulaDrawer)}
-                className="w-full h-[52px] px-5 flex items-center justify-between text-left group cursor-pointer"
+                className="w-full px-7 lg:px-8 h-[56px] flex items-center justify-between cursor-pointer hover:bg-[#fbfaf7]/60 transition text-left"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-[8px] bg-[#F6F1E6] border border-[#EDE8DD] flex items-center justify-center font-mono text-[11px]">
-                    ≋
-                  </div>
-                  <span className="font-display text-[14.5px] font-[550]">
+                  <span className="w-7 h-7 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center text-[13px] font-serif font-bold text-[#1a2421]">
+                    ƒ
+                  </span>
+                  <span className="font-serif text-[15px] font-semibold text-[#1a2421]">
                     CBSE Trigonometry Formulas Reference
                   </span>
-                  <span className="hidden md:inline font-mono text-[10px] px-2 py-1 rounded-full bg-[#FBF9F3] border border-[#EDE8DD] text-[#9AA09B]">
-                    {formulaList.length} formulas
+                  <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[10px] font-mono text-[#2a5a28]">
+                    6 FORMULAS
                   </span>
                 </div>
                 <span
-                  className={`w-6 h-6 rounded-full border border-[#EDE8DD] flex items-center justify-center text-[12px] transition-transform ${
-                    showFormulaDrawer
-                      ? 'rotate-180 bg-[#1A221E] text-white border-[#1A221E]'
-                      : 'bg-white'
+                  className={`w-7 h-7 rounded-full bg-[#fbf8f1] border border-[#ece6d8] grid place-items-center text-[12px] text-[#6b6760] transition-transform duration-200 ${
+                    showFormulaDrawer ? 'rotate-180' : ''
                   }`}
                 >
                   ⌄
@@ -867,19 +957,32 @@ export default function CoteacherWorkspace({
               </button>
 
               {showFormulaDrawer && (
-                <div className="px-5 pb-5 border-t border-[#EDE8DD] bg-[#FCFBF8]">
-                  <div className="pt-4 grid md:grid-cols-3 gap-3">
-                    {formulaList.map((formula, idx) => (
-                      <div
-                        key={idx}
-                        className="px-3.5 py-3 rounded-[10px] bg-white border border-[#EDE8DD] font-mono text-[11.5px] leading-[1.5] text-[#2E3A32]"
-                      >
+                <div className="px-7 lg:px-8 pb-7 pt-2 grid md:grid-cols-2 gap-3 animate-fadeIn">
+                  {[
+                    ['Pythagoras', 'AB² + BC² = AC²'],
+                    ['sin θ', 'opp / hyp = AB / AC'],
+                    ['cos θ', 'adj / hyp = BC / AC'],
+                    ['tan θ', 'opp / adj = AB / BC'],
+                    ['sin²+cos²', 'sin²θ + cos²θ = 1'],
+                    ['Complementary', 'sin(90°-θ) = cos θ'],
+                  ].map(([name, formula]) => (
+                    <div
+                      key={name}
+                      className="rounded-xl bg-[#fbf8f1] border border-[#ece6d8] px-4 py-3 flex justify-between items-center"
+                    >
+                      <span className="font-mono text-[11px] text-[#7a756c] font-medium">{name}</span>
+                      <span className="font-mono text-[12px] text-[#1a2421] font-medium">
                         <MathDisplay math={formula} />
-                      </div>
-                    ))}
-                  </div>
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
+            </div>
+
+            {/* Pedagogical Footer Tagline */}
+            <div className="pb-10 font-mono text-[10px] text-[#7a756c] text-center">
+              Edova Practice OS • Enterprise Polished v2 • CBSE Aligned • Derivation-first pedagogy
             </div>
 
             <div className="h-6" />
@@ -1251,6 +1354,15 @@ export default function CoteacherWorkspace({
           if (found) setConceptTitle(found.title)
           setHasStartedProblem(false)
         }}
+      />
+
+      {/* On-Demand Video Explainer Modal */}
+      <VideoExplainerModal
+        isOpen={showVideoModal}
+        onClose={() => setShowVideoModal(false)}
+        conceptId={conceptId}
+        conceptTitle={conceptTitle}
+        questionText={problemContext}
       />
     </div>
   )

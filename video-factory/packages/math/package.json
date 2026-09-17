@@ -1,0 +1,12 @@
+{
+  "name": "@vf/math",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@vf/core": "*",
+    "@vf/storyboard": "*",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "remotion": "^4.0.0",
+    "zod": "^3.23.0"
+  }
+}

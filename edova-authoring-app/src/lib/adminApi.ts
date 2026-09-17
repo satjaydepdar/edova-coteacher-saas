@@ -14,7 +14,14 @@ export class AdminApiError extends Error {
   }
 }
 
-let token: string | null = localStorage.getItem(ADMIN_TOKEN_KEY)
+const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+const urlToken = searchParams?.get('token')
+if (urlToken && typeof window !== 'undefined') {
+  localStorage.setItem(ADMIN_TOKEN_KEY, urlToken)
+  window.history.replaceState({}, document.title, window.location.pathname)
+}
+
+let token: string | null = typeof window !== 'undefined' ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
 
 export function getAdminToken(): string | null {
   return token

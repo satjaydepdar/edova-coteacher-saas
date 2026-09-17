@@ -52,8 +52,25 @@ export default function AdminLogin() {
           type="submit" disabled={busy}
           className="w-full py-2.5 rounded-lg bg-forest text-cream text-sm font-medium hover:bg-forest-raised disabled:opacity-50 transition-colors"
         >
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? 'Signing in…' : 'Sign in as Admin'}
         </button>
+
+        <div className="mt-6 pt-4 border-t border-cream-border flex flex-col gap-2.5 text-center text-xs">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="text-forest/70 hover:text-forest transition-colors"
+          >
+            Need Teacher Analytics? <span className="font-semibold text-forest underline">Sign in to Teacher Dashboard &rarr;</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="text-forest/50 hover:text-forest transition-colors"
+          >
+            &larr; Return to Student Classroom
+          </button>
+        </div>
       </form>
     </div>
   )

@@ -30,7 +30,7 @@ def teacher_subjects(authorization: str = Header(...)):
 @router.get("/api/teacher/sections")
 def teacher_sections(authorization: str = Header(...)):
     uid = current_user_id(authorization)
-    tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+    tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER", "ADMIN"))
     with db() as conn:
         rows = q(conn, "SELECT id, name, grade FROM sections WHERE tenant_id = %s ORDER BY name",
                  (tenant_id,)).fetchall()

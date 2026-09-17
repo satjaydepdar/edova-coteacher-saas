@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "id": "golden-linear-equations-v1",
+    "title": "Mastering Linear Equations: 2x + 3 = 11",
+    "description": "A comprehensive pedagogical breakdown of single-variable linear equations",
+    "version": "1.0.0",
+    "author": "Edova Math Pod",
+    "fps": 30,
+    "width": 1920,
+    "height": 1080,
+    "targetAudience": "Middle & High School Algebra",
+    "tags": ["algebra", "linear-equations", "golden-test"]
+  },
+  "theme": {
+    "name": "edova-indigo",
+    "colors": {
+      "primary": "#4f46e5",
+      "secondary": "#06b6d4",
+      "accent": "#f59e0b",
+      "background": "#0f172a",
+      "surface": "#1e293b",
+      "text": "#f8fafc",
+      "textMuted": "#94a3b8",
+      "border": "#334155",
+      "success": "#10b981",
+      "warning": "#f59e0b",
+      "error": "#ef4444"
+    },
+    "typography": {
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "baseFontSize": 24
+    },
+    "borderRadius": 16
+  },
+  "audio": {
+    "backgroundMusic": {
+      "url": "https://assets.edova.ai/audio/ambient-lofi-study.mp3",
+      "volume": 0.12,
+      "loop": true,
+      "fadeInFrames": 30,
+      "fadeOutFrames": 30
+    },
+    "voiceoverTracks": []
+  },
+  "scenes": [
+    {
+      "id": "scene-1-intro",
+      "type": "math.concept_intro",
+      "title": "Algebra Fundamentals",
+      "subtitle": "Isolating the unknown variable",
+      "conceptName": "Linear Equations in One Variable",
+      "hookLatex": "2x + 3 = 11",
+      "questionPrompt": "How do we isolate x when it is both multiplied and added?",
+      "contextDescription": "Equations act like a balanced scale. Whatever operation we perform on one side, we must mirror on the other side.",
+      "badgeText": "Algebra I",
+      "timing": {
+        "durationInSeconds": 6
+      },
+      "transition": {
+        "type": "fade",
+        "durationInFrames": 15
+      },
+      "audioCues": []
+    },
+    {
+      "id": "scene-2-step-by-step",
+      "type": "math.step_by_step",
+      "title": "Worked Solution",
+      "subtitle": "Applying inverse operations step-by-step",
+      "problemLatex": "2x + 3 = 11",
+      "activeStepFrameInterval": 40,
+      "ruleCallout": "Always undo addition/subtraction before multiplication/division.",
+      "timing": {
+        "durationInSeconds": 8
+      },
+      "transition": {
+        "type": "slide-left",
+        "durationInFrames": 15
+      },
+      "audioCues": [],
+      "steps": [
+        {
+          "stepNumber": 1,
+          "label": "Subtract 3 from both sides",
+          "latex": "2x = 11 - 3 \\implies 2x = 8",
+          "explanation": "Inverse of addition is subtraction",
+          "highlight": true
+        },
+        {
+          "stepNumber": 2,
+          "label": "Divide both sides by 2",
+          "latex": "x = \\frac{8}{2} \\implies x = 4",
+          "explanation": "Inverse of multiplication is division",
+          "highlight": true
+        }
+      ]
+    },
+    {
+      "id": "scene-3-visual-proof",
+      "type": "math.visual_proof",
+      "title": "Graphical Interpretation",
+      "subtitle": "Finding the intersection of y = 2x + 3 and y = 11",
+      "proofTitle": "Balance Scale & Coordinate Intersection",
+      "diagramType": "coordinate_grid",
+      "theoremLatex": "y_1 = 2x + 3, \\quad y_2 = 11 \\implies (4, 11)",
+      "caption": "The algebraic solution x = 4 represents the exact x-coordinate where the linear function crosses the horizontal line y = 11.",
+      "timing": {
+        "durationInSeconds": 6
+      },
+      "transition": {
+        "type": "fade",
+        "durationInFrames": 15
+      },
+      "audioCues": [],
+      "points": [
+        {
+          "x": 0,
+          "y": 3,
+          "label": "(0, 3) Y-Intercept",
+          "color": "#06b6d4"
+        },
+        {
+          "x": 4,
+          "y": 11,
+          "label": "(4, 11) Solution",
+          "color": "#10b981"
+        }
+      ]
+    },
+    {
+      "id": "scene-4-challenge",
+      "type": "math.practice_challenge",
+      "title": "Quick Practice",
+      "subtitle": "Try this on your own!",
+      "promptQuestion": "What is the value of x in 3x - 5 = 10?",
+      "problemLatex": "3x - 5 = 10",
+      "countdownSeconds": 5,
+      "hint": "Add 5 to both sides first, then divide by 3.",
+      "timing": {
+        "durationInSeconds": 7
+      },
+      "transition": {
+        "type": "zoom",
+        "durationInFrames": 15
+      },
+      "audioCues": [],
+      "options": [
+        { "id": "opt-1", "label": "x = 3", "isCorrect": false },
+        { "id": "opt-2", "label": "x = 5", "isCorrect": true },
+        { "id": "opt-3", "label": "x = 15", "isCorrect": false },
+        { "id": "opt-4", "label": "x = 2", "isCorrect": false }
+      ]
+    },
+    {
+      "id": "scene-5-recap",
+      "type": "core.answer",
+      "title": "Recap & Verified Solution",
+      "subtitle": "You mastered single-variable linear equations!",
+      "answerLabel": "VERIFIED ANSWER",
+      "answerLatex": "x = 4",
+      "answerText": "x = 4",
+      "explanation": "Substituting x = 4 back into the original equation satisfies 2(4) + 3 = 11.",
+      "verificationNote": "Verification check: 2(4) + 3 = 8 + 3 = 11. LHS = RHS.",
+      "takeaways": [
+        "Maintain balance by applying equal operations to both sides.",
+        "Undo addition and subtraction first (reverse PEMDAS order).",
+        "Always substitute your final answer back to verify equality."
+      ],
+      "timing": {
+        "durationInSeconds": 6
+      },
+      "transition": {
+        "type": "fade",
+        "durationInFrames": 15
+      },
+      "audioCues": []
+    }
+  ]
+}

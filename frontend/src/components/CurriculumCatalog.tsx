@@ -24,6 +24,10 @@ import { searchSimulationsIntelligently, ParsedSearchIntent } from '../utils/int
 interface CurriculumCatalogProps {
   onLaunchSimulation: (sim: SimulationItem) => void
   activeSubject?: 'maths' | 'science' | 'social' | 'english'
+  selectedChapterId?: string | null
+  onSelectChapterId?: (id: string | null) => void
+  selectedSubTopicId?: string | null
+  onSelectSubTopicId?: (id: string | null) => void
 }
 
 const CHAPTER_STYLES: Record<string, { tint: string; color: string; icon: any }> = {
@@ -52,13 +56,20 @@ const pluralize = (count: number, singular: string, plural = `${singular}s`): st
 export default function CurriculumCatalog({
   onLaunchSimulation,
   activeSubject: controlledSubject = 'maths',
+  selectedChapterId: propChapterId,
+  onSelectChapterId,
+  selectedSubTopicId: propSubTopicId,
+  onSelectSubTopicId,
 }: CurriculumCatalogProps) {
   const currentSubject = controlledSubject || 'maths'
 
-  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null)
-  const [selectedSubTopicId, setSelectedSubTopicId] = useState<string | null>(null)
+  const [internalChapterId, setInternalChapterId] = useState<string | null>(null)
+  const [internalSubTopicId, setInternalSubTopicId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+
+  const selectedChapterId = propChapterId !== undefined ? propChapterId : internalChapterId
+  const selectedSubTopicId = propSubTopicId !== undefined ? propSubTopicId : internalSubTopicId
 
   const subjectData = CURRICULUM_DATABASE[currentSubject] || CURRICULUM_DATABASE.maths
 
@@ -75,10 +86,24 @@ export default function CurriculumCatalog({
     return sims
   }, [subjectData])
 
+  // Simulations for current view (if chapter selected, show that chapter's sims; otherwise all subject sims)
+  const currentSimulations = useMemo(() => {
+    if (!selectedChapterId) return allSubjectSimulations
+    const ch = subjectData.chapters.find((c) => c.id === selectedChapterId)
+    if (!ch) return allSubjectSimulations
+    const sims: SimulationItem[] = []
+    ch.subtopics.forEach((st) => {
+      st.simulations.forEach((s) => {
+        sims.push(s)
+      })
+    })
+    return sims
+  }, [selectedChapterId, subjectData, allSubjectSimulations])
+
   // Intelligent Multi-Field Search & Intent Parsing using BM25
   const searchResult = useMemo(() => {
-    return searchSimulationsIntelligently(allSubjectSimulations, searchQuery, selectedSubTopicId)
-  }, [allSubjectSimulations, searchQuery, selectedSubTopicId])
+    return searchSimulationsIntelligently(currentSimulations, searchQuery, selectedSubTopicId)
+  }, [currentSimulations, searchQuery, selectedSubTopicId])
 
   const rankedSimulations = searchResult.rankedSimulations
   const parsedIntent: ParsedSearchIntent = searchResult.parsedIntent
@@ -86,14 +111,40 @@ export default function CurriculumCatalog({
   const selectedChapter = subjectData.chapters.find((c) => c.id === selectedChapterId)
 
   const handleSelectChapter = (chapterId: string) => {
-    setSelectedChapterId(chapterId)
+    if (onSelectChapterId) {
+      onSelectChapterId(chapterId)
+    } else {
+      setInternalChapterId(chapterId)
+    }
     const ch = subjectData.chapters.find((c) => c.id === chapterId)
-    setSelectedSubTopicId(ch?.subtopics[0]?.id || null)
+    const firstSub = ch?.subtopics[0]?.id || null
+    if (onSelectSubTopicId) {
+      onSelectSubTopicId(firstSub)
+    } else {
+      setInternalSubTopicId(firstSub)
+    }
   }
 
   const handleResetToLevel1 = () => {
-    setSelectedChapterId(null)
-    setSelectedSubTopicId(null)
+    if (onSelectChapterId) {
+      onSelectChapterId(null)
+    } else {
+      setInternalChapterId(null)
+    }
+    if (onSelectSubTopicId) {
+      onSelectSubTopicId(null)
+    } else {
+      setInternalSubTopicId(null)
+    }
+    setSearchQuery('')
+  }
+
+  const handleSelectSubTopic = (subTopicId: string | null) => {
+    if (onSelectSubTopicId) {
+      onSelectSubTopicId(subTopicId)
+    } else {
+      setInternalSubTopicId(subTopicId)
+    }
     setSearchQuery('')
   }
 
@@ -124,7 +175,7 @@ export default function CurriculumCatalog({
                 <>
                   <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
                   <span
-                    onClick={() => setSelectedSubTopicId(null)}
+                    onClick={() => handleSelectSubTopic(null)}
                     className="hover:text-[#111814] cursor-pointer transition-colors"
                   >
                     {selectedChapter.title}
@@ -228,10 +279,7 @@ export default function CurriculumCatalog({
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedSubTopicId(null)
-                    setSearchQuery('')
-                  }}
+                  onClick={() => handleSelectSubTopic(null)}
                   className={`h-7 px-3 rounded-full text-[12px] font-medium transition-colors cursor-pointer ${
                     !selectedSubTopicId
                       ? 'bg-[#1A221E] text-white shadow-xs'
@@ -246,10 +294,7 @@ export default function CurriculumCatalog({
                     <button
                       key={st.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedSubTopicId(st.id)
-                        setSearchQuery('')
-                      }}
+                      onClick={() => handleSelectSubTopic(st.id)}
                       className={`h-7 px-3 rounded-full text-[12px] font-medium transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-[#1A221E] text-white shadow-xs'

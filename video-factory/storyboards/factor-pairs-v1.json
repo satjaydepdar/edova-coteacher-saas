@@ -1,0 +1,84 @@
+{
+  "videoId": "math-factors-12",
+  "title": "Finding Factors of 12",
+  "template": "math.standard",
+  "schemaVersion": "1.0",
+  "question": "What are all the positive integer factors of 12?",
+  "aspect": "16:9",
+  "fps": 30,
+  "scenes": [
+    {
+      "id": "scene-1-intro",
+      "type": "math.factorPills",
+      "narration": "Let's find all the numbers that divide twelve evenly.",
+      "padMs": 400,
+      "visual": {
+        "title": "Factors of 12",
+        "expression": "12 = a × b",
+        "factors": [
+          { "label": "1", "highlight": false },
+          { "label": "2", "highlight": false },
+          { "label": "3", "highlight": false },
+          { "label": "4", "highlight": false },
+          { "label": "6", "highlight": false },
+          { "label": "12", "highlight": false }
+        ],
+        "note": "A factor divides without leaving a remainder."
+      }
+    },
+    {
+      "id": "scene-2-steps",
+      "type": "math.stepByStep",
+      "narration": "We can pair them up systematically: one times twelve, two times six, and three times four.",
+      "padMs": 400,
+      "visual": {
+        "problem": "Factor Pairs of 12",
+        "steps": [
+          { "label": "Pair 1", "equation": "1 × 12 = 12", "explanation": "Always start with 1" },
+          { "label": "Pair 2", "equation": "2 × 6 = 12", "explanation": "12 is even, so 2 works" },
+          { "label": "Pair 3", "equation": "3 × 4 = 12", "explanation": "Next integer is 3" }
+        ]
+      }
+    },
+    {
+      "id": "scene-3-visual",
+      "type": "math.visualProof",
+      "narration": "Notice how each pair represents the length and width of a rectangle with area twelve.",
+      "padMs": 400,
+      "visual": {
+        "title": "Area Model Representation",
+        "theorem": "Area = Base × Height = 12",
+        "dimensions": { "width": 450, "height": 260 }
+      }
+    },
+    {
+      "id": "scene-4-challenge",
+      "type": "math.practiceChallenge",
+      "narration": "Can 5 be a factor of twelve? Think for a moment.",
+      "padMs": 400,
+      "visual": {
+        "question": "Is 5 a factor of 12?",
+        "options": ["Yes, exactly", "No, leaves remainder 2", "Cannot be determined", "Only in decimals"],
+        "answerIndex": 1,
+        "countdownSeconds": 5
+      }
+    },
+    {
+      "id": "scene-5-answer",
+      "type": "core.answer",
+      "narration": "The complete list of factors of twelve is: one, two, three, four, six, and twelve.",
+      "padMs": 400,
+      "visual": {
+        "headline": "Factors: 1, 2, 3, 4, 6, 12",
+        "sub": "Total of 6 distinct factors in 3 factor pairs."
+      }
+    }
+  ],
+  "componentLock": {
+    "math.factorPills": "1.0.0",
+    "math.stepByStep": "1.0.0",
+    "math.visualProof": "1.0.0",
+    "math.practiceChallenge": "1.0.0",
+    "core.answer": "1.0.0"
+  }
+}

@@ -34,6 +34,9 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     },
   })
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      setTeacherToken(null)
+    }
     let detail: unknown = res.statusText
     try {
       detail = (await res.json()).detail
@@ -162,6 +165,21 @@ export interface SuggestedNextStep {
   action: string
 }
 
+export interface VideoScaffoldingItem {
+  event_type: string
+  video_id?: string | null
+  file_name?: string | null
+  s3_folder?: string
+  timestamp: string
+}
+
+export interface VideoScaffoldingSummary {
+  total_explainers_requested: number
+  explainers_watched: number
+  recent_videos: VideoScaffoldingItem[]
+  relies_on_video_hints: boolean
+}
+
 export interface StudentProfile {
   student_id: string
   mastery_pct: number
@@ -169,6 +187,7 @@ export interface StudentProfile {
   topics: StudentTopic[]
   subjects: StudentSubject[]
   engagement: StudentEngagement
+  video_scaffolding?: VideoScaffoldingSummary
   misconception_pattern: string | null
   suggested_next_steps: SuggestedNextStep[]
   strengths: StudentTopic[]

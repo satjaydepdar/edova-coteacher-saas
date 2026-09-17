@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { KeyRound, Plus } from 'lucide-react'
+import { KeyRound, Plus, UserMinus } from 'lucide-react'
 import {
   AdminApiError, adminSchools, adminUsers, type AdminTenant, type AdminUser,
 } from '../../lib/adminApi'
@@ -14,7 +14,7 @@ export default function AdminUsers() {
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('STUDENT')
+  const [role, setRole] = useState('TEACHER')
   const [tenantId, setTenantId] = useState('')
 
   const load = () =>
@@ -55,6 +55,19 @@ export default function AdminUsers() {
       setNotice(`Password reset for ${u.email}.`)
     } catch (err) {
       setError(err instanceof AdminApiError ? String(err.detail) : 'reset failed')
+    }
+  }
+
+  const removeUser = async (u: AdminUser) => {
+    const ok = window.confirm(`Remove school access for ${u.full_name} (${u.email})? They will no longer be able to log in.`)
+    if (!ok) return
+    setError(''); setNotice('')
+    try {
+      await adminUsers.remove(u.id)
+      setNotice(`Access removed for ${u.full_name}.`)
+      await load()
+    } catch (err) {
+      setError(err instanceof AdminApiError ? String(err.detail) : 'failed to remove user access')
     }
   }
 
@@ -113,8 +126,16 @@ export default function AdminUsers() {
             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
               u.role === 'ADMIN' ? 'bg-gold/15 text-gold-dark' : 'bg-forest/10 text-forest'
             }`}>{u.role}</span>
-            <button onClick={() => void resetPassword(u)} title="Reset password"
-              className="text-forest/40 hover:text-forest"><KeyRound className="w-4 h-4" /></button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => void resetPassword(u)} title="Reset password"
+                className="p-1 rounded text-forest/40 hover:text-forest hover:bg-forest/5 transition-colors cursor-pointer">
+                <KeyRound className="w-4 h-4" />
+              </button>
+              <button onClick={() => void removeUser(u)} title="Remove / Revoke access (resigned)"
+                className="p-1 rounded text-danger/40 hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer">
+                <UserMinus className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ))}
         {users?.length === 0 && <p className="px-4 py-3 text-sm text-forest/50">No users found.</p>}

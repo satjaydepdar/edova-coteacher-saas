@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "id": "linear-equations-v1",
+    "title": "Solving Linear Equations: 2x + 3 = 11",
+    "description": "Step-by-step video lesson for linear equations",
+    "version": "1.0.0",
+    "author": "Edova Math Pod",
+    "fps": 30,
+    "width": 1920,
+    "height": 1080,
+    "tags": ["algebra", "linear-equations"]
+  },
+  "theme": {
+    "name": "edova-indigo",
+    "borderRadius": 16
+  },
+  "audio": {
+    "voiceoverTracks": []
+  },
+  "scenes": [
+    {
+      "id": "scene-1-intro",
+      "type": "math.concept_intro",
+      "title": "Algebra Fundamentals",
+      "subtitle": "Isolating the unknown variable",
+      "conceptName": "Linear Equations",
+      "hookLatex": "2x + 3 = 11",
+      "questionPrompt": "How do we isolate x when it is both multiplied and added?",
+      "contextDescription": "Think of the equal sign as a balance scale.",
+      "badgeText": "Algebra I",
+      "timing": {
+        "durationInSeconds": 5
+      },
+      "transition": {
+        "type": "fade",
+        "durationInFrames": 15
+      },
+      "audioCues": []
+    },
+    {
+      "id": "scene-2-step-by-step",
+      "type": "math.step_by_step",
+      "title": "Step-by-Step Solution",
+      "problemLatex": "2x + 3 = 11",
+      "ruleCallout": "Undo addition before multiplication.",
+      "timing": {
+        "durationInSeconds": 6
+      },
+      "transition": {
+        "type": "slide-left",
+        "durationInFrames": 15
+      },
+      "audioCues": [],
+      "steps": [
+        {
+          "stepNumber": 1,
+          "label": "Subtract 3 from both sides",
+          "latex": "2x = 8",
+          "explanation": "11 - 3 = 8",
+          "highlight": true
+        },
+        {
+          "stepNumber": 2,
+          "label": "Divide both sides by 2",
+          "latex": "x = 4",
+          "explanation": "8 / 2 = 4",
+          "highlight": true
+        }
+      ]
+    },
+    {
+      "id": "scene-3-answer",
+      "type": "core.answer",
+      "title": "Solution Verified",
+      "answerLabel": "FINAL ANSWER",
+      "answerLatex": "x = 4",
+      "answerText": "x = 4",
+      "explanation": "Substituting 4 back into the equation confirms equality.",
+      "verificationNote": "2(4) + 3 = 11. Validated.",
+      "takeaways": [
+        "Balance both sides with inverse operations.",
+        "Verify your final solution."
+      ],
+      "timing": {
+        "durationInSeconds": 5
+      },
+      "transition": {
+        "type": "fade",
+        "durationInFrames": 15
+      },
+      "audioCues": []
+    }
+  ]
+}

@@ -256,7 +256,7 @@ try:
         """Level-1 dashboard rollup: every section, every touched chapter, for the
         caller's tenant. Thin route -- all the math lives in _compute_dashboard_rollup."""
         uid = current_user_id(authorization)
-        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER", "ADMIN"))
 
         with db() as conn:
             section_rows = q(conn,
@@ -273,7 +273,7 @@ try:
         scoped to a single section -- a small, fast query for frequent drill-down
         navigation, independent of the tenant-wide rollup's cost as a school grows."""
         uid = current_user_id(authorization)
-        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER", "ADMIN"))
 
         with db() as conn:
             section_rows = q(conn,
@@ -296,7 +296,7 @@ try:
         percentage; only the aggregate mastery_pct (mastered concepts / curriculum size) is a
         real percentage, same rollup style as the Level-1 overview endpoint above."""
         uid = current_user_id(authorization)
-        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER",))
+        tenant_id, _, _, _, _, _, _tier = single_tenant_or_raise(uid, ("TEACHER", "ADMIN"))
 
         # Engagement is independent of sections/mastery_events entirely -- computed first so
         # a tenant with zero sections still gets real engagement data in the early return below.
@@ -446,6 +446,41 @@ try:
                 "action": guidance,
             })
 
+        # Query video explainer scaffolding telemetry
+        video_scaffolding = {
+            "total_explainers_requested": 0,
+            "explainers_watched": 0,
+            "recent_videos": [],
+            "relies_on_video_hints": False,
+        }
+        try:
+            with db() as conn:
+                v_rows = q(
+                    conn,
+                    "SELECT event_type, event_payload, timestamp FROM trig_telemetry_events "
+                    "WHERE student_id = %s AND event_type IN ('video_explainer_generated', 'video_explainer_watched') "
+                    "ORDER BY timestamp DESC LIMIT 10",
+                    (student_id,),
+                ).fetchall()
+                gen_count = sum(1 for r in v_rows if r[0] == "video_explainer_generated")
+                watch_count = sum(1 for r in v_rows if r[0] == "video_explainer_watched")
+                recent_v = [
+                    {
+                        "event_type": r[0],
+                        "video_id": (r[1] or {}).get("video_id") if isinstance(r[1], dict) else None,
+                        "file_name": (r[1] or {}).get("file_name") if isinstance(r[1], dict) else None,
+                        "s3_folder": (r[1] or {}).get("s3_folder", "Ondemand videos") if isinstance(r[1], dict) else "Ondemand videos",
+                        "timestamp": r[2].isoformat() if hasattr(r[2], "isoformat") else str(r[2]),
+                    }
+                    for r in v_rows[:5]
+                ]
+                video_scaffolding["total_explainers_requested"] = gen_count
+                video_scaffolding["explainers_watched"] = watch_count
+                video_scaffolding["recent_videos"] = recent_v
+                video_scaffolding["relies_on_video_hints"] = gen_count >= 2
+        except Exception:
+            pass
+
         return {
             "student_id": student_id,
             "mastery_pct": mastery_pct,
@@ -453,6 +488,7 @@ try:
             "topics": topics,
             "subjects": subjects,
             "engagement": engagement,
+            "video_scaffolding": video_scaffolding,
             "misconception_pattern": misconception_pattern,
             "suggested_next_steps": suggested_next_steps,
             "strengths": [t for t in topics if t["status"] == "mastered"],

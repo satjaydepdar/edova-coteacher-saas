@@ -61,6 +61,29 @@ export default function App() {
         <header className="top">
           <div><div className="eyebrow">{eyebrow}</div><div className="title">{title}</div><div className="subtitle">{chapter ? chapter.name : subtitle}</div></div>
           <div className="topright">
+            <a
+              href="http://localhost:5173"
+              target="_top"
+              className="back-to-main-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '38px',
+                padding: '0 14px',
+                borderRadius: '20px',
+                border: '1px solid var(--line)',
+                background: 'var(--white)',
+                color: 'var(--ink)',
+                fontSize: '11px',
+                textDecoration: 'none',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title="Return to Edova Co-Teacher Main App (Port 5173)"
+            >
+              ← Back to Main App
+            </a>
             {page === 'authoring' && (
               <button className="add-new-question" onClick={() => authoringRef.current?.startNewQuestion()}>
                 Add New Question

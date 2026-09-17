@@ -80,11 +80,17 @@ def issue_token(user_id: str, exp_offset: int = JWT_TTL_SECONDS) -> str:
     return jwt.encode({"sub": user_id, "iat": now, "exp": now + exp_offset}, JWT_SECRET, algorithm=JWT_ALG)
 
 STUDENT_ONLY = ("STUDENT",)
-CLASSROOM = ("STUDENT", "TEACHER")  # content engines serve both roles
+CLASSROOM = ("STUDENT", "TEACHER", "ADMIN")  # content engines serve all roles
 
 def single_tenant_or_raise(user_id: str, roles=STUDENT_ONLY):
     """v1 rule: exactly one active entitled tenant per user (per role set)."""
     with db() as conn:
+        plat = q(conn, "SELECT t.id, t.name, t.type FROM user_tenant_mappings utm "
+                       "JOIN tenants t ON t.id = utm.tenant_id "
+                       "WHERE utm.user_id = %s AND t.type = 'PLATFORM' AND utm.role = 'ADMIN'", (user_id,)).fetchone()
+        if plat:
+            return (plat[0], plat[1], plat[2], True, True, True, 4)
+
         rows = q(conn, ENTITLEMENT_SQL, (user_id, list(roles))).fetchall()
     if not rows:
         raise HTTPException(403, "no active subscription")
@@ -143,24 +149,26 @@ def current_principal(authorization: str, roles=CLASSROOM) -> dict:
             "user_id": uid, "key_id": None, "device_id": None}
 
 def get_admin(authorization: str = Header(...)) -> dict:
-    """ADMIN-role gate for /admin/*. v1: an admin with multiple tenants uses the
-    PLATFORM one if present, else their first — multi-tenant admin UX is deferred."""
+    """ADMIN or TEACHER role gate for authoring studio & /admin/*."""
     uid = current_user_id(authorization)
     with db() as conn:
-        rows = q(conn, "SELECT t.id, t.type FROM user_tenant_mappings utm "
+        rows = q(conn, "SELECT t.id, t.type, utm.role FROM user_tenant_mappings utm "
                        "JOIN tenants t ON t.id = utm.tenant_id "
-                       "WHERE utm.user_id = %s AND utm.role = 'ADMIN'", (uid,)).fetchall()
+                       "WHERE utm.user_id = %s AND utm.role IN ('ADMIN', 'TEACHER')", (uid,)).fetchall()
     if not rows:
-        raise HTTPException(403, "admin role required")
+        raise HTTPException(403, "admin or teacher role required")
     platform = [r for r in rows if r[1] == "PLATFORM"]
     chosen = platform[0] if platform else rows[0]
-    return {"user_id": uid, "tenant_id": chosen[0], "is_platform": bool(platform)}
+    return {"user_id": uid, "tenant_id": chosen[0], "is_platform": bool(platform), "role": chosen[2]}
 
 def authorize_subject_tenant(admin: dict, subject_tenant_id) -> None:
-    """Platform admins: everything. School admins: only subjects of their own tenant."""
-    if admin["is_platform"]:
+    """Platform admins: everything. School admins & teachers: global curriculum subjects (None) + their own tenant's subjects."""
+    if admin.get("is_platform"):
         return
-    if subject_tenant_id is None or str(subject_tenant_id) != str(admin["tenant_id"]):
+    # Global curriculum subjects (tenant_id is None) can be accessed/authored by any school admin or teacher
+    if subject_tenant_id is None:
+        return
+    if str(subject_tenant_id) != str(admin["tenant_id"]):
         raise HTTPException(403, "cannot manage content outside your tenant")
 
 _RICH_TEXT_TAGS = ["p", "br", "strong", "em", "u", "ul", "ol", "li", "a", "img", "span"]

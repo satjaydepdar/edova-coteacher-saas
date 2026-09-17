@@ -1,0 +1,17 @@
+{
+  "name": "@vf/renderer",
+  "scripts": {
+    "dev": "remotion studio",
+    "render:hcf": "remotion render src/index.ts Explainer out/hcf-60-84-108.mp4 --props=../../storyboards/hcf-60-84-108.props.json",
+    "render:trig": "remotion render src/index.ts Explainer out/trig-depression-river.mp4 --props=../../storyboards/trig-depression-river.props.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "@vf/core": "*",
+    "@vf/math": "*",
+    "@vf/storyboard": "*",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "remotion": "^4.0.0"
+  }
+}

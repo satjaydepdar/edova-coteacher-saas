@@ -1,0 +1,79 @@
+{
+  "videoId": "trig-depression-river",
+  "title": "Angle of Depression: Width of River from a Bridge",
+  "template": "trig-depression",
+  "schemaVersion": "1.0",
+  "question": "In triangle ABC right angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A",
+  "aspect": "16:9",
+  "fps": 30,
+  "scenes": [
+    {
+      "id": "s1",
+      "type": "math.groups",
+      "narration": "From a bridge across a river, the angles of depression of the opposite banks are thirty degrees and forty-five degrees. The bridge is three meters high.",
+      "padMs": 400,
+      "visual": {
+        "groups": [
+          {
+            "label": "Bridge Height",
+            "n": 3
+          },
+          {
+            "label": "Angle Bank A",
+            "n": 30
+          },
+          {
+            "label": "Angle Bank B",
+            "n": 45
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2",
+      "type": "math.trigDiagram",
+      "narration": "The angles of depression are measured downward from the horizontal line of sight. By alternate interior angles, the angles at the river banks are thirty degrees and forty-five degrees.",
+      "padMs": 500,
+      "visual": {
+        "title": "Geometric Model: Angles of Depression",
+        "heightM": 3,
+        "angleLeftDeg": 30,
+        "angleRightDeg": 45,
+        "observerLabel": "Bridge (3m)",
+        "leftLabel": "Bank A (30°)",
+        "rightLabel": "Bank B (45°)"
+      }
+    },
+    {
+      "id": "s3",
+      "type": "math.trigSteps",
+      "narration": "Using trigonometry in both right triangles: tangent thirty degrees gives d1 equals three root three meters. Tangent forty-five degrees gives d2 equals three meters.",
+      "padMs": 500,
+      "visual": {
+        "title": "Applying Tangent Ratios to Both Banks",
+        "leftEquation": "tan(30°) = 3 / d₁",
+        "leftResult": "d₁ = 3√3 ≈ 5.20 m",
+        "rightEquation": "tan(45°) = 3 / d₂",
+        "rightResult": "d₂ = 3.00 m",
+        "totalEquation": "Width = d₁ + d₂ = 3√3 + 3",
+        "totalResult": "3(√3 + 1) m ≈ 8.20 m"
+      }
+    },
+    {
+      "id": "s4",
+      "type": "core.answer",
+      "narration": "Therefore, the total width of the river is three times root three plus one meters, which is approximately eight point two meters.",
+      "padMs": 600,
+      "visual": {
+        "headline": "River Width = 3(√3 + 1) m",
+        "sub": "≈ 8.20 m · CBSE Class 10 NCERT Application of Trigonometry"
+      }
+    }
+  ],
+  "componentLock": {
+    "math.groups": "0.1.0",
+    "math.trigDiagram": "0.1.0",
+    "math.trigSteps": "0.1.0",
+    "core.answer": "0.1.0"
+  }
+}

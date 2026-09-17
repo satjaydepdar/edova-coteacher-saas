@@ -166,3 +166,21 @@ def reset_user_password(user_id: str, body: PasswordResetIn, authorization: str 
             raise HTTPException(404, "user not found")
     return {"id": user_id, "password_reset": True}
 
+
+@router.delete("/admin/users/{user_id}")
+def delete_user_access(user_id: str, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    if str(user_id) == str(admin["user_id"]):
+        raise HTTPException(400, "cannot revoke your own access")
+    with db() as conn:
+        if not admin["is_platform"]:
+            row = q(conn, "SELECT id, role FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s",
+                    (user_id, admin["tenant_id"])).fetchone()
+            if row is None:
+                raise HTTPException(404, "user not found in your school")
+            q(conn, "DELETE FROM user_tenant_mappings WHERE user_id = %s AND tenant_id = %s",
+              (user_id, admin["tenant_id"]))
+        else:
+            q(conn, "DELETE FROM user_tenant_mappings WHERE user_id = %s", (user_id,))
+    return {"id": user_id, "revoked": True}
+

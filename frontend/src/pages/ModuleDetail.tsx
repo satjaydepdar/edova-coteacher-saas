@@ -276,7 +276,7 @@ export default function ModuleDetail() {
     <div className="p-3 lg:p-5 max-w-[1200px] mx-auto">
       <div className="flex items-center gap-2 mb-3 text-[12px]">
         <Link
-          to="/"
+          to="/lessons"
           className="flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-white border border-black/10 hover:bg-black/[0.03] transition-colors font-medium"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to shelf

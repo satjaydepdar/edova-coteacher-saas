@@ -327,7 +327,7 @@ def admin_chapter_sections(chapter_id: str, authorization: str = Header(...)):
         if row is None:
             raise HTTPException(404, "chapter not found")
         authorize_subject_tenant(admin, row[0])
-        tenant_id = row[0]
+        tenant_id = row[0] or admin.get("tenant_id")
         if tenant_id is None:
             return {"sections": []}
         rows = q(conn, "SELECT id, name, grade FROM sections WHERE tenant_id = %s ORDER BY name",

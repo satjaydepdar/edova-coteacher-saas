@@ -52,8 +52,25 @@ export default function TeacherLogin() {
           type="submit" disabled={busy}
           className="w-full py-2.5 rounded-lg bg-forest text-cream text-sm font-medium hover:bg-forest-raised disabled:opacity-50 transition-colors"
         >
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? 'Signing in…' : 'Sign in as Teacher'}
         </button>
+
+        <div className="mt-6 pt-4 border-t border-cream-border flex flex-col gap-2.5 text-center text-xs">
+          <button
+            type="button"
+            onClick={() => navigate('/cms/login')}
+            className="text-forest/70 hover:text-forest transition-colors"
+          >
+            Need School or Platform Admin? <span className="font-semibold text-forest underline">Sign in to Admin Portal &rarr;</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="text-forest/50 hover:text-forest transition-colors"
+          >
+            &larr; Return to Student Classroom
+          </button>
+        </div>
       </form>
     </div>
   )

@@ -1,0 +1,1 @@
+{ "name": "@vf/storyboard", "main": "src/index.ts", "dependencies": { "zod": "^3.23.0" } }

@@ -1,0 +1,23 @@
+{
+  "name": "video-factory",
+  "private": true,
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev:renderer": "npm run dev -w @vf/renderer",
+    "typecheck": "tsc --noEmit -p tsconfig.base.json",
+    "test": "vitest run",
+    "sb:hcf": "tsx apps/pipeline/src/cli/build-storyboard.ts",
+    "sb:trig": "tsx apps/pipeline/src/cli/build-trig.ts",
+    "engine": "tsx apps/pipeline/src/server.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "overrides": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

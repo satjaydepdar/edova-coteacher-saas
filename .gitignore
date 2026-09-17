@@ -7,6 +7,10 @@ temp/
 # Local tool binaries (ffmpeg static build for the dev transcode pipeline, ~170MB)
 tools/
 
+# Legacy pilot repo (~900MB), kept locally for reference only during the SaaS port.
+# Most of its files have already been migrated into this repo; do not commit it.
+edova-coteacher-lms-master/
+
 # --- secrets ---
 .env
 .env.*
@@ -22,6 +26,7 @@ venv/
 node_modules/
 frontend/dist/
 storefront/dist/
+edova-authoring-app/dist/
 
 # --- playwright (e2e test artifacts) ---
 edova-authoring-app/test-results/

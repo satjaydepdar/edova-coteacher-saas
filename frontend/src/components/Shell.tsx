@@ -488,7 +488,8 @@ export default function Shell() {
           </div>
           )}
 
-          {/* TEACHING GROUP */}
+          {/* TEACHING GROUP (not for Student login) */}
+          {!isStudent && (
           <div className="space-y-1">
             {!isCollapsed && (
               <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/35 px-3 mb-1.5 font-[Inter]">
@@ -582,8 +583,10 @@ export default function Shell() {
               </div>
             </div>
           </div>
+          )}
 
-          {/* ADMIN & SYSTEM */}
+          {/* ADMIN & SYSTEM (not for Student login) */}
+          {!isStudent && (
           <div className="space-y-1">
             {!isCollapsed && (
               <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/35 px-3 mb-1.5 font-[Inter]">
@@ -622,6 +625,7 @@ export default function Shell() {
               {!isCollapsed && <span>Settings</span>}
             </NavLink>
           </div>
+          )}
         </div>
 
         {/* User / School Profile Card */}

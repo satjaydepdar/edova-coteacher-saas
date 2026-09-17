@@ -443,19 +443,6 @@ export default function Shell() {
                     <ListChecks className="w-4 h-4 shrink-0" />
                     <span>Practice Questions</span>
                   </NavLink>
-
-                  <NavLink
-                    to="/resources"
-                    title="Learning Resources"
-                    className={({ isActive }) =>
-                      `w-full flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
-                        isActive ? activeNavClass : inactiveNavClass
-                      }`
-                    }
-                  >
-                    <FolderOpen className="w-4 h-4 shrink-0" />
-                    <span>Learning Resources</span>
-                  </NavLink>
                 </div>
               )}
             </div>
@@ -543,6 +530,23 @@ export default function Shell() {
               <FileQuestion className="w-4 h-4 shrink-0" />
               {!isCollapsed && (
                 <span className="font-[Inter] text-[14px]">Assessment Builder</span>
+              )}
+            </NavLink>
+            )}
+
+            {!isStudent && (
+            <NavLink
+              to="/resources"
+              title="Learning Resources"
+              className={({ isActive }) =>
+                `w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
+              }
+            >
+              <FolderOpen className="w-4 h-4 shrink-0" />
+              {!isCollapsed && (
+                <span className="font-[Inter] text-[14px]">Learning Resources</span>
               )}
             </NavLink>
             )}

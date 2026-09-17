@@ -660,38 +660,6 @@ export default function ConceptDagModal({
               )
             })}
           </div>
-
-          <div
-            className="hidden sm:block absolute bottom-6 z-10 bg-white border border-[#EDE8DD] rounded-[12px] p-2 shadow-[0_4px_16px_rgba(0,0,0,0.08)] pointer-events-none transition-all duration-300 ease-out"
-            style={{ right: isInspectorOpen ? '364px' : '24px', width: 140, height: 90 }}
-          >
-            <div className="w-full h-full relative bg-[#FBF9F3] rounded-[8px] overflow-hidden border border-[#EDE8DD]/60">
-              {effectiveNodes.map((n) => {
-                const mx = (n.x / canvasWidth) * 120 + 2
-                const my = (n.y / canvasHeight) * 72 + 2
-                return (
-                  <div
-                    key={n.id}
-                    className="absolute w-[4px] h-[4px] rounded-full"
-                    style={{
-                      left: mx,
-                      top: my,
-                      backgroundColor: n.id === selectedId ? '#1A221E' : n.status === 'active' ? '#DDB56E' : n.status === 'unlocked' ? '#4A7C59' : n.status === 'mastered' ? '#111814' : '#D6D0C2',
-                    }}
-                  />
-                )
-              })}
-              <div
-                className="absolute border border-[#DDB56E] bg-[#DDB56E]/10 rounded-[2px]"
-                style={{
-                  left: Math.max(0, (-pan.x / zoom / canvasWidth) * 124),
-                  top: Math.max(0, (-pan.y / zoom / canvasHeight) * 74),
-                  width: Math.min(124, Math.max(16, (800 / zoom / canvasWidth) * 124)),
-                  height: Math.min(74, Math.max(12, (500 / zoom / canvasHeight) * 74)),
-                }}
-              />
-            </div>
-          </div>
         </div>
 
         <aside

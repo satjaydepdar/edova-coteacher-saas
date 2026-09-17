@@ -28,7 +28,7 @@ import {
 import { useApp } from '../store'
 import { useTeacher } from '../store/teacherStore'
 import { useAuthStore } from '../store/authStore'
-import { api, type Chapter, type ModuleType, type Tree } from '../lib/api'
+import { api, type Chapter, type Tree } from '../lib/api'
 import { CURRICULUM_DATABASE } from '../data/curriculumData'
 import { Badge } from './ui/badge'
 
@@ -46,8 +46,6 @@ export interface WorkspaceCtx {
   setChapterId: (id: string) => void
   classFilter: string
   setClassFilter: (c: string) => void
-  typeFilter: ModuleType | 'ALL'
-  setTypeFilter: (t: ModuleType | 'ALL') => void
   chapters: Chapter[]
   features: { allow_video: boolean; allow_lab: boolean; allow_quiz: boolean } | null
   // Virtual Labs filter context
@@ -63,13 +61,6 @@ export function useWorkspace() {
   return useOutletContext<WorkspaceCtx>()
 }
 
-const TYPE_LABEL: Record<ModuleType | 'ALL', string> = {
-  ALL: 'All Types',
-  VIDEO: 'Videos',
-  LAB: 'Labs',
-  QUIZ: 'Quizzes',
-}
-
 export default function Shell() {
   const { session, subjects, features, boot, deactivate, bootError } = useApp()
   const { authed: teacherAuthed, logout: logoutTeacher } = useTeacher()
@@ -77,7 +68,6 @@ export default function Shell() {
   const [subjectId, setSubjectIdRaw] = useState<string | null>(null)
   const [chapterId, setChapterId] = useState('ALL')
   const [classFilter, setClassFilter] = useState('ALL')
-  const [typeFilter, setTypeFilter] = useState<ModuleType | 'ALL'>('ALL')
   const [lessonsExpanded, setLessonsExpanded] = useState(true)
   const [learningHubExpanded, setLearningHubExpanded] = useState(true)
   const [labSubject, setLabSubject] = useState<'maths' | 'science' | 'social' | 'english'>('science')
@@ -170,8 +160,6 @@ export default function Shell() {
     setChapterId,
     classFilter,
     setClassFilter,
-    typeFilter,
-    setTypeFilter,
     chapters,
     features,
     labSubject,

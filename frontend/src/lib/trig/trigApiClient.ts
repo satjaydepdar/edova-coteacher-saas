@@ -127,6 +127,28 @@ export interface TrigProfile {
   struggles: string[]
 }
 
+/** What CoteacherWorkspace actually calls -- implemented once here for
+ * Trigonometry and again in lib/coordgeo/coordgeoApiClient.ts for Coordinate
+ * Geometry, hitting /api/coordgeo/* instead of /api/trig/*. The backend
+ * response shapes are identical for both subjects (same reasoning engine,
+ * same session/telemetry contract), so the types below (named Trig* for
+ * historical reasons, predating Coordinate Geometry) are reused rather than
+ * duplicated. */
+export interface SubjectApi {
+  concepts: () => Promise<TrigConceptSummary[]>
+  state: (conceptId: string, opts?: { fresh?: boolean; generateNew?: boolean }) => Promise<TrigStudentState>
+  reset: (conceptId: string) => Promise<{ message: string }>
+  profile: () => Promise<TrigProfile>
+  initSession: (problemText: string, initialSal?: number) => Promise<GenericSessionInitResponse>
+  submitStep: (
+    sessionId: string,
+    stepIndex: number,
+    userAnswer: string,
+    responseTime?: number,
+  ) => Promise<GenericSessionStepResponse>
+  getSession: (sessionId: string) => Promise<GenericSessionInitResponse>
+}
+
 export const trigApi = {
   concepts: () => call<TrigConceptSummary[]>('/api/trig/concepts'),
 

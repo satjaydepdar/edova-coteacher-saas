@@ -1,9 +1,13 @@
-"""Converts a free-text trigonometry problem into the structured `problem_spec`
-that edova-reasoner requires. The reasoner used to parse free text itself, but
-that parser was retired upstream (see edova-reasoner/backend/app/api/session.py:
-"Runtime regex and NLP problem parsing have been retired") -- callers must now
-supply problem_spec directly. This is that missing caller-side step, for the
-"Custom Problem" flow where no curated problem_spec exists ahead of time.
+"""Converts a free-text CBSE Class 10 math problem into the structured
+`problem_spec` that edova-reasoner requires. The reasoner used to parse free
+text itself, but that parser was retired upstream (see
+edova-reasoner/backend/app/api/session.py: "Runtime regex and NLP problem
+parsing have been retired") -- callers must now supply problem_spec directly.
+This is that missing caller-side step, for any "Custom Problem" flow where no
+curated problem_spec exists ahead of time. Shared across subjects (Trigonometry,
+Coordinate Geometry) rather than duplicated per subject, since it's the same
+"free text in, structured spec out" job either way -- the model just picks
+from whichever type family actually matches the input.
 
 If the model picks a problem_type outside the ones documented below, or the
 call fails outright, the reasoner's own chunker falls back to a generic
@@ -12,7 +16,7 @@ misclassification degrades gracefully instead of breaking the session.
 """
 from services.llm_client import call_llm_json, LlmCallError
 
-SYSTEM_PROMPT = """You convert a CBSE Class 10 Trigonometry word problem into a JSON \
+SYSTEM_PROMPT = """You convert a CBSE Class 10 math word problem into a JSON \
 `problem_spec` object for a deterministic solver. Output ONLY a JSON object, no prose.
 
 Pick the single best-matching `problem_type` and include exactly its fields below \
@@ -46,6 +50,44 @@ TRIG_RATIO_EVALUATION -- given one ratio's value, evaluate another expression in
 
 CONDITIONAL_TRIG_IDENTITY -- given sin(x)+cos(x)=k, find a related target expression:
   {"problem_type":"CONDITIONAL_TRIG_IDENTITY","variable":"x","given_value":"1","target_value":"sin(x)*cos(x)"}
+
+-- Coordinate Geometry (points as [x, y] string pairs) --
+
+COORDGEO_CARTESIAN_BASICS -- state a point's abscissa/ordinate and its quadrant:
+  {"problem_type":"COORDGEO_CARTESIAN_BASICS","abscissa":4,"ordinate":-5}
+
+COORDGEO_DISTANCE -- distance between two named/plain points:
+  {"problem_type":"COORDGEO_DISTANCE","p1":["2","3"],"p2":["4","1"]}
+
+COORDGEO_DISTANCE_FROM_ORIGIN -- distance of one point from the origin:
+  {"problem_type":"COORDGEO_DISTANCE_FROM_ORIGIN","p":["-6","8"]}
+
+COORDGEO_COLLINEARITY -- check if three points are collinear using distance:
+  {"problem_type":"COORDGEO_COLLINEARITY","p1":["1","-1"],"p2":["5","2"],"p3":["9","5"]}
+
+COORDGEO_TRIANGLE_TYPE -- classify a triangle (equilateral/isosceles/right/scalene) from 3 points:
+  {"problem_type":"COORDGEO_TRIANGLE_TYPE","p1":["2","-2"],"p2":["14","10"],"p3":["11","13"]}
+
+COORDGEO_QUADRILATERAL_TYPE -- classify a quadrilateral (square/rhombus/rectangle/parallelogram) from 4 points, in order:
+  {"problem_type":"COORDGEO_QUADRILATERAL_TYPE","p1":["-1","-2"],"p2":["1","0"],"p3":["-1","2"],"p4":["-3","0"]}
+
+COORDGEO_SECTION_FORMULA -- point dividing A,B internally in ratio m1:m2:
+  {"problem_type":"COORDGEO_SECTION_FORMULA","p1":["1","-5"],"p2":["-4","5"],"m1":1,"m2":2}
+
+COORDGEO_MIDPOINT -- midpoint of two points:
+  {"problem_type":"COORDGEO_MIDPOINT","p1":["2","-3"],"p2":["-6","3"]}
+
+COORDGEO_RATIO_AXIS_DIVISION -- ratio in which the x- or y-axis divides a segment:
+  {"problem_type":"COORDGEO_RATIO_AXIS_DIVISION","p1":["-4","2"],"p2":["8","6"],"axis":"y"}
+
+COORDGEO_TRISECTION -- the two points that divide a segment into three equal parts:
+  {"problem_type":"COORDGEO_TRISECTION","p1":["4","-1"],"p2":["-2","-3"]}
+
+COORDGEO_PARALLELOGRAM_VERTEX -- find a missing vertex of parallelogram ABCD given the other three:
+  {"problem_type":"COORDGEO_PARALLELOGRAM_VERTEX","known":{"A":["6","1"],"B":["8","2"],"C":["9","4"]},"missing_label":"D"}
+
+COORDGEO_DIAGONAL_AREA -- area of a rhombus/kite from its 4 vertices via diagonals (Area = 1/2*d1*d2):
+  {"problem_type":"COORDGEO_DIAGONAL_AREA","p1":["3","0"],"p2":["4","5"],"p3":["-1","4"],"p4":["-2","-1"]}
 
 If nothing above genuinely fits, still return your best guess at problem_type (a short
 UPPER_SNAKE_CASE label) plus a "raw_text" field with the original problem -- do not

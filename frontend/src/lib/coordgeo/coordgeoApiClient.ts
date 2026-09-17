@@ -1,9 +1,18 @@
 import { getToken } from '../api'
+import type {
+  SubjectApi,
+  TrigConceptSummary,
+  TrigStudentState,
+  TrigProfile,
+  GenericSessionInitResponse,
+  GenericSessionStepResponse,
+} from '../trig/trigApiClient'
 
-/** Client for /api/coordgeo/* (backend/coordinate_geometry/). Mirrors trigApiClient's
- * shape. Unlike trig, there's no reasoner-backed interactive session here yet --
- * state() returns a curated problem + hints + worked solution instead of a live
- * derivation session (see backend/coordinate_geometry/routers/student.py). */
+/** Client for /api/coordgeo/* (backend/coordinate_geometry/). Response shapes
+ * match Trigonometry's exactly (same reasoning engine underneath now that
+ * coordinate_geometry_solver.py exists), so this implements the same
+ * SubjectApi interface CoteacherWorkspace already expects -- no separate
+ * Coordinate-Geometry-flavored workspace component needed. */
 
 export class CoordGeoApiError extends Error {
   status: number
@@ -36,49 +45,15 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export interface CoordGeoConceptSummary {
-  id: string
-  title: string
-  chapter: string
-  difficulty: number
-  description: string | null
-  formula_reference: string | null
-  prerequisites: string[]
-  is_unlocked: boolean
-  is_completed: boolean
-  mastery_score: number
-}
+export const coordgeoApi: SubjectApi = {
+  concepts: () => call<TrigConceptSummary[]>('/api/coordgeo/concepts'),
 
-export interface CoordGeoStudentState {
-  concept_id: string
-  concept_title: string
-  difficulty: number
-  formula_reference: string | null
-  mastery_score: number
-  questions_solved: number
-  solving_available: boolean
-  solving_unavailable_reason: string | null
-  problem_title: string | null
-  problem_text: string | null
-  hints: Record<string, string>
-  worked_solution: string[]
-  expected_answer: string | null
-}
-
-export interface CoordGeoProfile {
-  student_id: string
-  mastered_concepts: number
-  in_progress_concepts: number
-  total_concepts: number
-  average_mastery: number
-}
-
-export const coordgeoApi = {
-  concepts: () => call<CoordGeoConceptSummary[]>('/api/coordgeo/concepts'),
-
-  state: (conceptId: string, opts: { generateNew?: boolean } = {}) => {
-    const qs = opts.generateNew ? '?generate_new=true' : ''
-    return call<CoordGeoStudentState>(`/api/coordgeo/student/state/${conceptId}${qs}`)
+  state: (conceptId: string, opts: { fresh?: boolean; generateNew?: boolean } = {}) => {
+    const params = new URLSearchParams()
+    if (opts.fresh) params.set('fresh', 'true')
+    if (opts.generateNew) params.set('generate_new', 'true')
+    const qs = params.toString()
+    return call<TrigStudentState>(`/api/coordgeo/student/state/${conceptId}${qs ? `?${qs}` : ''}`)
   },
 
   reset: (conceptId: string) =>
@@ -87,5 +62,24 @@ export const coordgeoApi = {
       body: JSON.stringify({ concept_id: conceptId }),
     }),
 
-  profile: () => call<CoordGeoProfile>('/api/coordgeo/analytics/profile'),
+  profile: () => call<TrigProfile>('/api/coordgeo/analytics/profile'),
+
+  initSession: (problemText: string, initialSal = 1.0) =>
+    call<GenericSessionInitResponse>('/api/coordgeo/session/init', {
+      method: 'POST',
+      body: JSON.stringify({ problem_text: problemText, initial_sal: initialSal }),
+    }),
+
+  submitStep: (sessionId: string, stepIndex: number, userAnswer: string, responseTime = 15.0) =>
+    call<GenericSessionStepResponse>('/api/coordgeo/session/step', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        step_index: stepIndex,
+        user_answer: userAnswer,
+        response_time: responseTime,
+      }),
+    }),
+
+  getSession: (sessionId: string) => call<GenericSessionInitResponse>(`/api/coordgeo/session/${sessionId}`),
 }

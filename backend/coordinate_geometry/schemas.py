@@ -1,10 +1,15 @@
-"""Mirrors trigonometry/schemas.py, trimmed to what coordinate_geometry actually uses
-(no session/reasoner-shaped schemas -- see routers/student.py)."""
+"""Mirrors trigonometry/schemas.py."""
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
 class ResetRequest(BaseModel):
     concept_id: str
+
+class CognitiveMetrics(BaseModel):
+    assistance_sal: float
+    concept_mastery: float
+    active_attempts: int
+    accuracy_rate: float
 
 class TelemetryEventCreate(BaseModel):
     concept_id: Optional[str] = Field(default="coordgeo-c1")

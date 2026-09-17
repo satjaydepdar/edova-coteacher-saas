@@ -143,6 +143,7 @@ from coordinate_geometry.routers.student import router as coordgeo_student_route
 from coordinate_geometry.routers.analytics import router as coordgeo_analytics_router
 from coordinate_geometry.routers.teacher import router as coordgeo_teacher_router
 from coordinate_geometry.routers.telemetry import router as coordgeo_telemetry_router
+from coordinate_geometry.routers.session_proxy import router as coordgeo_session_router
 from routers.video_engine import router as video_engine_router
 from routers.settings import router as settings_router
 from routers.calendar import router as calendar_router
@@ -184,6 +185,7 @@ app.include_router(coordgeo_student_router)
 app.include_router(coordgeo_analytics_router)
 app.include_router(coordgeo_teacher_router)
 app.include_router(coordgeo_telemetry_router)
+app.include_router(coordgeo_session_router)
 app.include_router(video_engine_router)
 app.include_router(settings_router)
 app.include_router(calendar_router)

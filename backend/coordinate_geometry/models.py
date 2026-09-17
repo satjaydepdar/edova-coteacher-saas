@@ -42,13 +42,36 @@ class StudentState(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, nullable=False, index=True)
     concept_id = Column(String, ForeignKey('coordgeo_concepts.id', ondelete="CASCADE"), nullable=False)
+    active_step_index = Column(Integer, default=0)
     mastery_score = Column(Float, default=0.0)
+    scaffold_assistance_level = Column(Float, default=1.0)
+    consecutive_correct = Column(Integer, default=0)
     questions_solved = Column(Integer, default=0)
+    active_session_id = Column(String(64), index=True, nullable=True)
     current_question_id = Column(Integer, ForeignKey('coordgeo_questions.id', ondelete="SET NULL"), nullable=True)
+    cognitive_profile = Column(JSON, default=lambda: {
+        "accuracy_rate": 0.0, "avg_response_latency_sec": 0.0, "total_attempts": 0,
+    })
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     concept = relationship("Concept")
     current_question = relationship("CoordGeoQuestion")
+
+class InteractionLog(Base):
+    __tablename__ = 'coordgeo_interaction_logs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, nullable=False, index=True)
+    concept_id = Column(String, ForeignKey('coordgeo_concepts.id', ondelete="CASCADE"), nullable=False)
+    step_index = Column(Integer, nullable=False)
+    raw_input = Column(String, nullable=True)
+    step_score = Column(Float, nullable=False)
+    response_time = Column(Float, default=0.0)
+    sal_at_step = Column(Float, nullable=False)
+    mastery_at_step = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    concept = relationship("Concept")
 
 class TelemetryEvent(Base):
     __tablename__ = 'coordgeo_telemetry_events'
@@ -73,6 +96,7 @@ class CoordGeoQuestion(Base):
     hints = Column(JSON, default=dict)
     worked_solution = Column(JSON, default=list)
     expected_answer = Column(String, nullable=True)
+    problem_spec = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     concept = relationship("Concept")

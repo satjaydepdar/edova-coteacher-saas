@@ -19,6 +19,7 @@ import VideoExplainerModal from '../video/VideoExplainerModal'
 import { trackTelemetryEvent } from '../../lib/trig/tracer'
 import {
   trigApi,
+  type SubjectApi,
   type TrigConceptSummary,
   type TrigStepHistoryItem,
   type TrigMetrics,
@@ -32,12 +33,62 @@ interface CoteacherWorkspaceProps {
   conceptId: string
   onSelectConcept?: (id: string) => void
   availableConcepts?: TrigConceptSummary[]
+  api?: SubjectApi
+  telemetryEndpoint?: string
+  dagSubjectLabel?: string
+  subjectFallbackName?: string
+  formulaReferenceTitle?: string
+  formulaReferenceItems?: [string, string][]
+  customModalTitle?: string
+  presetProblems?: { title: string; text: string }[]
+  syncBadgeLabel?: string
 }
+
+const TRIG_FORMULA_REFERENCE: [string, string][] = [
+  ['Pythagoras', 'AB² + BC² = AC²'],
+  ['sin θ', 'opp / hyp = AB / AC'],
+  ['cos θ', 'adj / hyp = BC / AC'],
+  ['tan θ', 'opp / adj = AB / BC'],
+  ['sin²+cos²', 'sin²θ + cos²θ = 1'],
+  ['Complementary', 'sin(90°-θ) = cos θ'],
+]
+
+const TRIG_PRESET_PROBLEMS = [
+  {
+    title: 'Oswaal Shadow Altitude',
+    text: 'a tower AB is 20 m high and BC, its shadow on the ground, is 20 sqaureroot 3 m long. Find the Sun’s altitude.',
+  },
+  {
+    title: 'NCERT 8.2 Q3 Angle System',
+    text: 'If sin(A - B) = 1/2, cos(A + B) = 1/2, 0 < A + B <= 90, A > B, find A and B.',
+  },
+  {
+    title: 'NCERT 8.1 Q1 Triangle Ratios',
+    text: 'In triangle ABC, right-angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A (ii) sin C, cos C',
+  },
+  {
+    title: 'NCERT 8.2 Q1 Compound Evaluation',
+    text: 'Evaluate: 2 tan^2 45 + cos^2 30 - sin^2 60',
+  },
+  {
+    title: 'Tower Elevation Height',
+    text: 'A tower stands vertically on the ground. From a point on the ground, which is 15 m away from the foot of the tower, the angle of elevation of the top of the tower is found to be 60. Find the height of the tower.',
+  },
+]
 
 export default function CoteacherWorkspace({
   conceptId,
   onSelectConcept,
   availableConcepts = [],
+  api = trigApi,
+  telemetryEndpoint = '/api/trig/telemetry/event',
+  dagSubjectLabel = 'CBSE CLASS 10 DAG',
+  subjectFallbackName = 'Trigonometry',
+  formulaReferenceTitle = 'CBSE Trigonometry Formulas Reference',
+  formulaReferenceItems = TRIG_FORMULA_REFERENCE,
+  customModalTitle = 'Custom CBSE Trigonometry Problem',
+  presetProblems = TRIG_PRESET_PROBLEMS,
+  syncBadgeLabel = 'SYNC RIGHT-ANGLED • LIVE',
 }: CoteacherWorkspaceProps) {
   const navigate = useNavigate()
   const { session } = useApp()
@@ -91,29 +142,6 @@ export default function CoteacherWorkspace({
   const [customProblemInput, setCustomProblemInput] = useState('')
   const [customLoading, setCustomLoading] = useState(false)
 
-  const PRESET_PROBLEMS = [
-    {
-      title: 'Oswaal Shadow Altitude',
-      text: 'a tower AB is 20 m high and BC, its shadow on the ground, is 20 sqaureroot 3 m long. Find the Sun’s altitude.',
-    },
-    {
-      title: 'NCERT 8.2 Q3 Angle System',
-      text: 'If sin(A - B) = 1/2, cos(A + B) = 1/2, 0 < A + B <= 90, A > B, find A and B.',
-    },
-    {
-      title: 'NCERT 8.1 Q1 Triangle Ratios',
-      text: 'In triangle ABC, right-angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A (ii) sin C, cos C',
-    },
-    {
-      title: 'NCERT 8.2 Q1 Compound Evaluation',
-      text: 'Evaluate: 2 tan^2 45 + cos^2 30 - sin^2 60',
-    },
-    {
-      title: 'Tower Elevation Height',
-      text: 'A tower stands vertically on the ground. From a point on the ground, which is 15 m away from the foot of the tower, the angle of elevation of the top of the tower is found to be 60. Find the height of the tower.',
-    },
-  ]
-
   const handleStartCustomProblem = async (customText?: string) => {
     const textToUse = customText || customProblemInput
     if (!textToUse.trim()) return
@@ -122,7 +150,7 @@ export default function CoteacherWorkspace({
     setSystemError(null)
     setFeedback(null)
     try {
-      const res = await trigApi.initSession(textToUse.trim())
+      const res = await api.initSession(textToUse.trim())
       setIsGenericSession(true)
       setGenericSessionId(res.session_id)
       setConceptTitle(`Reasoning Engine: ${res.problem_type}`)
@@ -163,7 +191,7 @@ export default function CoteacherWorkspace({
     setEditingStepIndex(null)
 
     try {
-      const data = await trigApi.state(conceptId, { fresh, generateNew })
+      const data = await api.state(conceptId, { fresh, generateNew })
       setGenericSessionId(data.session_id || null)
       setIsGenericSession(true)
       setConceptTitle(data.concept_title)
@@ -188,7 +216,7 @@ export default function CoteacherWorkspace({
 
   const fetchProfile = async () => {
     try {
-      setProfile(await trigApi.profile())
+      setProfile(await api.profile())
     } catch {
       // Ignore -- non-critical sidebar widget
     }
@@ -207,7 +235,7 @@ export default function CoteacherWorkspace({
   }, [conceptId])
 
   const handleNextProblem = () => {
-    trackTelemetryEvent(conceptId, activeStepIndex, 'next_problem_click', { concept_id: conceptId })
+    trackTelemetryEvent(conceptId, activeStepIndex, 'next_problem_click', { concept_id: conceptId }, telemetryEndpoint)
     setEnteredSteps([])
     fetchState(false, true)
     setFeedback(null)
@@ -244,7 +272,7 @@ export default function CoteacherWorkspace({
     setSystemError(null)
 
     try {
-      const res = await trigApi.submitStep(genericSessionId, stepIdx, trimmed)
+      const res = await api.submitStep(genericSessionId, stepIdx, trimmed)
       if (res.is_correct) {
         setStepsHistory(res.steps_history)
         if (!isEditingPastStep) {
@@ -283,7 +311,7 @@ export default function CoteacherWorkspace({
     if (!conceptId) return
     setEnteredSteps([])
     try {
-      await trigApi.reset(conceptId)
+      await api.reset(conceptId)
     } finally {
       fetchState(true, false)
       setTimeline(startTimelineSeed())
@@ -364,7 +392,7 @@ export default function CoteacherWorkspace({
             </button>
             <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[11px] font-mono text-[#2a5a28]">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>SYNC RIGHT-ANGLED • LIVE</span>
+              <span>{syncBadgeLabel}</span>
             </div>
             <div className="w-8 h-8 rounded-full bg-[#1a2421] text-white flex items-center justify-center text-[11px] font-medium ml-1">
               {initials}
@@ -463,7 +491,7 @@ export default function CoteacherWorkspace({
                         Ready to practice<br className="hidden sm:inline" /> this concept?
                       </h2>
                       <p className="mt-4 text-[14px] leading-[1.6] text-[#6b6760] max-w-[460px]">
-                        You're viewing <span className="font-medium text-[#1a2421]">{conceptTitle || 'Trigonometry'}</span>. Click Next Problem to load a randomized instance with verified derivations and adaptive hints.
+                        You're viewing <span className="font-medium text-[#1a2421]">{conceptTitle || subjectFallbackName}</span>. Click Next Problem to load a randomized instance with verified derivations and adaptive hints.
                       </p>
                     </>
                   ) : (
@@ -781,7 +809,7 @@ export default function CoteacherWorkspace({
                             key={i}
                             type="button"
                             onClick={() => {
-                              trackTelemetryEvent(conceptId, activeStepIndex, 'quick_option_click', { option: opt })
+                              trackTelemetryEvent(conceptId, activeStepIndex, 'quick_option_click', { option: opt }, telemetryEndpoint)
                               handleStepSubmit(opt)
                             }}
                             className="bg-[#eef6ec] hover:bg-[#d6ecd2] border border-[#d6ecd2] text-[#2a5a28] text-xs px-3.5 py-1.5 rounded-full font-mono transition shadow-xs active:scale-95 font-semibold cursor-pointer"
@@ -938,10 +966,10 @@ export default function CoteacherWorkspace({
                     ƒ
                   </span>
                   <span className="font-serif text-[15px] font-semibold text-[#1a2421]">
-                    CBSE Trigonometry Formulas Reference
+                    {formulaReferenceTitle}
                   </span>
                   <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[10px] font-mono text-[#2a5a28]">
-                    6 FORMULAS
+                    {formulaReferenceItems.length} FORMULAS
                   </span>
                 </div>
                 <span
@@ -955,14 +983,7 @@ export default function CoteacherWorkspace({
 
               {showFormulaDrawer && (
                 <div className="px-7 lg:px-8 pb-7 pt-2 grid md:grid-cols-2 gap-3 animate-fadeIn">
-                  {[
-                    ['Pythagoras', 'AB² + BC² = AC²'],
-                    ['sin θ', 'opp / hyp = AB / AC'],
-                    ['cos θ', 'adj / hyp = BC / AC'],
-                    ['tan θ', 'opp / adj = AB / BC'],
-                    ['sin²+cos²', 'sin²θ + cos²θ = 1'],
-                    ['Complementary', 'sin(90°-θ) = cos θ'],
-                  ].map(([name, formula]) => (
+                  {formulaReferenceItems.map(([name, formula]) => (
                     <div
                       key={name}
                       className="rounded-xl bg-[#fbf8f1] border border-[#ece6d8] px-4 py-3 flex justify-between items-center"
@@ -1222,7 +1243,7 @@ export default function CoteacherWorkspace({
                 <div className="flex justify-between font-mono text-[11px]">
                   <span className="text-[#8A8F8B]">Concept</span>
                   <span className="text-[#1A221E] font-medium max-w-[150px] truncate">
-                    {conceptTitle || 'Trigonometry'}
+                    {conceptTitle || subjectFallbackName}
                   </span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px]">
@@ -1259,7 +1280,7 @@ export default function CoteacherWorkspace({
                   <Sparkles className="w-5 h-5 text-[#2E5A3A]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg font-bold text-[#1A221E]">Custom CBSE Trigonometry Problem</h3>
+                  <h3 className="font-display text-lg font-bold text-[#1A221E]">{customModalTitle}</h3>
                   <p className="text-xs text-[#8A8F8B]">
                     Template-free Neuro-Symbolic reasoning for NCERT, Oswaal, RD Sharma, and Board Exams
                   </p>
@@ -1293,7 +1314,7 @@ export default function CoteacherWorkspace({
                 Quick Sample Archetypes:
               </span>
               <div className="flex flex-wrap gap-2">
-                {PRESET_PROBLEMS.map((preset, idx) => (
+                {presetProblems.map((preset, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -1340,7 +1361,7 @@ export default function CoteacherWorkspace({
       <ConceptDagModal
         isOpen={showDagModal}
         onClose={() => setShowDagModal(false)}
-        subjectLabel="CBSE CLASS 10 DAG"
+        subjectLabel={dagSubjectLabel}
         concepts={availableConcepts}
         activeConceptId={conceptId}
         onSelectConcept={(selectedId) => {
@@ -1361,6 +1382,7 @@ export default function CoteacherWorkspace({
         conceptId={conceptId}
         conceptTitle={conceptTitle}
         questionText={problemContext}
+        telemetryEndpoint={telemetryEndpoint}
       />
     </div>
   )

@@ -9,6 +9,7 @@ import {
   Grid3x3,
 } from 'lucide-react'
 import { useStudentStore } from '../../store/studentStore'
+import PageHeader from '../../components/PageHeader'
 
 type Tab = 'plan' | 'mistakes' | 'heatmap'
 
@@ -38,17 +39,13 @@ export default function LearningHubPage() {
   const needsPractice = mistakes.filter((m) => m.status === 'needs_practice')
 
   return (
-    <div className="min-h-full bg-[#FDFBF6] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
-          Learning Hub
-        </h1>
-        <p className="text-[13px] text-[#6B7B6F] mt-1">
-          Your daily study plan, mistake journal, and mastery progress.
-        </p>
-      </div>
+    <div className="min-h-full bg-[#FDFBF6]">
+      <PageHeader
+        title="Learning Hub"
+        description="Your daily study plan, mistake journal, and mastery progress."
+      />
 
+      <div className="px-8 pb-8 space-y-5">
       {/* Study Plan Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
@@ -255,6 +252,7 @@ export default function LearningHubPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

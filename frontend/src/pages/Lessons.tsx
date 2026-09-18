@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Clock, FlaskConical, LayoutGrid, List, ListChecks, Lock, Play, Search } from 'lucide-react'
 import { useWorkspace } from '../components/Shell'
 import type { Module, ModuleType } from '../lib/api'
+import PageHeader from '../components/PageHeader'
 
 const TYPE_ICON: Record<ModuleType, typeof Play> = {
   VIDEO: Play,
@@ -36,7 +37,7 @@ export default function Lessons() {
 
   if (treeError) {
     return (
-      <div className="p-4 lg:p-6 max-w-[1440px] mx-auto">
+      <div className="px-8 py-6">
         <div className="bg-white rounded-2xl border border-black/[0.06] p-8 text-center">
           <p className="text-[14px] font-medium text-forest">Could not load this shelf</p>
           <p className="text-[12px] opacity-60 mt-1">{treeError}</p>
@@ -47,43 +48,51 @@ export default function Lessons() {
 
   if (!tree) {
     return (
-      <div className="p-4 lg:p-6 flex justify-center pt-24">
+      <div className="px-8 py-6 flex justify-center pt-24">
         <span className="w-5 h-5 border-2 border-forest/20 border-t-forest rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1440px] mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="page-header-h1 text-[24px] lg:text-[28px] flex items-center gap-2">
-          <span className="w-1.5 h-8 rounded-full inline-block bg-gold" />
-          {tree.subject_name}
-          <span className="ml-2 text-[12px] font-normal opacity-50 bg-white border border-black/10 px-2 py-0.5 rounded-full">
+    <div className="min-h-full">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <span className="w-1.5 h-8 rounded-full inline-block bg-gold" />
+            {tree.subject_name}
+          </span>
+        }
+        titlePill={
+          <span className="text-[12px] font-normal opacity-50 bg-white border border-black/10 px-2 py-0.5 rounded-full">
             {modules.length} items
           </span>
-        </h2>
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-white border border-black/[0.06]">
-          <button
-            onClick={() => setView('grid')}
-            aria-label="Grid view"
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-              view === 'grid' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setView('list')}
-            aria-label="List view"
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-              view === 'list' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
-            }`}
-          >
-            <List className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+        }
+        actions={
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-white border border-black/[0.06]">
+            <button
+              onClick={() => setView('grid')}
+              aria-label="Grid view"
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                view === 'grid' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setView('list')}
+              aria-label="List view"
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                view === 'list' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        }
+      />
+
+      <div className="px-8 pb-8">
 
       {tree.chapters.length === 0 && (
         <div className="py-20 text-center">
@@ -197,6 +206,7 @@ export default function Lessons() {
           <p className="text-[12px] opacity-60 mt-1">Try changing chapter or type</p>
         </div>
       )}
+      </div>
     </div>
   )
 }

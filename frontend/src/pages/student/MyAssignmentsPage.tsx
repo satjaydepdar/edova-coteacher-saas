@@ -8,6 +8,7 @@ import {
   Send,
 } from 'lucide-react'
 import { useStudentStore, type StudentAssignmentItem } from '../../store/studentStore'
+import PageHeader from '../../components/PageHeader'
 
 const SUBJECT_CHOICES = ['All', 'Mathematics', 'Science', 'English']
 const STATUS_CHOICES = [
@@ -104,14 +105,13 @@ export default function MyAssignmentsPage() {
   }
 
   return (
-    <div className="min-h-full bg-[#FBF9F3] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
-      <div>
-        <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
-          My Assignments
-        </h1>
-        <p className="text-[13px] text-[#8A8A7A] mt-1">Complete homework, take quizzes, and track feedback from your teacher.</p>
-      </div>
+    <div className="min-h-full bg-[#FBF9F3]">
+      <PageHeader
+        title="My Assignments"
+        description="Complete homework, take quizzes, and track feedback from your teacher."
+      />
 
+      <div className="px-8 pb-8 space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'Overdue', value: overdueCount, sub: 'Past due date', color: '#D9534F' },
@@ -245,6 +245,7 @@ export default function MyAssignmentsPage() {
           })}
         </div>
       )}
+      </div>
 
       {/* Quiz Runner Modal */}
       {quizAssignment && (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NotebookPen, Search, Plus, X, Quote, Sigma, StickyNote } from 'lucide-react'
 import { useStudentStore } from '../../store/studentStore'
+import PageHeader from '../../components/PageHeader'
 
 const TYPE_ICON: Record<string, typeof Quote> = {
   quote: Quote,
@@ -52,23 +53,22 @@ export default function StudentWikiPage() {
   }
 
   return (
-    <div className="min-h-full bg-[#FBF9F3] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
-            My Wiki
-          </h1>
-          <p className="text-[13px] text-[#8A8A7A] mt-1">Quotes, formulas, and notes you've saved while studying.</p>
-        </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1a2421] hover:bg-black text-white font-medium text-[13px] cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4 text-[#DDB56E]" />
-          Add Note
-        </button>
-      </div>
+    <div className="min-h-full bg-[#FBF9F3]">
+      <PageHeader
+        title="My Wiki"
+        description="Quotes, formulas, and notes you've saved while studying."
+        actions={
+          <button
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1a2421] hover:bg-black text-white font-medium text-[13px] cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4 text-[#DDB56E]" />
+            Add Note
+          </button>
+        }
+      />
 
+      <div className="px-8 pb-8 space-y-5">
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-[#9a958c] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -116,6 +116,7 @@ export default function StudentWikiPage() {
           })}
         </div>
       )}
+      </div>
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1a2421]/40 backdrop-blur-xs">

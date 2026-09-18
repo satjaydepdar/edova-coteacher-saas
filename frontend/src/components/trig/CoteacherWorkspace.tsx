@@ -28,6 +28,7 @@ import {
   type TrigProfile,
 } from '../../lib/trig/trigApiClient'
 import { useApp } from '../../store'
+import PageHeader from '../PageHeader'
 
 interface CoteacherWorkspaceProps {
   conceptId: string
@@ -375,30 +376,27 @@ export default function CoteacherWorkspace({
 
       {/* Top Bar — Editorial Polished */}
       <div className="sticky top-0 z-20 backdrop-blur-xl bg-[#fdfaf5]/90 border-b border-[#ece8df]">
-        <div className="px-5 lg:px-10 h-[68px] flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
-              Practice Questions
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="hidden md:inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white border border-[#ece8df] text-[12px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[#f6f1e7] transition cursor-pointer"
-            >
-              <span className="text-[14px]">←</span> Go back
-            </button>
-            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[11px] font-mono text-[#2a5a28]">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{syncBadgeLabel}</span>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-[#1a2421] text-white flex items-center justify-center text-[11px] font-medium ml-1">
-              {initials}
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Practice Questions"
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="hidden md:inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white border border-[#ece8df] text-[12px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[#f6f1e7] transition cursor-pointer"
+              >
+                <span className="text-[14px]">←</span> Go back
+              </button>
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[11px] font-mono text-[#2a5a28]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{syncBadgeLabel}</span>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-[#1a2421] text-white flex items-center justify-center text-[11px] font-medium ml-1">
+                {initials}
+              </div>
+            </>
+          }
+        />
       </div>
 
       {/* Workspace Area: Main Content Column + Collapsible Telemetry Sidebar */}

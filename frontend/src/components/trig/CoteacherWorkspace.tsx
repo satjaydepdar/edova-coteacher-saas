@@ -98,7 +98,7 @@ export default function CoteacherWorkspace({
 
   const [loading, setLoading] = useState(false)
   const [hasStartedProblem, setHasStartedProblem] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
   const [enteredSteps, setEnteredSteps] = useState<string[]>([])
 
   const [conceptTitle, setConceptTitle] = useState('')
@@ -577,7 +577,14 @@ export default function CoteacherWorkspace({
 
             {/* CARD 2: EDOVA EQUATION BOARD */}
             <div className="relative bg-[#FEFEFB] rounded-[28px] border border-[#ece8df] shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden min-w-0">
-              <div className="absolute top-0 left-0 right-0 h-[6px]" style={{ background: '#7A9DB8' }} />
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                title={isExpanded ? 'Collapse board' : 'Expand board'}
+                aria-label={isExpanded ? 'Collapse board' : 'Expand board'}
+                className="absolute top-0 left-0 right-0 h-[6px] cursor-pointer hover:h-[8px] transition-all"
+                style={{ background: '#7A9DB8' }}
+              />
               <div className="px-7 lg:px-8 h-[52px] flex items-center justify-between border-b border-[#ece8df] bg-[#fbfaf7]">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[11px] tracking-[0.14em] text-[#1a2421] font-medium uppercase">
@@ -588,115 +595,61 @@ export default function CoteacherWorkspace({
                     {allStudentSteps.length} verified • {allStudentSteps.length} total • steps • {hasStartedProblem ? (isFullySolved ? 'Solved' : 'Active') : 'Ready'} • {allStudentSteps.length} steps
                   </span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <div
-                    title="Add Derivation Step"
-                    className="w-6 h-6 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center text-[12px] text-[#1a2421] select-none"
-                  >
-                    ⊕
-                  </div>
-                  <div
-                    title="Derivation View"
-                    className="w-6 h-6 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center text-[10px] text-[#1a2421] select-none"
-                  >
-                    ⤢
-                  </div>
-
-                  {/* Expand / Collapse Button with green dash indicator */}
-                  <button
-                    type="button"
-                    title={isExpanded ? 'Collapse board' : 'Expand board'}
-                    aria-label={isExpanded ? 'Collapse board' : 'Expand board'}
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="relative w-7 h-7 rounded-full bg-white border border-[#ece6d8] grid place-items-center text-[#1a2421] hover:bg-[#1a2421] hover:text-white hover:border-[#1a2421] transition-all duration-200 cursor-pointer shadow-xs"
-                  >
-                    <span className="absolute -top-[5px] -right-[2px] w-[12px] h-[3px] rounded-full bg-emerald-400 shadow-[0_0_0_2px_#fbfaf7]" />
-                    {isExpanded ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="4 14 10 14 10 20" />
-                        <polyline points="20 10 14 10 14 4" />
-                        <line x1="14" y1="10" x2="21" y2="3" />
-                        <line x1="3" y1="21" x2="10" y2="14" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="15 3 21 3 21 9" />
-                        <polyline points="9 21 3 21 3 15" />
-                        <line x1="21" y1="3" x2="14" y2="10" />
-                        <line x1="3" y1="21" x2="10" y2="14" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
               </div>
 
-              {/* Board Body: 180px collapsed vs 500px expanded with smooth transition and dot-grid */}
-              <div
-                className={`dot-grid relative p-6 lg:p-8 overflow-hidden transition-all duration-500 ease-[cubic-bezier(.25,.8,.25,1)] ${
-                  isExpanded ? 'overflow-y-auto' : ''
-                }`}
-                style={{ height: isExpanded ? 500 : 180 }}
-              >
-                <div className="max-w-[560px]">
-                  {/* Ghost Example Box */}
-                  <div className="rounded-xl border border-dashed border-[#C48A7A]/50 bg-[#F0D5C8]/40 p-4">
-                    <div className="font-mono text-[10px] tracking-[0.12em] text-[#C48A7A] mb-2 font-medium">
-                      GHOST EXAMPLE • REFERENCE ONLY
-                    </div>
-                    <div className="font-mono text-[13px] text-[#6b6760] leading-relaxed">
-                      Ex: <span className="text-[#1a2421] font-medium">Step 1:</span> In ΔABC, ∠B = 90° → AB² + BC² = AC²
-                    </div>
-                    <div className="mt-2 font-mono text-[11px] text-[#7a756c]">
-                      Ex: Step 2: Let AB = 3, BC = 4 → AC = √(9+16) = 5
-                    </div>
-                  </div>
-
-                  {/* Empty state when no derivations entered */}
-                  {allStudentSteps.length === 0 && (
-                    <div className="mt-6 flex items-center gap-3 text-[#9a958c]">
-                      <div className="w-8 h-8 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
-                        <span className="text-[14px] text-[#8a8f8b]">＋</span>
+              {/* Board Body: hidden entirely when collapsed, only the header row above stays visible */}
+              {isExpanded && (
+                <div className="dot-grid relative p-6 lg:p-8 overflow-y-auto" style={{ maxHeight: 500 }}>
+                  <div className="max-w-[560px]">
+                    {/* Ghost Example Box */}
+                    <div className="rounded-xl border border-dashed border-[#C48A7A]/50 bg-[#F0D5C8]/40 p-4">
+                      <div className="font-mono text-[10px] tracking-[0.12em] text-[#C48A7A] mb-2 font-medium">
+                        GHOST EXAMPLE • REFERENCE ONLY
                       </div>
-                      <div className="font-mono text-[11px]">
-                        No derivations yet. Enter Step 1 below
+                      <div className="font-mono text-[13px] text-[#6b6760] leading-relaxed">
+                        Ex: <span className="text-[#1a2421] font-medium">Step 1:</span> In ΔABC, ∠B = 90° → AB² + BC² = AC²
+                      </div>
+                      <div className="mt-2 font-mono text-[11px] text-[#7a756c]">
+                        Ex: Step 2: Let AB = 3, BC = 4 → AC = √(9+16) = 5
                       </div>
                     </div>
-                  )}
 
-                  {/* ALL STUDENT ENTERED STEPS - Always shown here */}
-                  {allStudentSteps.length > 0 && (
-                    <div className="mt-6 space-y-3">
-                      {allStudentSteps.map((stepText, idx) => (
-                        <div
-                          key={idx}
-                          className="rounded-xl bg-[#1a2421] text-[#e8e2d6] px-4 py-3 font-mono text-[13px] flex items-center gap-3 shadow-sm animate-fadeIn"
-                        >
-                          <span className="text-[#a8e6a0] font-semibold shrink-0">
-                            Step {idx + 1}:
-                          </span>
-                          <span className="flex-1 overflow-x-auto">
-                            <MathDisplay math={stepText} />
-                          </span>
-                          <span className="text-[#8be78a] text-xs shrink-0 font-sans flex items-center gap-1">
-                            <span>✓</span> Verified
-                          </span>
+                    {/* Empty state when no derivations entered */}
+                    {allStudentSteps.length === 0 && (
+                      <div className="mt-6 flex items-center gap-3 text-[#9a958c]">
+                        <div className="w-8 h-8 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
+                          <span className="text-[14px] text-[#8a8f8b]">＋</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <div className="font-mono text-[11px]">
+                          No derivations yet. Enter Step 1 below
+                        </div>
+                      </div>
+                    )}
 
-                {/* Ambient watermark circle in bottom right */}
-                <div className="absolute right-8 bottom-8 w-16 h-16 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center opacity-60 pointer-events-none">
-                  <span className="text-[22px] text-[#c2bdb0]">＋</span>
+                    {/* ALL STUDENT ENTERED STEPS - Always shown here */}
+                    {allStudentSteps.length > 0 && (
+                      <div className="mt-6 space-y-3">
+                        {allStudentSteps.map((stepText, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-xl bg-[#1a2421] text-[#e8e2d6] px-4 py-3 font-mono text-[13px] flex items-center gap-3 shadow-sm animate-fadeIn"
+                          >
+                            <span className="text-[#a8e6a0] font-semibold shrink-0">
+                              Step {idx + 1}:
+                            </span>
+                            <span className="flex-1 overflow-x-auto">
+                              <MathDisplay math={stepText} />
+                            </span>
+                            <span className="text-[#8be78a] text-xs shrink-0 font-sans flex items-center gap-1">
+                              <span>✓</span> Verified
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                {/* Bottom gradient fade when collapsed */}
-                {!isExpanded && (
-                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#fbfaf7]/90 to-transparent" />
-                )}
-              </div>
+              )}
             </div>
 
             {/* CARD 3: YOUR DERIVATIONS */}

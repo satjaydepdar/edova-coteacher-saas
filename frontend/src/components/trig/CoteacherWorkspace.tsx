@@ -27,7 +27,6 @@ import {
   type TrigProgressPoint,
   type TrigProfile,
 } from '../../lib/trig/trigApiClient'
-import { useApp } from '../../store'
 import PageHeader from '../PageHeader'
 import SearchToolbar from '../SearchToolbar'
 
@@ -96,7 +95,6 @@ export default function CoteacherWorkspace({
   filterBar,
 }: CoteacherWorkspaceProps) {
   const navigate = useNavigate()
-  const { session } = useApp()
 
   const [loading, setLoading] = useState(false)
   const [hasStartedProblem, setHasStartedProblem] = useState(false)
@@ -369,10 +367,6 @@ export default function CoteacherWorkspace({
     ? formulaReference.split('|').map((s) => s.trim()).filter(Boolean)
     : defaultFormulas
 
-  const initials = session?.tenant?.name
-    ? session.tenant.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-    : 'AK'
-
   return (
     <div className="relative min-h-full w-full bg-[#fdfaf5] text-[#1a2421] selection:bg-[#ddb56e]/30 flex flex-col font-sans">
       {/* Background Dotted Grid Texture */}
@@ -394,9 +388,6 @@ export default function CoteacherWorkspace({
               <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[11px] font-mono text-[#2a5a28]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>{syncBadgeLabel}</span>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-[#1a2421] text-white flex items-center justify-center text-[11px] font-medium ml-1">
-                {initials}
               </div>
             </>
           }

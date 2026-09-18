@@ -22,7 +22,6 @@ import { CURRICULUM_DATABASE, SimulationItem } from '../data/curriculumData'
 import { searchSimulationsIntelligently, ParsedSearchIntent } from '../utils/intelligentSearch'
 import PageHeader from './PageHeader'
 import SearchToolbar, { filterSelectClass } from './SearchToolbar'
-import { useAuthStore } from '../store/authStore'
 
 interface CurriculumCatalogProps {
   onLaunchSimulation: (sim: SimulationItem) => void
@@ -66,7 +65,6 @@ export default function CurriculumCatalog({
   selectedSubTopicId: propSubTopicId,
   onSelectSubTopicId,
 }: CurriculumCatalogProps) {
-  const { user } = useAuthStore()
   const currentSubject = controlledSubject || 'maths'
 
   const [internalChapterId, setInternalChapterId] = useState<string | null>(null)
@@ -203,23 +201,16 @@ export default function CurriculumCatalog({
         }
         description={selectedChapter ? selectedChapter.desc : subjectData.description}
         actions={
-          <>
-            {selectedChapterId && (
-              <button
-                type="button"
-                onClick={handleResetToLevel1}
-                className="h-8 px-3.5 rounded-[10px] bg-white border border-[#EDE8DD] text-[12px] font-[500] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex items-center gap-1.5 hover:bg-[#FBF9F3] text-[#111814] transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-[#6B7280]" />
-                <span>← Back to chapters</span>
-              </button>
-            )}
-            {user?.tenant_name && (
-              <span className="text-[13px] font-medium text-[#6B7280] font-[Inter] shrink-0">
-                {user.tenant_name}
-              </span>
-            )}
-          </>
+          selectedChapterId ? (
+            <button
+              type="button"
+              onClick={handleResetToLevel1}
+              className="h-8 px-3.5 rounded-[10px] bg-white border border-[#EDE8DD] text-[12px] font-[500] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex items-center gap-1.5 hover:bg-[#FBF9F3] text-[#111814] transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#6B7280]" />
+              <span>← Back to chapters</span>
+            </button>
+          ) : undefined
         }
       />
 

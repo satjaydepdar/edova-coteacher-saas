@@ -5,7 +5,6 @@ import { useWorkspace } from '../components/Shell'
 import type { Module, ModuleType } from '../lib/api'
 import PageHeader from '../components/PageHeader'
 import SearchToolbar, { filterSelectClass } from '../components/SearchToolbar'
-import { useAuthStore } from '../store/authStore'
 
 const TYPE_ICON: Record<ModuleType, typeof Play> = {
   VIDEO: Play,
@@ -15,7 +14,6 @@ const TYPE_ICON: Record<ModuleType, typeof Play> = {
 
 export default function Lessons() {
   const { tree, treeError, chapterId, setChapterId, features } = useWorkspace()
-  const { user } = useAuthStore()
   const navigate = useNavigate()
   const [view, setView] = useState<'grid' | 'list'>('grid')
 
@@ -60,45 +58,33 @@ export default function Lessons() {
   return (
     <div className="min-h-full">
       <PageHeader
-        title={
-          <span className="flex items-center gap-2">
-            <span className="w-1.5 h-8 rounded-full inline-block bg-gold" />
-            {tree.subject_name}
-          </span>
-        }
+        title={tree.subject_name}
         titlePill={
           <span className="text-[12px] font-normal opacity-50 bg-white border border-black/10 px-2 py-0.5 rounded-full">
             {modules.length} items
           </span>
         }
         actions={
-          <>
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-white border border-black/[0.06]">
-              <button
-                onClick={() => setView('grid')}
-                aria-label="Grid view"
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                  view === 'grid' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
-                }`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setView('list')}
-                aria-label="List view"
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                  view === 'list' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
-                }`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-            {user?.tenant_name && (
-              <span className="text-[13px] font-medium text-[#6B7280] font-[Inter] shrink-0">
-                {user.tenant_name}
-              </span>
-            )}
-          </>
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-white border border-black/[0.06]">
+            <button
+              onClick={() => setView('grid')}
+              aria-label="Grid view"
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                view === 'grid' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setView('list')}
+              aria-label="List view"
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                view === 'list' ? 'bg-forest text-white' : 'text-forest/50 hover:text-forest'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         }
       />
 

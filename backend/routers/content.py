@@ -81,6 +81,53 @@ def subject_tree(subject_id: str, authorization: str = Header(...)):
     return {"subject_id": subject_id, "subject_name": rows[0][0], "chapters": visible}
 
 
+# --- Practice Questions filter bar: Class -> Subject -> Chapter, global content only.
+# Manual allowlist, not schema-driven: each entry names the frontend module that
+# chapter's DAG/practice page is built from. Add a chapter here once its module ships.
+PRACTICE_READY_CHAPTERS = {
+    "Trigonometry": "trigonometry",
+    "Coordinate Geometry": "coordinate_geometry",
+}
+# Chapters are ordered by curriculum sequence_order, not "how complete is the
+# module" -- Coordinate Geometry (sequence 7) would otherwise beat Trigonometry
+# (sequence 99, the only one with real step-by-step solving) as the page's
+# default landing chapter. Pin the default explicitly instead.
+DEFAULT_PRACTICE_CHAPTER = "Trigonometry"
+
+
+@router.get("/api/student/practice/chapters")
+def practice_chapters(authorization: str = Header(...)):
+    current_principal(authorization)
+    with db() as conn:
+        rows = q(conn, """
+            SELECT s.standard_grade, s.id, s.name, c.id, c.name, c.sequence_order
+            FROM subjects s
+            LEFT JOIN chapters c ON c.subject_id = s.id
+            WHERE s.tenant_id IS NULL
+            ORDER BY s.standard_grade, s.name, c.sequence_order NULLS LAST
+        """).fetchall()
+
+    classes: dict[str, dict] = {}
+    for grade, subj_id, subj_name, ch_id, ch_name, _ in rows:
+        subjects = classes.setdefault(grade, {})
+        subject = subjects.setdefault(str(subj_id), {"id": str(subj_id), "name": subj_name, "chapters": []})
+        if ch_id is not None:
+            subject["chapters"].append({
+                "id": str(ch_id),
+                "name": ch_name,
+                "practice_available": ch_name in PRACTICE_READY_CHAPTERS,
+                "practice_module": PRACTICE_READY_CHAPTERS.get(ch_name),
+                "is_default": ch_name == DEFAULT_PRACTICE_CHAPTER,
+            })
+
+    return {
+        "classes": [
+            {"grade": grade, "subjects": list(subjects.values())}
+            for grade, subjects in sorted(classes.items())
+        ]
+    }
+
+
 # --- Content endpoint: payload-level AuthZ independent of the sidebar ---
 @router.get("/student/modules/{module_id}/lab")
 def get_lab_payload(module_id: str, authorization: str = Header(...)):

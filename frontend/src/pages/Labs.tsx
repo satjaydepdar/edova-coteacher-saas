@@ -6,7 +6,7 @@ import SocraticLabEmbed from '../components/SocraticLabEmbed'
 import { SimulationItem } from '../data/curriculumData'
 
 export default function Labs() {
-  const { labSubject, labChapterId, setLabChapterId, labTopicId, setLabTopicId } = useWorkspace()
+  const { labSubject, setLabSubject, labChapterId, setLabChapterId, labTopicId, setLabTopicId } = useWorkspace()
 
   // Navigation & View State
   const [activeSimulation, setActiveSimulation] = useState<SimulationItem | null>(null)
@@ -66,6 +66,11 @@ export default function Labs() {
         <div className="flex-1 flex flex-col min-h-full">
           <CurriculumCatalog
             activeSubject={labSubject}
+            onSelectSubject={(s) => {
+              setLabSubject(s)
+              setLabChapterId('ALL')
+              setLabTopicId('ALL')
+            }}
             selectedChapterId={labChapterId === 'ALL' ? null : labChapterId}
             onSelectChapterId={(id) => setLabChapterId(id ?? 'ALL')}
             selectedSubTopicId={labTopicId === 'ALL' ? null : labTopicId}

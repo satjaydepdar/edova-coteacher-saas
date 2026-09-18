@@ -73,12 +73,23 @@ export interface WikiNoteItem {
   created_at: string
 }
 
+export interface ResourceItem {
+  id: string
+  title: string
+  description: string
+  resource_type: string
+  file_url: string
+  subject_name: string
+  chapter_name: string
+}
+
 interface StudentState {
   studyPlan: StudyPlanData | null
   assignments: StudentAssignmentItem[]
   mistakes: MistakeItem[]
   heatmap: SubjectHeatmap[]
   wikiNotes: WikiNoteItem[]
+  resources: ResourceItem[]
   activeQuizAssignment: StudentAssignmentItem | null
   loading: boolean
   error: string | null
@@ -91,6 +102,7 @@ interface StudentState {
   fetchHeatmap: () => Promise<void>
   fetchWiki: () => Promise<void>
   addWikiNote: (chapter: string, topic: string, type: string, content: string) => Promise<void>
+  fetchResources: () => Promise<void>
   setActiveQuizAssignment: (assignment: StudentAssignmentItem | null) => void
 }
 
@@ -105,6 +117,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   mistakes: [],
   heatmap: [],
   wikiNotes: [],
+  resources: [],
   activeQuizAssignment: null,
   loading: false,
   error: null,
@@ -234,6 +247,18 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       }
     } catch (err) {
       console.error('Error adding wiki note', err)
+    }
+  },
+
+  fetchResources: async () => {
+    try {
+      const res = await fetch(`${BASE}/api/student/resources`, { headers: getAuthHeader() })
+      if (res.ok) {
+        const data = await res.json()
+        set({ resources: data })
+      }
+    } catch (err) {
+      console.error('Error fetching resources', err)
     }
   },
 

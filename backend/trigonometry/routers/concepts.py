@@ -1,6 +1,8 @@
 """Ported from edova-pilot-v4/backend/app/api/concepts.py.
 Adapted: student_id comes from the verified auth token (current_principal),
 never trusted from the request -- pilot-v4 took it as an optional query param."""
+import re
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
@@ -13,12 +15,39 @@ router = APIRouter(prefix="/api/trig/concepts", tags=["Trigonometry Concepts"])
 def _student_id(p: dict) -> str:
     return p["user_id"] or f"device:{p['key_id']}"
 
+
+def _sort_key(concept_id: str) -> tuple:
+    # A plain string sort would put "trig-2" (if it ever existed) after "trig-110" --
+    # not currently reachable with today's fixed-width trig-1XX ids, but the coordgeo
+    # module hit exactly this with double-digit ids, so fixing it here too.
+    m = re.search(r"(\d+)$", concept_id)
+    return (concept_id[: m.start()], int(m.group(1))) if m else (concept_id, -1)
+
+
+def _topo_order(concepts: list[Concept]) -> list[Concept]:
+    """Dependency order (prerequisites before dependents), not incidental row order."""
+    by_id = {c.id: c for c in concepts}
+    visited: set[str] = set()
+    ordered: list[Concept] = []
+
+    def visit(cid: str) -> None:
+        if cid in visited or cid not in by_id:
+            return
+        visited.add(cid)
+        for pr in sorted(by_id[cid].prerequisites, key=lambda p: _sort_key(p.id)):
+            visit(pr.id)
+        ordered.append(by_id[cid])
+
+    for c in sorted(concepts, key=lambda c: _sort_key(c.id)):
+        visit(c.id)
+    return ordered
+
 @router.get("")
 def list_concepts(authorization: str = Header(...), db: Session = Depends(get_db)):
-    """Returns all 10 CBSE Trigonometry DAG concepts along with unlock status for the caller."""
+    """Returns all 10 CBSE Trigonometry DAG concepts, in dependency order, with unlock status for the caller."""
     p = current_principal(authorization)
     student_id = _student_id(p)
-    concepts = db.query(Concept).all()
+    concepts = _topo_order(db.query(Concept).all())
 
     states = db.query(StudentState).filter(StudentState.student_id == student_id).all()
     student_states = {s.concept_id: s for s in states}

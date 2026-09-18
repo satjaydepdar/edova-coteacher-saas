@@ -11,6 +11,7 @@ export const trackTelemetryEvent = (
   stepIndex: number | undefined,
   eventType: string,
   eventPayload: Record<string, unknown> = {},
+  endpoint = '/api/trig/telemetry/event',
 ): void => {
   try {
     const token = getToken()
@@ -21,7 +22,7 @@ export const trackTelemetryEvent = (
       event_payload: eventPayload,
     }
 
-    fetch('/api/trig/telemetry/event', {
+    fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

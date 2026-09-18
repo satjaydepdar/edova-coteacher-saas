@@ -20,10 +20,13 @@ import {
 } from 'lucide-react'
 import { CURRICULUM_DATABASE, SimulationItem } from '../data/curriculumData'
 import { searchSimulationsIntelligently, ParsedSearchIntent } from '../utils/intelligentSearch'
+import PageHeader from './PageHeader'
+import SearchToolbar, { filterSelectClass } from './SearchToolbar'
 
 interface CurriculumCatalogProps {
   onLaunchSimulation: (sim: SimulationItem) => void
   activeSubject?: 'maths' | 'science' | 'social' | 'english'
+  onSelectSubject?: (subject: 'maths' | 'science' | 'social' | 'english') => void
   selectedChapterId?: string | null
   onSelectChapterId?: (id: string | null) => void
   selectedSubTopicId?: string | null
@@ -56,6 +59,7 @@ const pluralize = (count: number, singular: string, plural = `${singular}s`): st
 export default function CurriculumCatalog({
   onLaunchSimulation,
   activeSubject: controlledSubject = 'maths',
+  onSelectSubject,
   selectedChapterId: propChapterId,
   onSelectChapterId,
   selectedSubTopicId: propSubTopicId,
@@ -159,57 +163,45 @@ export default function CurriculumCatalog({
       {/* Subtle dotted background */}
       <div className="pointer-events-none absolute inset-0 dotted-grid opacity-[0.32]" />
 
-      <div className="relative z-10 max-w-[1280px] mx-auto w-full px-6 lg:px-8 py-7 space-y-6">
-        {/* Top Header & Breadcrumb Navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            {/* Breadcrumbs */}
-            <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF] mb-2 font-mono">
+      <PageHeader
+        eyebrow={
+          selectedChapter ? (
+            <nav className="flex items-center gap-1.5">
               <span
                 onClick={handleResetToLevel1}
                 className="hover:text-[#111814] cursor-pointer transition-colors"
               >
                 {subjectData.title}
               </span>
-              {selectedChapter && (
-                <>
-                  <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
-                  <span
-                    onClick={() => handleSelectSubTopic(null)}
-                    className="hover:text-[#111814] cursor-pointer transition-colors"
-                  >
-                    {selectedChapter.title}
-                  </span>
-                </>
-              )}
+              <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
+              <span
+                onClick={() => handleSelectSubTopic(null)}
+                className="hover:text-[#111814] cursor-pointer transition-colors"
+              >
+                {selectedChapter.title}
+              </span>
               {selectedSubTopicId && (
                 <>
                   <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
                   <span className="font-[600] text-[#111814]">
-                    {selectedChapter?.subtopics.find((st) => st.id === selectedSubTopicId)?.title}
+                    {selectedChapter.subtopics.find((st) => st.id === selectedSubTopicId)?.title}
                   </span>
                 </>
               )}
             </nav>
-
-            {/* Display Title with Newsreader Font */}
-            <div className="flex items-center gap-3">
-              <h1 className="font-news text-[24px] font-[600] tracking-[-0.02em] text-[#111814] leading-tight">
-                {selectedChapter ? selectedChapter.title : `${subjectData.title} Curriculum`}
-              </h1>
-              <span className="h-6 px-3 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[11px] font-mono grid place-items-center text-[#6B7280]">
-                {selectedChapter
-                  ? `${selectedChapter.subtopics.length} SUB-TOPICS`
-                  : `${subjectData.chapters.length} CHAPTERS`}
-              </span>
-            </div>
-
-            <p className="mt-2 text-[13px] leading-[1.5] text-[#6B7280] max-w-[580px]">
-              {selectedChapter ? selectedChapter.desc : subjectData.description}
-            </p>
-          </div>
-
-          {selectedChapterId && (
+          ) : undefined
+        }
+        title={selectedChapter ? selectedChapter.title : `${subjectData.title} Curriculum`}
+        titlePill={
+          <span className="h-6 px-3 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[11px] font-mono grid place-items-center text-[#6B7280]">
+            {selectedChapter
+              ? `${selectedChapter.subtopics.length} SUB-TOPICS`
+              : `${subjectData.chapters.length} CHAPTERS`}
+          </span>
+        }
+        description={selectedChapter ? selectedChapter.desc : subjectData.description}
+        actions={
+          selectedChapterId ? (
             <button
               type="button"
               onClick={handleResetToLevel1}
@@ -218,9 +210,48 @@ export default function CurriculumCatalog({
               <ArrowLeft className="w-3.5 h-3.5 text-[#6B7280]" />
               <span>← Back to chapters</span>
             </button>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
 
+      <SearchToolbar>
+        <select
+          value={currentSubject}
+          onChange={(e) => onSelectSubject?.(e.target.value as 'maths' | 'science' | 'social' | 'english')}
+          className={filterSelectClass}
+        >
+          <option value="maths">Mathematics</option>
+          <option value="science">Science</option>
+          <option value="social">Social Science</option>
+          <option value="english">English</option>
+        </select>
+        <select
+          value={selectedChapterId ?? 'ALL'}
+          onChange={(e) => {
+            if (e.target.value === 'ALL') handleResetToLevel1()
+            else handleSelectChapter(e.target.value)
+          }}
+          className={filterSelectClass}
+        >
+          <option value="ALL">All Chapters</option>
+          {subjectData.chapters.map((c) => (
+            <option key={c.id} value={c.id}>{c.title}</option>
+          ))}
+        </select>
+        <select
+          value={selectedSubTopicId ?? 'ALL'}
+          onChange={(e) => handleSelectSubTopic(e.target.value === 'ALL' ? null : e.target.value)}
+          disabled={!selectedChapterId}
+          className={`${filterSelectClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          <option value="ALL">All Topics</option>
+          {(selectedChapter?.subtopics ?? []).map((st) => (
+            <option key={st.id} value={st.id}>{st.title}</option>
+          ))}
+        </select>
+      </SearchToolbar>
+
+      <div className="relative z-10 px-8 pt-6 pb-8 space-y-6">
         {/* LEVEL 1: CHAPTERS 3-COLUMN GRID VIEW (When no chapter is selected) */}
         {!selectedChapterId ? (
           <section className="animate-fadeIn">

@@ -7,7 +7,7 @@ from pathlib import Path as _Path
 from psycopg.types.json import Jsonb
 from services import s3_client
 from services import s3_client as _s3_client
-from services.ai_classifier import AIClassificationError, AI_MODEL, classify_with_ai
+from services.ai_classifier import AIClassificationError, classify_with_ai
 import hashlib as _hashlib
 import json as _json
 import logging as _logging
@@ -389,7 +389,7 @@ def _classify_for_ingestion(text: str, use_ai: bool) -> dict:
         try:
             result = classify_with_ai(text)
             result["method"] = "ai"
-            result["model"] = AI_MODEL
+            result["model"] = result.get("model_name")
             return result
         except AIClassificationError as exc:
             _logging.getLogger("edova.ingestion").warning(

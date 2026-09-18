@@ -28,9 +28,9 @@ import {
 import { useApp } from '../store'
 import { useTeacher } from '../store/teacherStore'
 import { useAuthStore } from '../store/authStore'
-import { api, type Chapter, type ModuleType, type Tree } from '../lib/api'
-import { CURRICULUM_DATABASE } from '../data/curriculumData'
+import { api, type Chapter, type Tree } from '../lib/api'
 import { Badge } from './ui/badge'
+import ChatWidget from './ChatWidget'
 
 const activeNavClass =
   'bg-[rgba(127,191,122,0.3)] text-[#FBF7EE] border border-[rgba(127,191,122,0.2)] font-[Inter] text-[14px] font-medium shadow-xs'
@@ -46,8 +46,6 @@ export interface WorkspaceCtx {
   setChapterId: (id: string) => void
   classFilter: string
   setClassFilter: (c: string) => void
-  typeFilter: ModuleType | 'ALL'
-  setTypeFilter: (t: ModuleType | 'ALL') => void
   chapters: Chapter[]
   features: { allow_video: boolean; allow_lab: boolean; allow_quiz: boolean } | null
   // Virtual Labs filter context
@@ -63,13 +61,6 @@ export function useWorkspace() {
   return useOutletContext<WorkspaceCtx>()
 }
 
-const TYPE_LABEL: Record<ModuleType | 'ALL', string> = {
-  ALL: 'All Types',
-  VIDEO: 'Videos',
-  LAB: 'Labs',
-  QUIZ: 'Quizzes',
-}
-
 export default function Shell() {
   const { session, subjects, features, boot, deactivate, bootError } = useApp()
   const { authed: teacherAuthed, logout: logoutTeacher } = useTeacher()
@@ -77,8 +68,8 @@ export default function Shell() {
   const [subjectId, setSubjectIdRaw] = useState<string | null>(null)
   const [chapterId, setChapterId] = useState('ALL')
   const [classFilter, setClassFilter] = useState('ALL')
-  const [typeFilter, setTypeFilter] = useState<ModuleType | 'ALL'>('ALL')
   const [lessonsExpanded, setLessonsExpanded] = useState(true)
+  const [learningHubExpanded, setLearningHubExpanded] = useState(true)
   const [labSubject, setLabSubject] = useState<'maths' | 'science' | 'social' | 'english'>('science')
   const [labChapterId, setLabChapterId] = useState('ALL')
   const [labTopicId, setLabTopicId] = useState('ALL')
@@ -126,6 +117,7 @@ export default function Shell() {
   const chapters = useMemo(() => tree?.chapters ?? [], [tree])
   const activeSubject = subjects.find((s) => s.id === subjectId)
   const isStudent = user?.role === 'STUDENT'
+  const isAdmin = user?.role === 'ADMIN'
 
   if (bootError) {
     return (
@@ -168,8 +160,6 @@ export default function Shell() {
     setChapterId,
     classFilter,
     setClassFilter,
-    typeFilter,
-    setTypeFilter,
     chapters,
     features,
     labSubject,
@@ -309,25 +299,141 @@ export default function Shell() {
           </div>
           )}
 
-          {/* STUDENT WORKSPACE GROUP (students always; teachers/admins can still view & test) */}
+          {/* STUDENT WORKSPACE GROUP (Student and School Admin logins only) */}
+          {(isStudent || isAdmin) && (
           <div className="space-y-1">
             {!isCollapsed && (
               <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/35 px-3 mb-1.5 font-[Inter]">
                 Student Workspace
               </div>
             )}
-            <NavLink
-              to="/learning"
-              title="Learning Hub"
-              className={({ isActive }) =>
-                `w-full flex items-center ${
-                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
-              }
-            >
-              <GraduationCap className="w-4 h-4 shrink-0" />
-              {!isCollapsed && <span>Learning Hub</span>}
-            </NavLink>
+            <div>
+              <div className="flex items-center">
+                <NavLink
+                  to="/learning"
+                  title="Learning Hub"
+                  onClick={() => {
+                    if (!learningHubExpanded) setLearningHubExpanded(true)
+                  }}
+                  className={({ isActive }) =>
+                    `flex-1 flex items-center ${
+                      isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                    } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
+                  }
+                >
+                  <GraduationCap className="w-4 h-4 shrink-0" />
+                  {!isCollapsed && <span>Learning Hub</span>}
+                </NavLink>
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setLearningHubExpanded((prev) => !prev)
+                    }}
+                    title={learningHubExpanded ? 'Collapse Learning Hub' : 'Expand Learning Hub'}
+                    className="w-8 h-8 ml-1 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                  >
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        learningHubExpanded ? 'rotate-0 text-white' : '-rotate-90 text-white/50'
+                      }`}
+                    />
+                  </button>
+                )}
+              </div>
+
+              {!isCollapsed && learningHubExpanded && (
+                <div className="mt-2 ml-3 pl-5 border-l border-white/10 space-y-1 animate-fadeIn">
+                  <div>
+                    <div className="flex items-center">
+                      <NavLink
+                        to="/lessons"
+                        title="Video Lessons"
+                        onClick={() => {
+                          if (!lessonsExpanded) setLessonsExpanded(true)
+                        }}
+                        className={`flex-1 flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
+                          isLessonsActive ? activeNavClass : inactiveNavClass
+                        }`}
+                      >
+                        <Play className="w-4 h-4 shrink-0" />
+                        <span className="font-medium">Video Lessons</span>
+                      </NavLink>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setLessonsExpanded((prev) => !prev)
+                        }}
+                        title={lessonsExpanded ? 'Collapse subjects' : 'Expand subjects'}
+                        className="w-7 h-7 ml-1 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                      >
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            lessonsExpanded ? 'rotate-0 text-white' : '-rotate-90 text-white/50'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    {lessonsExpanded && (
+                      <div className="mt-1 ml-3 pl-4 border-l border-white/10 space-y-1 animate-fadeIn">
+                        {subjects.map((s) => {
+                          const isSubjectActive = isLessonsActive && subjectId === s.id
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => {
+                                setSubjectId(s.id)
+                                if (!isLessonsActive) navigate('/lessons')
+                              }}
+                              className={`w-full text-left px-3 h-7 rounded-lg text-[12.5px] flex items-center justify-between transition-colors cursor-pointer font-[Inter] ${
+                                isSubjectActive
+                                  ? activeNavClass
+                                  : 'text-white/60 hover:bg-[rgba(127,191,122,0.15)] hover:text-[#FBF7EE]'
+                              }`}
+                            >
+                              <span className="truncate">{s.name}</span>
+                              {isSubjectActive && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#7FBF7A] shrink-0" />
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <NavLink
+                    to="/labs"
+                    title="Virtual Labs"
+                    className={({ isActive }) =>
+                      `w-full flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
+                        isActive ? activeNavClass : inactiveNavClass
+                      }`
+                    }
+                  >
+                    <FlaskConical className="w-4 h-4 shrink-0" />
+                    <span>Virtual Labs</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/practice"
+                    title="Practice Questions"
+                    className={({ isActive }) =>
+                      `w-full flex items-center gap-3 px-3 h-9 rounded-lg text-[13px] ${
+                        isActive ? activeNavClass : inactiveNavClass
+                      }`
+                    }
+                  >
+                    <ListChecks className="w-4 h-4 shrink-0" />
+                    <span>Practice Questions</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
 
             <NavLink
               to="/my-assignments"
@@ -354,9 +460,24 @@ export default function Shell() {
               <NotebookPen className="w-4 h-4 shrink-0" />
               {!isCollapsed && <span>My Wiki</span>}
             </NavLink>
-          </div>
 
-          {/* TEACHING GROUP */}
+            <NavLink
+              to="/my-resources"
+              title="My Resources"
+              className={({ isActive }) =>
+                `w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
+              }
+            >
+              <FolderOpen className="w-4 h-4 shrink-0" />
+              {!isCollapsed && <span>My Resources</span>}
+            </NavLink>
+          </div>
+          )}
+
+          {/* TEACHING GROUP (not for Student login) */}
+          {!isStudent && (
           <div className="space-y-1">
             {!isCollapsed && (
               <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/35 px-3 mb-1.5 font-[Inter]">
@@ -449,104 +570,6 @@ export default function Shell() {
             )}
 
             <div>
-              <div className="flex items-center">
-                <NavLink
-                  to="/lessons"
-                  title="Video Lessons"
-                  onClick={() => {
-                    if (!lessonsExpanded) setLessonsExpanded(true)
-                  }}
-                  className={`flex-1 flex items-center ${
-                    isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                  } h-10 rounded-xl ${
-                    isLessonsActive ? activeNavClass : inactiveNavClass
-                  }`}
-                >
-                  <Play className="w-4 h-4 shrink-0" />
-                  {!isCollapsed && <span className="font-medium">Video Lessons</span>}
-                </NavLink>
-                {!isCollapsed && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setLessonsExpanded((prev) => !prev)
-                    }}
-                    title={lessonsExpanded ? 'Collapse subjects' : 'Expand subjects'}
-                    className="w-8 h-8 ml-1 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
-                  >
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform duration-200 ${
-                        lessonsExpanded ? 'rotate-0 text-white' : '-rotate-90 text-white/50'
-                      }`}
-                    />
-                  </button>
-                )}
-              </div>
-              {!isCollapsed && lessonsExpanded && (
-                <div className="mt-2 ml-3 pl-5 border-l border-white/10 space-y-1 animate-fadeIn">
-                  {subjects.map((s) => {
-                    const isSubjectActive = isLessonsActive && subjectId === s.id
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          setSubjectId(s.id)
-                          if (!isLessonsActive) navigate('/lessons')
-                        }}
-                        className={`w-full text-left px-3 h-8 rounded-lg text-[13px] flex items-center justify-between transition-colors cursor-pointer font-[Inter] ${
-                          isSubjectActive
-                            ? activeNavClass
-                            : 'text-white/60 hover:bg-[rgba(127,191,122,0.15)] hover:text-[#FBF7EE]'
-                        }`}
-                      >
-                        <span className="truncate">{s.name}</span>
-                        {isSubjectActive && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#7FBF7A] shrink-0" />
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <NavLink
-                to="/labs"
-                title="Virtual Labs"
-                className={({ isActive }) =>
-                  `w-full flex items-center ${
-                    isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                  } h-10 rounded-xl ${
-                    isActive ? activeNavClass : inactiveNavClass
-                  }`
-                }
-              >
-                <FlaskConical className="w-4 h-4 shrink-0" />
-                {!isCollapsed && <span>Virtual Labs</span>}
-              </NavLink>
-            </div>
-
-            <div>
-              <NavLink
-                to="/practice"
-                title="Practice Questions"
-                className={({ isActive }) =>
-                  `w-full flex items-center ${
-                    isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                  } h-10 rounded-xl ${
-                    isActive ? activeNavClass : inactiveNavClass
-                  }`
-                }
-              >
-                <ListChecks className="w-4 h-4 shrink-0" />
-                {!isCollapsed && <span>Practice Questions</span>}
-              </NavLink>
-            </div>
-
-            <div>
               <div
                 title="Authoring Studio (In Development • Coming Soon)"
                 className={`w-full flex items-center ${
@@ -565,8 +588,10 @@ export default function Shell() {
               </div>
             </div>
           </div>
+          )}
 
-          {/* ADMIN & SYSTEM */}
+          {/* ADMIN & SYSTEM (not for Student login) */}
+          {!isStudent && (
           <div className="space-y-1">
             {!isCollapsed && (
               <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/35 px-3 mb-1.5 font-[Inter]">
@@ -605,33 +630,59 @@ export default function Shell() {
               {!isCollapsed && <span>Settings</span>}
             </NavLink>
           </div>
+          )}
         </div>
 
         {/* User / School Profile Card */}
-        <div className="mt-auto border-t border-white/10 p-3 shrink-0">
+        <div className="mt-auto border-t border-white/10 p-3 shrink-0 space-y-2">
           {isCollapsed ? (
-            <div
-              className="flex justify-center"
-              title={`${user?.full_name ?? session.tenant.name} • ${user?.role ?? ''}`}
-            >
-              <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shadow-xs">
-                {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
+            <>
+              <div
+                className="flex justify-center"
+                title={`${user?.full_name ?? session.tenant.name} • ${user?.role ?? ''}`}
+              >
+                <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shadow-xs">
+                  {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
+                </div>
               </div>
-            </div>
+              <button
+                onClick={() => {
+                  logoutUser()
+                  navigate('/login', { replace: true })
+                }}
+                title="Log Out"
+                className="w-full h-9 rounded-xl border border-danger/40 bg-danger/10 hover:bg-danger/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
           ) : (
-            <div className="px-2 py-1 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shrink-0 shadow-xs">
-                {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-white text-[13px] font-medium leading-none truncate">
-                  {user?.full_name ?? session.tenant.name}
+            <>
+              <div className="px-2 py-1 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shrink-0 shadow-xs">
+                  {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
                 </div>
-                <div className="text-white/50 text-[11px] mt-1 truncate">
-                  <span className="text-gold font-semibold">{user?.role ?? 'MEMBER'}</span> • {user?.tenant_name ?? session.tenant.name}
+                <div className="min-w-0 flex-1">
+                  <div className="text-white text-[13px] font-medium leading-none truncate">
+                    {user?.full_name ?? session.tenant.name}
+                  </div>
+                  <div className="text-white/50 text-[11px] mt-1 truncate">
+                    <span className="text-gold font-semibold">{user?.role ?? 'MEMBER'}</span> • {user?.tenant_name ?? session.tenant.name}
+                  </div>
                 </div>
               </div>
-            </div>
+              <button
+                onClick={() => {
+                  logoutUser()
+                  navigate('/login', { replace: true })
+                }}
+                className="w-full h-9 px-3.5 rounded-xl border border-danger/40 bg-danger/10 hover:bg-danger/20 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-[Inter]"
+                title="Sign out of Edova"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log Out</span>
+              </button>
+            </>
           )}
         </div>
       </aside>
@@ -641,7 +692,10 @@ export default function Shell() {
           !location.pathname.startsWith('/settings') &&
           !location.pathname.startsWith('/learning') &&
           !location.pathname.startsWith('/my-assignments') &&
-          !location.pathname.startsWith('/wiki') && (
+          !location.pathname.startsWith('/wiki') &&
+          !location.pathname.startsWith('/lessons') &&
+          !location.pathname.startsWith('/labs') &&
+          !location.pathname.startsWith('/my-resources') && (
           <header className="print:hidden h-16 shrink-0 bg-[#F5F1E6] border-b border-[#E5E1D2] flex items-center justify-between gap-3 px-6 lg:px-8">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -707,81 +761,6 @@ export default function Shell() {
                     {activeSubject ? `C10.${activeSubject.name.slice(0, 3).toUpperCase()}` : 'C10.ALL'}
                   </Badge>
                 </div>
-              ) : location.pathname.startsWith('/labs') ? (
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 font-[Inter] text-[13px]">
-                  {/* Dedicated Subject Filter for Labs */}
-                  <div className="relative">
-                    <select
-                      value={labSubject}
-                      onChange={(e) => {
-                        const newSubj = e.target.value as 'maths' | 'science' | 'social' | 'english'
-                        setLabSubject(newSubj)
-                        setLabChapterId('ALL')
-                        setLabTopicId('ALL')
-                      }}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer"
-                    >
-                      <option value="maths">Mathematics</option>
-                      <option value="science">Science</option>
-                      <option value="social">Social Science</option>
-                      <option value="english">English</option>
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
-                  <span className="text-[#6B7280] font-semibold text-xs">&gt;&gt;</span>
-
-                  {/* Dedicated Chapter Filter for Labs */}
-                  <div className="relative">
-                    <select
-                      value={labChapterId}
-                      onChange={(e) => {
-                        setLabChapterId(e.target.value)
-                        setLabTopicId('ALL')
-                      }}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer max-w-[160px] sm:max-w-none"
-                    >
-                      <option value="ALL">All Chapters</option>
-                      {(CURRICULUM_DATABASE[labSubject]?.chapters ?? []).map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.title}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
-                  <span className="text-[#6B7280] font-semibold text-xs">&gt;&gt;</span>
-
-                  {/* Dedicated Topic Filter for Labs */}
-                  <div className="relative">
-                    <select
-                      value={labTopicId}
-                      onChange={(e) => setLabTopicId(e.target.value)}
-                      disabled={labChapterId === 'ALL'}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer max-w-[180px] sm:max-w-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="ALL">All Topics</option>
-                      {labChapterId !== 'ALL' &&
-                        (CURRICULUM_DATABASE[labSubject]?.chapters.find((c) => c.id === labChapterId)?.subtopics ?? []).map((st) => (
-                          <option key={st.id} value={st.id}>
-                            {st.title}
-                          </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
-                  <Badge variant="okf" className="font-mono text-[11px] hidden sm:inline-flex">
-                    {labSubject === 'maths'
-                      ? 'LABS.MATH'
-                      : labSubject === 'science'
-                      ? 'LABS.SCI'
-                      : labSubject === 'social'
-                      ? 'LABS.SOC'
-                      : 'LABS.ENG'}
-                  </Badge>
-                </div>
               ) : (
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   <div className="relative">
@@ -797,24 +776,6 @@ export default function Shell() {
                       {chapters.map((c) => (
                         <option key={c.chapter_id} value={c.chapter_id}>
                           {c.chapter_name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
-                  <div className="relative">
-                    <select
-                      value={typeFilter}
-                      onChange={(e) => {
-                        setTypeFilter(e.target.value as ModuleType | 'ALL')
-                        backToShelf()
-                      }}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer"
-                    >
-                      {(Object.keys(TYPE_LABEL) as (ModuleType | 'ALL')[]).map((t) => (
-                        <option key={t} value={t}>
-                          {TYPE_LABEL[t]}
                         </option>
                       ))}
                     </select>
@@ -891,6 +852,8 @@ export default function Shell() {
           <Outlet context={ctx} />
         </main>
       </div>
+
+      {isStudent && <ChatWidget />}
     </div>
   )
 }

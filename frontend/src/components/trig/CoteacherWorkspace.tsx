@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   RotateCcw,
@@ -14,11 +14,12 @@ import {
 import MathDisplay from './MathDisplay'
 import MathLiveInput from './MathLiveInput'
 import FormattedMathText from './FormattedMathText'
-import TrigonometryDagModal from './TrigonometryDagModal'
+import ConceptDagModal from '../dag/ConceptDagModal'
 import VideoExplainerModal from '../video/VideoExplainerModal'
 import { trackTelemetryEvent } from '../../lib/trig/tracer'
 import {
   trigApi,
+  type SubjectApi,
   type TrigConceptSummary,
   type TrigStepHistoryItem,
   type TrigMetrics,
@@ -26,25 +27,78 @@ import {
   type TrigProgressPoint,
   type TrigProfile,
 } from '../../lib/trig/trigApiClient'
-import { useApp } from '../../store'
+import PageHeader from '../PageHeader'
+import SearchToolbar from '../SearchToolbar'
 
 interface CoteacherWorkspaceProps {
   conceptId: string
   onSelectConcept?: (id: string) => void
   availableConcepts?: TrigConceptSummary[]
+  api?: SubjectApi
+  telemetryEndpoint?: string
+  dagSubjectLabel?: string
+  subjectFallbackName?: string
+  formulaReferenceTitle?: string
+  formulaReferenceItems?: [string, string][]
+  customModalTitle?: string
+  presetProblems?: { title: string; text: string }[]
+  syncBadgeLabel?: string
+  /** Class/Subject/Chapter filter row, rendered as a SearchToolbar directly below the header. */
+  filterBar?: ReactNode
 }
+
+const TRIG_FORMULA_REFERENCE: [string, string][] = [
+  ['Pythagoras', 'AB² + BC² = AC²'],
+  ['sin θ', 'opp / hyp = AB / AC'],
+  ['cos θ', 'adj / hyp = BC / AC'],
+  ['tan θ', 'opp / adj = AB / BC'],
+  ['sin²+cos²', 'sin²θ + cos²θ = 1'],
+  ['Complementary', 'sin(90°-θ) = cos θ'],
+]
+
+const TRIG_PRESET_PROBLEMS = [
+  {
+    title: 'Oswaal Shadow Altitude',
+    text: 'a tower AB is 20 m high and BC, its shadow on the ground, is 20 sqaureroot 3 m long. Find the Sun’s altitude.',
+  },
+  {
+    title: 'NCERT 8.2 Q3 Angle System',
+    text: 'If sin(A - B) = 1/2, cos(A + B) = 1/2, 0 < A + B <= 90, A > B, find A and B.',
+  },
+  {
+    title: 'NCERT 8.1 Q1 Triangle Ratios',
+    text: 'In triangle ABC, right-angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A (ii) sin C, cos C',
+  },
+  {
+    title: 'NCERT 8.2 Q1 Compound Evaluation',
+    text: 'Evaluate: 2 tan^2 45 + cos^2 30 - sin^2 60',
+  },
+  {
+    title: 'Tower Elevation Height',
+    text: 'A tower stands vertically on the ground. From a point on the ground, which is 15 m away from the foot of the tower, the angle of elevation of the top of the tower is found to be 60. Find the height of the tower.',
+  },
+]
 
 export default function CoteacherWorkspace({
   conceptId,
   onSelectConcept,
   availableConcepts = [],
+  api = trigApi,
+  telemetryEndpoint = '/api/trig/telemetry/event',
+  dagSubjectLabel = 'CBSE CLASS 10 DAG',
+  subjectFallbackName = 'Trigonometry',
+  formulaReferenceTitle = 'CBSE Trigonometry Formulas Reference',
+  formulaReferenceItems = TRIG_FORMULA_REFERENCE,
+  customModalTitle = 'Custom CBSE Trigonometry Problem',
+  presetProblems = TRIG_PRESET_PROBLEMS,
+  syncBadgeLabel = 'SYNC RIGHT-ANGLED • LIVE',
+  filterBar,
 }: CoteacherWorkspaceProps) {
   const navigate = useNavigate()
-  const { session } = useApp()
 
   const [loading, setLoading] = useState(false)
   const [hasStartedProblem, setHasStartedProblem] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
   const [enteredSteps, setEnteredSteps] = useState<string[]>([])
 
   const [conceptTitle, setConceptTitle] = useState('')
@@ -91,29 +145,6 @@ export default function CoteacherWorkspace({
   const [customProblemInput, setCustomProblemInput] = useState('')
   const [customLoading, setCustomLoading] = useState(false)
 
-  const PRESET_PROBLEMS = [
-    {
-      title: 'Oswaal Shadow Altitude',
-      text: 'a tower AB is 20 m high and BC, its shadow on the ground, is 20 sqaureroot 3 m long. Find the Sun’s altitude.',
-    },
-    {
-      title: 'NCERT 8.2 Q3 Angle System',
-      text: 'If sin(A - B) = 1/2, cos(A + B) = 1/2, 0 < A + B <= 90, A > B, find A and B.',
-    },
-    {
-      title: 'NCERT 8.1 Q1 Triangle Ratios',
-      text: 'In triangle ABC, right-angled at B, AB = 24 cm, BC = 7 cm. Determine: (i) sin A, cos A (ii) sin C, cos C',
-    },
-    {
-      title: 'NCERT 8.2 Q1 Compound Evaluation',
-      text: 'Evaluate: 2 tan^2 45 + cos^2 30 - sin^2 60',
-    },
-    {
-      title: 'Tower Elevation Height',
-      text: 'A tower stands vertically on the ground. From a point on the ground, which is 15 m away from the foot of the tower, the angle of elevation of the top of the tower is found to be 60. Find the height of the tower.',
-    },
-  ]
-
   const handleStartCustomProblem = async (customText?: string) => {
     const textToUse = customText || customProblemInput
     if (!textToUse.trim()) return
@@ -122,7 +153,7 @@ export default function CoteacherWorkspace({
     setSystemError(null)
     setFeedback(null)
     try {
-      const res = await trigApi.initSession(textToUse.trim())
+      const res = await api.initSession(textToUse.trim())
       setIsGenericSession(true)
       setGenericSessionId(res.session_id)
       setConceptTitle(`Reasoning Engine: ${res.problem_type}`)
@@ -163,7 +194,7 @@ export default function CoteacherWorkspace({
     setEditingStepIndex(null)
 
     try {
-      const data = await trigApi.state(conceptId, { fresh, generateNew })
+      const data = await api.state(conceptId, { fresh, generateNew })
       setGenericSessionId(data.session_id || null)
       setIsGenericSession(true)
       setConceptTitle(data.concept_title)
@@ -188,7 +219,7 @@ export default function CoteacherWorkspace({
 
   const fetchProfile = async () => {
     try {
-      setProfile(await trigApi.profile())
+      setProfile(await api.profile())
     } catch {
       // Ignore -- non-critical sidebar widget
     }
@@ -207,7 +238,7 @@ export default function CoteacherWorkspace({
   }, [conceptId])
 
   const handleNextProblem = () => {
-    trackTelemetryEvent(conceptId, activeStepIndex, 'next_problem_click', { concept_id: conceptId })
+    trackTelemetryEvent(conceptId, activeStepIndex, 'next_problem_click', { concept_id: conceptId }, telemetryEndpoint)
     setEnteredSteps([])
     fetchState(false, true)
     setFeedback(null)
@@ -244,7 +275,7 @@ export default function CoteacherWorkspace({
     setSystemError(null)
 
     try {
-      const res = await trigApi.submitStep(genericSessionId, stepIdx, trimmed)
+      const res = await api.submitStep(genericSessionId, stepIdx, trimmed)
       if (res.is_correct) {
         setStepsHistory(res.steps_history)
         if (!isEditingPastStep) {
@@ -283,7 +314,7 @@ export default function CoteacherWorkspace({
     if (!conceptId) return
     setEnteredSteps([])
     try {
-      await trigApi.reset(conceptId)
+      await api.reset(conceptId)
     } finally {
       fetchState(true, false)
       setTimeline(startTimelineSeed())
@@ -336,10 +367,6 @@ export default function CoteacherWorkspace({
     ? formulaReference.split('|').map((s) => s.trim()).filter(Boolean)
     : defaultFormulas
 
-  const initials = session?.tenant?.name
-    ? session.tenant.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-    : 'AK'
-
   return (
     <div className="relative min-h-full w-full bg-[#fdfaf5] text-[#1a2421] selection:bg-[#ddb56e]/30 flex flex-col font-sans">
       {/* Background Dotted Grid Texture */}
@@ -347,33 +374,25 @@ export default function CoteacherWorkspace({
 
       {/* Top Bar — Editorial Polished */}
       <div className="sticky top-0 z-20 backdrop-blur-xl bg-[#fdfaf5]/90 border-b border-[#ece8df]">
-        <div className="px-5 lg:px-10 h-[68px] flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
-              Practice Questions
-            </h1>
-            <span className="hidden md:inline-flex items-center px-2.5 py-1 rounded-full bg-[#1a2421] text-[#fdfaf5] font-mono text-[10px] tracking-[0.12em]">
-              CBSE CLASS 10 • MATH
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="hidden md:inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white border border-[#ece8df] text-[12px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[#f6f1e7] transition cursor-pointer"
-            >
-              <span className="text-[14px]">←</span> Go back
-            </button>
-            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[11px] font-mono text-[#2a5a28]">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>SYNC RIGHT-ANGLED • LIVE</span>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-[#1a2421] text-white flex items-center justify-center text-[11px] font-medium ml-1">
-              {initials}
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Practice Questions"
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="hidden md:inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white border border-[#ece8df] text-[12px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[#f6f1e7] transition cursor-pointer"
+              >
+                <span className="text-[14px]">←</span> Go back
+              </button>
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[11px] font-mono text-[#2a5a28]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{syncBadgeLabel}</span>
+              </div>
+            </>
+          }
+        />
+        {filterBar && <SearchToolbar>{filterBar}</SearchToolbar>}
       </div>
 
       {/* Workspace Area: Main Content Column + Collapsible Telemetry Sidebar */}
@@ -453,20 +472,17 @@ export default function CoteacherWorkspace({
             </div>
 
             {/* CARD 1: QUESTION CARD */}
-            <div className="relative bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] overflow-hidden min-w-0 w-full">
-              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#ece8df] to-transparent" />
+            <div className="relative bg-[#FEFEFB] rounded-[28px] border border-[#ece8df] shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden min-w-0 w-full">
+              <div className="absolute top-0 left-0 right-0 h-[6px]" style={{ background: '#8BA888' }} />
               <div className="p-7 lg:p-9">
                 <div className="max-w-[720px]">
                   {!hasStartedProblem ? (
                     <>
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f6f1e7] border border-[#ece6d8] font-mono text-[10px] tracking-[0.12em] text-[#7a756c]">
-                        READY STATE • INSTANCE 01
-                      </div>
-                      <h2 className="font-serif text-[28px] lg:text-[32px] leading-[1.05] tracking-[-0.03em] mt-4 text-[#111814]">
+                      <h2 className="font-serif text-[28px] lg:text-[32px] leading-[1.05] tracking-[-0.03em] text-[#111814]">
                         Ready to practice<br className="hidden sm:inline" /> this concept?
                       </h2>
                       <p className="mt-4 text-[14px] leading-[1.6] text-[#6b6760] max-w-[460px]">
-                        You're viewing <span className="font-medium text-[#1a2421]">{conceptTitle || 'Trigonometry'}</span>. Click Next Problem to load a randomized instance with verified derivations and adaptive hints.
+                        You're viewing <span className="font-medium text-[#1a2421]">{conceptTitle || subjectFallbackName}</span>. Click Next Problem to load a randomized instance with verified derivations and adaptive hints.
                       </p>
                     </>
                   ) : (
@@ -557,7 +573,15 @@ export default function CoteacherWorkspace({
             </div>
 
             {/* CARD 2: EDOVA EQUATION BOARD */}
-            <div className="bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] overflow-hidden min-w-0">
+            <div className="relative bg-[#FEFEFB] rounded-[28px] border border-[#ece8df] shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden min-w-0">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                title={isExpanded ? 'Collapse board' : 'Expand board'}
+                aria-label={isExpanded ? 'Collapse board' : 'Expand board'}
+                className="absolute top-0 left-0 right-0 h-[6px] cursor-pointer hover:h-[8px] transition-all"
+                style={{ background: '#7A9DB8' }}
+              />
               <div className="px-7 lg:px-8 h-[52px] flex items-center justify-between border-b border-[#ece8df] bg-[#fbfaf7]">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[11px] tracking-[0.14em] text-[#1a2421] font-medium uppercase">
@@ -569,118 +593,87 @@ export default function CoteacherWorkspace({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div
-                    title="Add Derivation Step"
-                    className="w-6 h-6 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center text-[12px] text-[#1a2421] select-none"
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  title={isExpanded ? 'Collapse board' : 'Expand board'}
+                  aria-label={isExpanded ? 'Collapse board' : 'Expand board'}
+                  className="w-7 h-7 rounded-full bg-white border border-[#ece6d8] grid place-items-center text-[#7A9DB8] hover:bg-[#7A9DB8] hover:text-white hover:border-[#7A9DB8] transition-all duration-200 cursor-pointer shadow-xs"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                   >
-                    ⊕
-                  </div>
-                  <div
-                    title="Derivation View"
-                    className="w-6 h-6 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center text-[10px] text-[#1a2421] select-none"
-                  >
-                    ⤢
-                  </div>
-
-                  {/* Expand / Collapse Button with green dash indicator */}
-                  <button
-                    type="button"
-                    title={isExpanded ? 'Collapse board' : 'Expand board'}
-                    aria-label={isExpanded ? 'Collapse board' : 'Expand board'}
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="relative w-7 h-7 rounded-full bg-white border border-[#ece6d8] grid place-items-center text-[#1a2421] hover:bg-[#1a2421] hover:text-white hover:border-[#1a2421] transition-all duration-200 cursor-pointer shadow-xs"
-                  >
-                    <span className="absolute -top-[5px] -right-[2px] w-[12px] h-[3px] rounded-full bg-emerald-400 shadow-[0_0_0_2px_#fbfaf7]" />
-                    {isExpanded ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="4 14 10 14 10 20" />
-                        <polyline points="20 10 14 10 14 4" />
-                        <line x1="14" y1="10" x2="21" y2="3" />
-                        <line x1="3" y1="21" x2="10" y2="14" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="15 3 21 3 21 9" />
-                        <polyline points="9 21 3 21 3 15" />
-                        <line x1="21" y1="3" x2="14" y2="10" />
-                        <line x1="3" y1="21" x2="10" y2="14" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
               </div>
 
-              {/* Board Body: 180px collapsed vs 500px expanded with smooth transition and dot-grid */}
-              <div
-                className={`dot-grid relative p-6 lg:p-8 overflow-hidden transition-all duration-500 ease-[cubic-bezier(.25,.8,.25,1)] ${
-                  isExpanded ? 'overflow-y-auto' : ''
-                }`}
-                style={{ height: isExpanded ? 500 : 180 }}
-              >
-                <div className="max-w-[560px]">
-                  {/* Ghost Example Box */}
-                  <div className="rounded-xl border border-dashed border-[#ddd8cc] bg-[#fdfaf5]/80 p-4">
-                    <div className="font-mono text-[10px] tracking-[0.12em] text-[#7a756c] mb-2 font-medium">
-                      GHOST EXAMPLE • REFERENCE ONLY
-                    </div>
-                    <div className="font-mono text-[13px] text-[#6b6760] leading-relaxed">
-                      Ex: <span className="text-[#1a2421] font-medium">Step 1:</span> In ΔABC, ∠B = 90° → AB² + BC² = AC²
-                    </div>
-                    <div className="mt-2 font-mono text-[11px] text-[#7a756c]">
-                      Ex: Step 2: Let AB = 3, BC = 4 → AC = √(9+16) = 5
-                    </div>
-                  </div>
-
-                  {/* Empty state when no derivations entered */}
-                  {allStudentSteps.length === 0 && (
-                    <div className="mt-6 flex items-center gap-3 text-[#9a958c]">
-                      <div className="w-8 h-8 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
-                        <span className="text-[14px] text-[#8a8f8b]">＋</span>
+              {/* Board Body: hidden entirely when collapsed, only the header row above stays visible */}
+              {isExpanded && (
+                <div className="dot-grid relative p-6 lg:p-8 overflow-y-auto" style={{ maxHeight: 500 }}>
+                  <div className="max-w-[560px]">
+                    {/* Ghost Example Box */}
+                    <div className="rounded-xl border border-dashed border-[#C48A7A]/50 bg-[#F0D5C8]/40 p-4">
+                      <div className="font-mono text-[10px] tracking-[0.12em] text-[#C48A7A] mb-2 font-medium">
+                        GHOST EXAMPLE • REFERENCE ONLY
                       </div>
-                      <div className="font-mono text-[11px]">
-                        No derivations yet. Enter Step 1 below
+                      <div className="font-mono text-[13px] text-[#6b6760] leading-relaxed">
+                        Ex: <span className="text-[#1a2421] font-medium">Step 1:</span> In ΔABC, ∠B = 90° → AB² + BC² = AC²
+                      </div>
+                      <div className="mt-2 font-mono text-[11px] text-[#7a756c]">
+                        Ex: Step 2: Let AB = 3, BC = 4 → AC = √(9+16) = 5
                       </div>
                     </div>
-                  )}
 
-                  {/* ALL STUDENT ENTERED STEPS - Always shown here */}
-                  {allStudentSteps.length > 0 && (
-                    <div className="mt-6 space-y-3">
-                      {allStudentSteps.map((stepText, idx) => (
-                        <div
-                          key={idx}
-                          className="rounded-xl bg-[#1a2421] text-[#e8e2d6] px-4 py-3 font-mono text-[13px] flex items-center gap-3 shadow-sm animate-fadeIn"
-                        >
-                          <span className="text-[#a8e6a0] font-semibold shrink-0">
-                            Step {idx + 1}:
-                          </span>
-                          <span className="flex-1 overflow-x-auto">
-                            <MathDisplay math={stepText} />
-                          </span>
-                          <span className="text-[#8be78a] text-xs shrink-0 font-sans flex items-center gap-1">
-                            <span>✓</span> Verified
-                          </span>
+                    {/* Empty state when no derivations entered */}
+                    {allStudentSteps.length === 0 && (
+                      <div className="mt-6 flex items-center gap-3 text-[#9a958c]">
+                        <div className="w-8 h-8 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
+                          <span className="text-[14px] text-[#8a8f8b]">＋</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <div className="font-mono text-[11px]">
+                          No derivations yet. Enter Step 1 below
+                        </div>
+                      </div>
+                    )}
 
-                {/* Ambient watermark circle in bottom right */}
-                <div className="absolute right-8 bottom-8 w-16 h-16 rounded-full bg-[#f6f1e7] border border-[#ece6d8] grid place-items-center opacity-60 pointer-events-none">
-                  <span className="text-[22px] text-[#c2bdb0]">＋</span>
+                    {/* ALL STUDENT ENTERED STEPS - Always shown here */}
+                    {allStudentSteps.length > 0 && (
+                      <div className="mt-6 space-y-3">
+                        {allStudentSteps.map((stepText, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-xl bg-[#1a2421] text-[#e8e2d6] px-4 py-3 font-mono text-[13px] flex items-center gap-3 shadow-sm animate-fadeIn"
+                          >
+                            <span className="text-[#a8e6a0] font-semibold shrink-0">
+                              Step {idx + 1}:
+                            </span>
+                            <span className="flex-1 overflow-x-auto">
+                              <MathDisplay math={stepText} />
+                            </span>
+                            <span className="text-[#8be78a] text-xs shrink-0 font-sans flex items-center gap-1">
+                              <span>✓</span> Verified
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                {/* Bottom gradient fade when collapsed */}
-                {!isExpanded && (
-                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#fbfaf7]/90 to-transparent" />
-                )}
-              </div>
+              )}
             </div>
 
             {/* CARD 3: YOUR DERIVATIONS */}
-            <div className="bg-white rounded-[28px] border border-[#ece8df] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_40px_rgba(0,0,0,0.05)] p-7 lg:p-8 min-w-0">
+            <div className="relative bg-[#E6EDE6] rounded-[28px] border border-[#ece8df] shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden p-7 lg:p-8 min-w-0">
+              <div className="absolute top-0 left-0 right-0 h-[6px]" style={{ background: 'linear-gradient(90deg, #8BA888, #9B8FB4)' }} />
               <div className="flex items-center justify-between">
                 <h3 className="font-serif text-[18px] text-[#1a2421] font-semibold">
                   Your Derivations
@@ -691,7 +684,7 @@ export default function CoteacherWorkspace({
               </div>
 
               {allStudentSteps.length === 0 && !hasStartedProblem ? (
-                <div className="mt-8 rounded-[20px] bg-[#fbf8f1] border border-[#ece6d8] p-8 text-center">
+                <div className="mt-8 rounded-[20px] bg-white border border-[#ece6d8] p-8 text-center">
                   <div className="mx-auto w-12 h-12 rounded-full bg-white border border-[#ece8df] grid place-items-center shadow-sm">
                     <span className="text-[18px] opacity-60">◐</span>
                   </div>
@@ -744,7 +737,7 @@ export default function CoteacherWorkspace({
                       {allStudentSteps.map((stepText, idx) => (
                         <div
                           key={idx}
-                          className="flex gap-3 items-center justify-between p-3.5 rounded-xl bg-[#fbf8f1] border border-[#ece6d8]"
+                          className="flex gap-3 items-center justify-between p-3.5 rounded-xl bg-white border border-[#ece6d8]"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span className="w-6 h-6 rounded-full bg-[#1a2421] text-white grid place-items-center font-mono text-[10px] shrink-0 font-bold">
@@ -784,7 +777,7 @@ export default function CoteacherWorkspace({
                             key={i}
                             type="button"
                             onClick={() => {
-                              trackTelemetryEvent(conceptId, activeStepIndex, 'quick_option_click', { option: opt })
+                              trackTelemetryEvent(conceptId, activeStepIndex, 'quick_option_click', { option: opt }, telemetryEndpoint)
                               handleStepSubmit(opt)
                             }}
                             className="bg-[#eef6ec] hover:bg-[#d6ecd2] border border-[#d6ecd2] text-[#2a5a28] text-xs px-3.5 py-1.5 rounded-full font-mono transition shadow-xs active:scale-95 font-semibold cursor-pointer"
@@ -834,7 +827,7 @@ export default function CoteacherWorkspace({
                         }}
                         placeholder="e.g. sin(θ) = opposite / hypotenuse"
                         disabled={!hasStartedProblem}
-                        className="w-full h-[48px] rounded-full bg-[#fbf8f1] border border-[#ece6d8] px-5 pr-[130px] font-mono text-[13px] text-[#1a2421] placeholder:text-[#b8b2a5] focus:outline-none focus:border-[#1a2421]/30 focus:bg-white disabled:opacity-60 transition"
+                        className="w-full h-[48px] rounded-full bg-white border border-[#ece6d8] px-5 pr-[130px] font-mono text-[13px] text-[#1a2421] placeholder:text-[#b8b2a5] focus:outline-none focus:border-[#1a2421]/30 focus:bg-white disabled:opacity-60 transition"
                       />
                       <button
                         type="button"
@@ -941,10 +934,10 @@ export default function CoteacherWorkspace({
                     ƒ
                   </span>
                   <span className="font-serif text-[15px] font-semibold text-[#1a2421]">
-                    CBSE Trigonometry Formulas Reference
+                    {formulaReferenceTitle}
                   </span>
-                  <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-[#eef6ec] border border-[#d6ecd2] text-[10px] font-mono text-[#2a5a28]">
-                    6 FORMULAS
+                  <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-[#E0DAE8] border border-[#D4C8E0] text-[10px] font-mono text-[#5A4E7A]">
+                    {formulaReferenceItems.length} FORMULAS
                   </span>
                 </div>
                 <span
@@ -958,14 +951,7 @@ export default function CoteacherWorkspace({
 
               {showFormulaDrawer && (
                 <div className="px-7 lg:px-8 pb-7 pt-2 grid md:grid-cols-2 gap-3 animate-fadeIn">
-                  {[
-                    ['Pythagoras', 'AB² + BC² = AC²'],
-                    ['sin θ', 'opp / hyp = AB / AC'],
-                    ['cos θ', 'adj / hyp = BC / AC'],
-                    ['tan θ', 'opp / adj = AB / BC'],
-                    ['sin²+cos²', 'sin²θ + cos²θ = 1'],
-                    ['Complementary', 'sin(90°-θ) = cos θ'],
-                  ].map(([name, formula]) => (
+                  {formulaReferenceItems.map(([name, formula]) => (
                     <div
                       key={name}
                       className="rounded-xl bg-[#fbf8f1] border border-[#ece6d8] px-4 py-3 flex justify-between items-center"
@@ -1035,40 +1021,52 @@ export default function CoteacherWorkspace({
                   label: 'Concept Mastery',
                   value: `${Math.round(metrics.concept_mastery * 100)}%`,
                   sub: 'Baseline',
-                  color: '#1A221E',
+                  color: '#2E4D3A',
+                  bg: '#D4E4D1',
+                  text: '#2E4D3A',
                   progress: Math.round(metrics.concept_mastery * 100),
                 },
                 {
                   label: 'Assistance SAL',
                   value: `${Math.round(metrics.assistance_sal * 100)}%`,
                   sub: metrics.assistance_sal >= 0.7 ? 'Adaptive' : 'Low assist',
-                  color: '#4A7C59',
+                  color: '#7A4D3E',
+                  bg: '#F0D5C8',
+                  text: '#7A4D3E',
                   progress: Math.round(metrics.assistance_sal * 100),
                 },
                 {
                   label: 'Active Attempts',
                   value: `${metrics.active_attempts}`,
                   sub: 'This session',
-                  color: metrics.active_attempts > 1 ? '#DDB56E' : '#1A221E',
+                  color: '#3A4E68',
+                  bg: '#D6E2EB',
+                  text: '#3A4E68',
                   progress: Math.min(100, metrics.active_attempts * 25),
                 },
                 {
                   label: 'Accuracy Rate',
                   value: `${Math.round(metrics.accuracy_rate * 100)}%`,
                   sub: 'Verified',
-                  color: '#1A221E',
+                  color: '#5A4E7A',
+                  bg: '#E0DAE8',
+                  text: '#5A4E7A',
                   progress: Math.round(metrics.accuracy_rate * 100),
                 },
               ].map((z) => (
-                <div key={z.label} className="relative rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-3.5 overflow-hidden">
-                  <div className="font-mono text-[9.5px] tracking-[0.08em] text-[#9AA09B] leading-tight mb-1.5">
+                <div
+                  key={z.label}
+                  className="relative rounded-[14px] border border-black/5 p-3.5 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
+                  style={{ background: z.bg }}
+                >
+                  <div className="font-mono text-[9.5px] tracking-[0.08em] leading-tight mb-1.5 opacity-70" style={{ color: z.text }}>
                     {z.label.toUpperCase()}
                   </div>
-                  <div className="font-display text-[22px] font-[600] leading-none tracking-[-0.02em] mb-1">
+                  <div className="font-display text-[22px] font-[600] leading-none tracking-[-0.02em] mb-1" style={{ color: z.text }}>
                     {z.value}
                   </div>
-                  <div className="font-mono text-[10px] text-[#8A8F8B]">{z.sub}</div>
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EDE8DD]">
+                  <div className="font-mono text-[10px] opacity-70" style={{ color: z.text }}>{z.sub}</div>
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-black/10">
                     <div
                       className="h-full transition-all duration-700 ease-out"
                       style={{ width: `${z.progress}%`, background: z.color }}
@@ -1079,7 +1077,7 @@ export default function CoteacherWorkspace({
             </div>
 
             {/* LEARNING TRAJECTORY DYNAMICS */}
-            <div className="rounded-[14px] bg-[#FCFBF8] border border-[#EDE8DD] p-4">
+            <div className="rounded-[14px] bg-[#FFFFFF] border border-[#8BA888]/40 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B]">
                   LEARNING TRAJECTORY DYNAMICS
@@ -1147,45 +1145,45 @@ export default function CoteacherWorkspace({
               </div>
             </div>
 
-            {/* FLUENCY • SPEED Dark Card */}
+            {/* ARCHETYPE MASTERY Card */}
             <div
-              className="rounded-[14px] bg-[#1A221E] p-4 border border-[#2A332F] relative overflow-hidden"
-              style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 24px rgba(0,0,0,0.18)' }}
+              className="rounded-[14px] bg-[#F5DDD1] p-4 border border-[#F0D5C8] relative overflow-hidden"
+              style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}
             >
-              <div className="absolute right-[-20px] top-[-20px] w-28 h-28 rounded-full bg-[#DDB56E]/[0.08] blur-[1px]" />
+              <div className="absolute right-[-20px] top-[-20px] w-28 h-28 rounded-full bg-[#C48A7A]/[0.12] blur-[1px]" />
               <div className="relative">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-mono text-[9px] tracking-[0.14em] text-[#9CA3AF] uppercase opacity-90">
+                  <span className="font-mono text-[9px] tracking-[0.14em] text-[#7A4D3E] uppercase opacity-90">
                     ARCHETYPE MASTERY
                   </span>
-                  <span className="font-mono text-[9px] px-2 py-1 rounded-full bg-[#232E27] border border-[#2A332F] text-[#DDB56E] font-semibold">
+                  <span className="font-mono text-[9px] px-2 py-1 rounded-full bg-white/70 border border-[#F0D5C8] text-[#7A4D3E] font-semibold">
                     {metrics.questions_solved || 0}/5 Solved
                   </span>
                 </div>
 
                 <div className="flex items-end gap-3 mb-4">
-                  <div className="font-display text-[28px] font-[700] leading-none text-[#FFFFFF] tracking-[-0.02em]">
+                  <div className="font-display text-[28px] font-[700] leading-none text-[#121A16] tracking-[-0.02em]">
                     {`${Math.round((metrics.concept_mastery || 0) * 100)}%`}
                   </div>
-                  <div className="font-mono text-[11px] text-[#EDE8DD] mb-0.5 opacity-90">
+                  <div className="font-mono text-[11px] text-[#7A4D3E] mb-0.5 opacity-90">
                     {(metrics.questions_solved || 0) >= 5 ? '★ Mastered' : `${5 - (metrics.questions_solved || 0)} more to master`}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="rounded-[8px] bg-[#232E27] border border-[#2A332F] p-2.5">
-                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#9CA3AF] uppercase">
+                  <div className="rounded-[8px] bg-white/60 border border-[#F0D5C8] p-2.5">
+                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#7A4D3E] uppercase">
                       Accuracy Rate
                     </div>
-                    <div className="font-medium text-[14px] text-[#FFFFFF] mt-1">
+                    <div className="font-medium text-[14px] text-[#121A16] mt-1">
                       {hasStartedProblem && completedSteps.length > 0 ? `${Math.round(metrics.accuracy_rate * 100)}%` : '—'}
                     </div>
                   </div>
-                  <div className="rounded-[8px] bg-[#232E27] border border-[#2A332F] p-2.5">
-                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#9CA3AF] uppercase">
+                  <div className="rounded-[8px] bg-white/60 border border-[#F0D5C8] p-2.5">
+                    <div className="font-mono text-[9px] tracking-[0.08em] text-[#7A4D3E] uppercase">
                       Current SAL
                     </div>
-                    <div className="font-medium text-[14px] text-[#DDB56E] mt-1 font-mono">
+                    <div className="font-medium text-[14px] text-[#C48A7A] mt-1 font-mono">
                       {metrics.assistance_sal.toFixed(2)}
                     </div>
                   </div>
@@ -1200,8 +1198,8 @@ export default function CoteacherWorkspace({
                         key={qIdx}
                         className="flex-1 h-3 rounded-[4px] transition-all duration-500 border"
                         style={{
-                          background: isSolved ? '#DDB56E' : '#232E27',
-                          borderColor: isSolved ? '#DDB56E' : '#2A332F',
+                          background: isSolved ? '#C48A7A' : 'rgba(255,255,255,0.5)',
+                          borderColor: isSolved ? '#C48A7A' : '#F0D5C8',
                           opacity: isSolved ? 1 : 0.6,
                         }}
                         title={`Question ${qIdx + 1}: ${isSolved ? 'Solved' : 'Pending'}`}
@@ -1210,33 +1208,33 @@ export default function CoteacherWorkspace({
                   })}
                 </div>
 
-                <div className="mt-3 font-mono text-[10px] text-[#EDE8DD] opacity-80">
+                <div className="mt-3 font-mono text-[10px] text-[#7A4D3E] opacity-80">
                   No time pressure • Focus on derivation quality
                 </div>
               </div>
             </div>
 
             {/* SESSION CONTEXT Card */}
-            <div className="rounded-[14px] border border-[#EDE8DD] bg-white p-4">
-              <div className="font-mono text-[10px] tracking-[0.08em] text-[#8A8F8B] mb-3">
+            <div className="rounded-[14px] border border-[#D6E2EB] bg-[#E6EEF5] p-4">
+              <div className="font-mono text-[10px] tracking-[0.08em] text-[#3A4E68] mb-3">
                 SESSION CONTEXT
               </div>
               <div className="space-y-2.5">
                 <div className="flex justify-between font-mono text-[11px]">
-                  <span className="text-[#8A8F8B]">Concept</span>
-                  <span className="text-[#1A221E] font-medium max-w-[150px] truncate">
-                    {conceptTitle || 'Trigonometry'}
+                  <span className="text-[#3A4E68]/70">Concept</span>
+                  <span className="text-[#3A4E68] font-medium max-w-[150px] truncate">
+                    {conceptTitle || subjectFallbackName}
                   </span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px]">
-                  <span className="text-[#8A8F8B]">Variant</span>
-                  <span className="text-[#1A221E]">
+                  <span className="text-[#3A4E68]/70">Variant</span>
+                  <span className="text-[#3A4E68]">
                     {hasStartedProblem ? (isGenericSession ? 'Engine • Dynamic' : '#1847 • Fresh') : '— • Ready'}
                   </span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px]">
-                  <span className="text-[#8A8F8B]">Mode</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[10px]">
+                  <span className="text-[#3A4E68]/70">Mode</span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/70 border border-[#D6E2EB] text-[10px] text-[#3A4E68]">
                     Practice • ∞ steps
                   </span>
                 </div>
@@ -1262,7 +1260,7 @@ export default function CoteacherWorkspace({
                   <Sparkles className="w-5 h-5 text-[#2E5A3A]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg font-bold text-[#1A221E]">Custom CBSE Trigonometry Problem</h3>
+                  <h3 className="font-display text-lg font-bold text-[#1A221E]">{customModalTitle}</h3>
                   <p className="text-xs text-[#8A8F8B]">
                     Template-free Neuro-Symbolic reasoning for NCERT, Oswaal, RD Sharma, and Board Exams
                   </p>
@@ -1296,7 +1294,7 @@ export default function CoteacherWorkspace({
                 Quick Sample Archetypes:
               </span>
               <div className="flex flex-wrap gap-2">
-                {PRESET_PROBLEMS.map((preset, idx) => (
+                {presetProblems.map((preset, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -1340,9 +1338,10 @@ export default function CoteacherWorkspace({
       )}
 
       {/* Interactive Trigonometry DAG Modal */}
-      <TrigonometryDagModal
+      <ConceptDagModal
         isOpen={showDagModal}
         onClose={() => setShowDagModal(false)}
+        subjectLabel={dagSubjectLabel}
         concepts={availableConcepts}
         activeConceptId={conceptId}
         onSelectConcept={(selectedId) => {
@@ -1363,6 +1362,7 @@ export default function CoteacherWorkspace({
         conceptId={conceptId}
         conceptTitle={conceptTitle}
         questionText={problemContext}
+        telemetryEndpoint={telemetryEndpoint}
       />
     </div>
   )

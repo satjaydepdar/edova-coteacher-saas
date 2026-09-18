@@ -129,6 +129,7 @@ from routers.admin_tests import router as admin_tests_router
 from routers.admin_content import router as admin_content_router
 from routers.admin_cms_browse import router as admin_cms_browse_router
 from routers.admin_tenants import router as admin_tenants_router
+from routers.admin_llm_providers import router as admin_llm_providers_router
 from routers.public_funnel import router as public_funnel_router
 from routers.analytics import router as analytics_router
 from trigonometry.routers.concepts import router as trig_concepts_router
@@ -137,6 +138,12 @@ from trigonometry.routers.analytics import router as trig_analytics_router
 from trigonometry.routers.teacher import router as trig_teacher_router
 from trigonometry.routers.telemetry import router as trig_telemetry_router
 from trigonometry.routers.session_proxy import router as trig_session_router
+from coordinate_geometry.routers.concepts import router as coordgeo_concepts_router
+from coordinate_geometry.routers.student import router as coordgeo_student_router
+from coordinate_geometry.routers.analytics import router as coordgeo_analytics_router
+from coordinate_geometry.routers.teacher import router as coordgeo_teacher_router
+from coordinate_geometry.routers.telemetry import router as coordgeo_telemetry_router
+from coordinate_geometry.routers.session_proxy import router as coordgeo_session_router
 from routers.video_engine import router as video_engine_router
 from routers.settings import router as settings_router
 from routers.calendar import router as calendar_router
@@ -147,9 +154,12 @@ from routers.assessments import router as assessments_router
 from routers.learning_resources import router as learning_resources_router
 from routers.attendance import router as attendance_router
 from routers.student_learning import router as student_learning_router
+from routers.chat import router as chat_router
 from trigonometry.database import init_db as trig_init_db
+from coordinate_geometry.database import init_db as coordgeo_init_db
 
 trig_init_db()
+coordgeo_init_db()
 
 app.include_router(auth_router)
 app.include_router(teacher_router)
@@ -162,6 +172,7 @@ app.include_router(admin_tests_router)
 app.include_router(admin_content_router)
 app.include_router(admin_cms_browse_router)
 app.include_router(admin_tenants_router)
+app.include_router(admin_llm_providers_router)
 app.include_router(public_funnel_router)
 app.include_router(analytics_router)
 app.include_router(trig_concepts_router)
@@ -170,6 +181,12 @@ app.include_router(trig_analytics_router)
 app.include_router(trig_teacher_router)
 app.include_router(trig_telemetry_router)
 app.include_router(trig_session_router)
+app.include_router(coordgeo_concepts_router)
+app.include_router(coordgeo_student_router)
+app.include_router(coordgeo_analytics_router)
+app.include_router(coordgeo_teacher_router)
+app.include_router(coordgeo_telemetry_router)
+app.include_router(coordgeo_session_router)
 app.include_router(video_engine_router)
 app.include_router(settings_router)
 app.include_router(calendar_router)
@@ -180,5 +197,6 @@ app.include_router(assessments_router)
 app.include_router(learning_resources_router)
 app.include_router(attendance_router)
 app.include_router(student_learning_router)
+app.include_router(chat_router)
 
 

@@ -12,6 +12,7 @@ import AdminContent from './pages/admin/AdminContent'
 import AdminSubject from './pages/admin/AdminSubject'
 import AdminSchools from './pages/admin/AdminSchools'
 import AdminUsers from './pages/admin/AdminUsers'
+import AdminLlmProviders from './pages/admin/AdminLlmProviders'
 import DashboardOverview from './pages/teacher/DashboardOverview'
 import SectionDeepdive from './pages/teacher/SectionDeepdive'
 import StudentProfile from './pages/teacher/StudentProfile'
@@ -25,6 +26,7 @@ import AttendancePage from './pages/teacher/AttendancePage'
 import LearningHubPage from './pages/student/LearningHubPage'
 import MyAssignmentsPage from './pages/student/MyAssignmentsPage'
 import StudentWikiPage from './pages/student/StudentWikiPage'
+import StudentResourcesPage from './pages/student/StudentResourcesPage'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -54,6 +56,7 @@ export default function App() {
         <Route path="content/:subjectId" element={<AdminSubject />} />
         <Route path="schools" element={<AdminSchools />} />
         <Route path="users" element={<AdminUsers />} />
+        <Route path="llm-providers" element={<AdminLlmProviders />} />
       </Route>
       <Route element={<Shell />}>
         <Route path="/" element={<Navigate to={homePath} replace />} />
@@ -78,6 +81,7 @@ export default function App() {
         <Route path="/learning" element={<LearningHubPage />} />
         <Route path="/my-assignments" element={<MyAssignmentsPage />} />
         <Route path="/wiki" element={<StudentWikiPage />} />
+        <Route path="/my-resources" element={<StudentResourcesPage />} />
       </Route>
       <Route path="*" element={<Navigate to={homePath} replace />} />
     </Routes>

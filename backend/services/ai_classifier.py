@@ -4,14 +4,21 @@ Best-effort by design: any failure (missing key, network error, bad JSON,
 insufficient provider credits) raises AIClassificationError, and the caller
 (main.py's ingestion endpoint) falls back to the plain regex heuristic. AI is
 never allowed to block ingestion.
+
+Model/key come from the admin-managed llm_providers registry ("default" purpose --
+see services/llm_config_service.py) instead of AI_INGESTION_MODEL/OPENROUTER_API_KEY
+env vars. Known limitation: this still talks to OpenRouter's endpoint specifically,
+so the configured default's API key must be an OpenRouter key for this feature to
+work -- a native per-provider dispatch (direct Gemini/OpenAI/... SDK calls) is a
+separate follow-up, not solved here.
 """
 import json
-import os
 
 import httpx
 
+from services.llm_config_service import get_llm_config_or_none
+
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-AI_MODEL = os.environ.get("AI_INGESTION_MODEL", "openai/gpt-4o-mini")
 
 _VALID_TYPES = {
     "MCQ", "MCQ_COMBINATION", "ASSERTION_REASONING", "SHORT_ANSWER",
@@ -39,16 +46,16 @@ class AIClassificationError(Exception):
 
 
 def classify_with_ai(raw_text: str, *, timeout: float = 30.0) -> dict:
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        raise AIClassificationError("OPENROUTER_API_KEY is not set")
+    cfg = get_llm_config_or_none("default")
+    if not cfg:
+        raise AIClassificationError("No default LLM provider configured (Admin CMS > LLM Providers)")
 
     try:
         response = httpx.post(
             OPENROUTER_URL,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {cfg['api_key']}"},
             json={
-                "model": AI_MODEL,
+                "model": cfg["model_name"],
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {"role": "system", "content": _SYSTEM_PROMPT},
@@ -76,7 +83,9 @@ def classify_with_ai(raw_text: str, *, timeout: float = 30.0) -> dict:
     except (KeyError, IndexError, json.JSONDecodeError) as exc:
         raise AIClassificationError(f"could not parse model output: {exc}") from exc
 
-    return _validate(parsed)
+    validated = _validate(parsed)
+    validated["model_name"] = cfg["model_name"]
+    return validated
 
 
 def _validate(parsed: dict) -> dict:

@@ -21,10 +21,12 @@ import {
 import { CURRICULUM_DATABASE, SimulationItem } from '../data/curriculumData'
 import { searchSimulationsIntelligently, ParsedSearchIntent } from '../utils/intelligentSearch'
 import PageHeader from './PageHeader'
+import SearchToolbar, { filterSelectClass } from './SearchToolbar'
 
 interface CurriculumCatalogProps {
   onLaunchSimulation: (sim: SimulationItem) => void
   activeSubject?: 'maths' | 'science' | 'social' | 'english'
+  onSelectSubject?: (subject: 'maths' | 'science' | 'social' | 'english') => void
   selectedChapterId?: string | null
   onSelectChapterId?: (id: string | null) => void
   selectedSubTopicId?: string | null
@@ -57,6 +59,7 @@ const pluralize = (count: number, singular: string, plural = `${singular}s`): st
 export default function CurriculumCatalog({
   onLaunchSimulation,
   activeSubject: controlledSubject = 'maths',
+  onSelectSubject,
   selectedChapterId: propChapterId,
   onSelectChapterId,
   selectedSubTopicId: propSubTopicId,
@@ -213,7 +216,44 @@ export default function CurriculumCatalog({
         }
       />
 
-      <div className="relative z-10 px-8 pb-8 space-y-6">
+      <SearchToolbar>
+        <select
+          value={currentSubject}
+          onChange={(e) => onSelectSubject?.(e.target.value as 'maths' | 'science' | 'social' | 'english')}
+          className={filterSelectClass}
+        >
+          <option value="maths">Mathematics</option>
+          <option value="science">Science</option>
+          <option value="social">Social Science</option>
+          <option value="english">English</option>
+        </select>
+        <select
+          value={selectedChapterId ?? 'ALL'}
+          onChange={(e) => {
+            if (e.target.value === 'ALL') handleResetToLevel1()
+            else handleSelectChapter(e.target.value)
+          }}
+          className={filterSelectClass}
+        >
+          <option value="ALL">All Chapters</option>
+          {subjectData.chapters.map((c) => (
+            <option key={c.id} value={c.id}>{c.title}</option>
+          ))}
+        </select>
+        <select
+          value={selectedSubTopicId ?? 'ALL'}
+          onChange={(e) => handleSelectSubTopic(e.target.value === 'ALL' ? null : e.target.value)}
+          disabled={!selectedChapterId}
+          className={`${filterSelectClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          <option value="ALL">All Topics</option>
+          {(selectedChapter?.subtopics ?? []).map((st) => (
+            <option key={st.id} value={st.id}>{st.title}</option>
+          ))}
+        </select>
+      </SearchToolbar>
+
+      <div className="relative z-10 px-8 pt-6 pb-8 space-y-6">
         {/* LEVEL 1: CHAPTERS 3-COLUMN GRID VIEW (When no chapter is selected) */}
         {!selectedChapterId ? (
           <section className="animate-fadeIn">

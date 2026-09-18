@@ -4,6 +4,7 @@ import { Clock, FlaskConical, LayoutGrid, List, ListChecks, Lock, Play, Search }
 import { useWorkspace } from '../components/Shell'
 import type { Module, ModuleType } from '../lib/api'
 import PageHeader from '../components/PageHeader'
+import SearchToolbar, { filterSelectClass } from '../components/SearchToolbar'
 
 const TYPE_ICON: Record<ModuleType, typeof Play> = {
   VIDEO: Play,
@@ -12,7 +13,7 @@ const TYPE_ICON: Record<ModuleType, typeof Play> = {
 }
 
 export default function Lessons() {
-  const { tree, treeError, chapterId, features } = useWorkspace()
+  const { tree, treeError, chapterId, setChapterId, features } = useWorkspace()
   const navigate = useNavigate()
   const [view, setView] = useState<'grid' | 'list'>('grid')
 
@@ -92,7 +93,20 @@ export default function Lessons() {
         }
       />
 
-      <div className="px-8 pb-8">
+      <SearchToolbar>
+        <select
+          value={chapterId}
+          onChange={(e) => setChapterId(e.target.value)}
+          className={filterSelectClass}
+        >
+          <option value="ALL">All Chapters</option>
+          {tree.chapters.map((c) => (
+            <option key={c.chapter_id} value={c.chapter_id}>{c.chapter_name}</option>
+          ))}
+        </select>
+      </SearchToolbar>
+
+      <div className="px-8 pt-6 pb-8">
 
       {tree.chapters.length === 0 && (
         <div className="py-20 text-center">

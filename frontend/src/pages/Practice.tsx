@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import TrigonometryPractice from '../components/trig/TrigonometryPractice'
 import CoordinateGeometryPractice from '../components/coordgeo/CoordinateGeometryPractice'
 import { practiceApi, type PracticeChapter, type PracticeClass } from '../lib/trig/trigApiClient'
+import { filterSelectClass } from '../components/SearchToolbar'
 
 function PracticeFilters({
   classes, grade, subjectId, chapterId, onChange,
@@ -15,12 +16,10 @@ function PracticeFilters({
   const subjects = classes.find((c) => c.grade === grade)?.subjects ?? []
   const chapters = subjects.find((s) => s.id === subjectId)?.chapters ?? []
 
-  const selectCls = 'h-9 px-3 rounded-full bg-white border border-[#EDE8DD] text-[12px] font-medium text-[#1A221E]'
-
   return (
-    <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-[#EDE8DD] bg-[#FCFBF8]">
+    <>
       <select
-        className={selectCls}
+        className={filterSelectClass}
         value={grade}
         onChange={(e) => {
           const nextGrade = e.target.value
@@ -33,7 +32,7 @@ function PracticeFilters({
         ))}
       </select>
       <select
-        className={selectCls}
+        className={filterSelectClass}
         value={subjectId}
         onChange={(e) => {
           const nextSubject = subjects.find((s) => s.id === e.target.value)
@@ -45,7 +44,7 @@ function PracticeFilters({
         ))}
       </select>
       <select
-        className={selectCls}
+        className={filterSelectClass}
         value={chapterId}
         onChange={(e) => onChange({ grade, subjectId, chapterId: e.target.value })}
       >
@@ -53,7 +52,7 @@ function PracticeFilters({
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
-    </div>
+    </>
   )
 }
 
@@ -99,22 +98,22 @@ export default function Practice() {
     .find((s) => s.id === selection.subjectId)?.chapters
     .find((ch) => ch.id === selection.chapterId)
 
+  const filterBar = classes.length > 0 ? (
+    <PracticeFilters
+      classes={classes}
+      grade={selection.grade}
+      subjectId={selection.subjectId}
+      chapterId={selection.chapterId}
+      onChange={setSelection}
+    />
+  ) : undefined
+
   return (
     <div className="min-h-full w-full bg-[#FBF9F3] text-[#1A221E] antialiased">
-      {classes.length > 0 && (
-        <PracticeFilters
-          classes={classes}
-          grade={selection.grade}
-          subjectId={selection.subjectId}
-          chapterId={selection.chapterId}
-          onChange={setSelection}
-        />
-      )}
-
       {selectedChapter?.practice_module === 'trigonometry' ? (
-        <TrigonometryPractice />
+        <TrigonometryPractice filterBar={filterBar} />
       ) : selectedChapter?.practice_module === 'coordinate_geometry' ? (
-        <CoordinateGeometryPractice />
+        <CoordinateGeometryPractice filterBar={filterBar} />
       ) : (
         <div className="py-16 text-center bg-white rounded-[18px] border border-black/[0.06] mx-6 my-6">
           <p className="text-[14px] font-medium">

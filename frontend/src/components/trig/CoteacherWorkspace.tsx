@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   RotateCcw,
@@ -29,6 +29,7 @@ import {
 } from '../../lib/trig/trigApiClient'
 import { useApp } from '../../store'
 import PageHeader from '../PageHeader'
+import SearchToolbar from '../SearchToolbar'
 
 interface CoteacherWorkspaceProps {
   conceptId: string
@@ -43,6 +44,8 @@ interface CoteacherWorkspaceProps {
   customModalTitle?: string
   presetProblems?: { title: string; text: string }[]
   syncBadgeLabel?: string
+  /** Class/Subject/Chapter filter row, rendered as a SearchToolbar directly below the header. */
+  filterBar?: ReactNode
 }
 
 const TRIG_FORMULA_REFERENCE: [string, string][] = [
@@ -90,6 +93,7 @@ export default function CoteacherWorkspace({
   customModalTitle = 'Custom CBSE Trigonometry Problem',
   presetProblems = TRIG_PRESET_PROBLEMS,
   syncBadgeLabel = 'SYNC RIGHT-ANGLED • LIVE',
+  filterBar,
 }: CoteacherWorkspaceProps) {
   const navigate = useNavigate()
   const { session } = useApp()
@@ -397,6 +401,7 @@ export default function CoteacherWorkspace({
             </>
           }
         />
+        {filterBar && <SearchToolbar>{filterBar}</SearchToolbar>}
       </div>
 
       {/* Workspace Area: Main Content Column + Collapsible Telemetry Sidebar */}

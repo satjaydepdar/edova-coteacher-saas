@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useStudentStore, type StudentAssignmentItem } from '../../store/studentStore'
 import PageHeader from '../../components/PageHeader'
+import { searchInputClass, filterSelectClass, filterChipClass } from '../../components/SearchToolbar'
 
 const SUBJECT_CHOICES = ['All', 'Mathematics', 'Science', 'English']
 const STATUS_CHOICES = [
@@ -111,7 +112,7 @@ export default function MyAssignmentsPage() {
         description="Complete homework, take quizzes, and track feedback from your teacher."
       />
 
-      <div className="px-8 pb-8 space-y-5">
+      <div className="px-8 pt-6 pb-8 space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'Overdue', value: overdueCount, sub: 'Past due date', color: '#D9534F' },
@@ -135,19 +136,19 @@ export default function MyAssignmentsPage() {
 
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 text-[#9a958c] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search assignments..."
-            className="w-full h-9 pl-9 pr-4 rounded-full border border-[#EDE8DD] bg-white text-[13px] text-[#111814] placeholder:text-[#9a958c] focus:outline-none focus:border-[#1a2421] transition-colors"
+            className={`${searchInputClass} pl-10`}
           />
         </div>
         <select
           value={subjectFilter}
           onChange={(e) => setSubjectFilter(e.target.value)}
-          className="h-9 px-3 rounded-full bg-white border border-[#EDE8DD] text-[12px] font-medium text-[#1A221E] shrink-0"
+          className={filterSelectClass}
         >
           {SUBJECT_CHOICES.map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -158,11 +159,7 @@ export default function MyAssignmentsPage() {
             <button
               key={st.id}
               onClick={() => setStatusFilter(st.id)}
-              className={`h-9 px-3.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all cursor-pointer border ${
-                statusFilter === st.id
-                  ? 'bg-[#1a2421] text-white border-[#1a2421]'
-                  : 'bg-white text-[#5a554e] border-[#EDE8DD] hover:border-[#1a2421]'
-              }`}
+              className={filterChipClass(statusFilter === st.id)}
             >
               {st.label}
             </button>

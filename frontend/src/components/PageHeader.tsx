@@ -14,13 +14,15 @@ interface PageHeaderProps {
 
 /**
  * Locked layout tokens so every page's H1 sits at the same X/Y position:
- * max-width 1280px, 32px left/right padding, 24px top, 16px bottom.
+ * max-width 1280px, padding 24px 32px 0 32px (no bottom padding — the
+ * 16px gap down to a following SearchToolbar comes from the toolbar's
+ * own top padding, not doubled up here).
  * Never put filters/breadcrumb dropdowns here — those belong in a
- * separate top filter bar with its own 32px padding.
+ * separate SearchToolbar rendered directly below.
  */
 export default function PageHeader({ eyebrow, title, titlePill, description, actions }: PageHeaderProps) {
   return (
-    <div className="w-full max-w-[1280px] px-8 pt-6 pb-4">
+    <div className="w-full max-w-[1280px] px-8 pt-6 pb-0">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           {eyebrow && (

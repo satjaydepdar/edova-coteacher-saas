@@ -29,7 +29,6 @@ import { useApp } from '../store'
 import { useTeacher } from '../store/teacherStore'
 import { useAuthStore } from '../store/authStore'
 import { api, type Chapter, type Tree } from '../lib/api'
-import { CURRICULUM_DATABASE } from '../data/curriculumData'
 import { Badge } from './ui/badge'
 
 const activeNavClass =
@@ -720,81 +719,9 @@ export default function Shell() {
                     {activeSubject ? `C10.${activeSubject.name.slice(0, 3).toUpperCase()}` : 'C10.ALL'}
                   </Badge>
                 </div>
-              ) : location.pathname.startsWith('/labs') ? (
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 font-[Inter] text-[13px]">
-                  {/* Dedicated Subject Filter for Labs */}
-                  <div className="relative">
-                    <select
-                      value={labSubject}
-                      onChange={(e) => {
-                        const newSubj = e.target.value as 'maths' | 'science' | 'social' | 'english'
-                        setLabSubject(newSubj)
-                        setLabChapterId('ALL')
-                        setLabTopicId('ALL')
-                      }}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer"
-                    >
-                      <option value="maths">Mathematics</option>
-                      <option value="science">Science</option>
-                      <option value="social">Social Science</option>
-                      <option value="english">English</option>
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
-                  <span className="text-[#6B7280] font-semibold text-xs">&gt;&gt;</span>
-
-                  {/* Dedicated Chapter Filter for Labs */}
-                  <div className="relative">
-                    <select
-                      value={labChapterId}
-                      onChange={(e) => {
-                        setLabChapterId(e.target.value)
-                        setLabTopicId('ALL')
-                      }}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer max-w-[160px] sm:max-w-none"
-                    >
-                      <option value="ALL">All Chapters</option>
-                      {(CURRICULUM_DATABASE[labSubject]?.chapters ?? []).map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.title}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
-                  <span className="text-[#6B7280] font-semibold text-xs">&gt;&gt;</span>
-
-                  {/* Dedicated Topic Filter for Labs */}
-                  <div className="relative">
-                    <select
-                      value={labTopicId}
-                      onChange={(e) => setLabTopicId(e.target.value)}
-                      disabled={labChapterId === 'ALL'}
-                      className="appearance-none h-9 pl-3 pr-8 rounded-xl bg-white border border-[#E5E7EB] font-[Inter] text-[13px] font-medium outline-none focus:border-gold cursor-pointer max-w-[180px] sm:max-w-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="ALL">All Topics</option>
-                      {labChapterId !== 'ALL' &&
-                        (CURRICULUM_DATABASE[labSubject]?.chapters.find((c) => c.id === labChapterId)?.subtopics ?? []).map((st) => (
-                          <option key={st.id} value={st.id}>
-                            {st.title}
-                          </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-50" />
-                  </div>
-
-                  <Badge variant="okf" className="font-mono text-[11px] hidden sm:inline-flex">
-                    {labSubject === 'maths'
-                      ? 'LABS.MATH'
-                      : labSubject === 'science'
-                      ? 'LABS.SCI'
-                      : labSubject === 'social'
-                      ? 'LABS.SOC'
-                      : 'LABS.ENG'}
-                  </Badge>
-                </div>
+              ) : location.pathname.startsWith('/labs') || location.pathname.startsWith('/lessons') ? (
+                // Filters for these pages now live in their own SearchToolbar, directly below the page header.
+                <div className="flex-1 min-w-0" />
               ) : (
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   <div className="relative">

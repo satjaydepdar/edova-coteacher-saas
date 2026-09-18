@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import CoteacherWorkspace from '../trig/CoteacherWorkspace'
 import { coordgeoApi } from '../../lib/coordgeo/coordgeoApiClient'
 import type { TrigConceptSummary } from '../../lib/trig/trigApiClient'
@@ -23,7 +23,7 @@ const COORDGEO_PRESET_PROBLEMS = [
 /** Mirrors TrigonometryPractice.tsx's role, rendering the same shared
  * CoteacherWorkspace with Coordinate Geometry's api client and content
  * instead of duplicating the whole interactive workspace. */
-export default function CoordinateGeometryPractice() {
+export default function CoordinateGeometryPractice({ filterBar }: { filterBar?: ReactNode }) {
   const [concepts, setConcepts] = useState<TrigConceptSummary[]>([])
   const [conceptId, setConceptId] = useState<string>('coordgeo-c1')
   const [loaded, setLoaded] = useState(false)
@@ -67,6 +67,7 @@ export default function CoordinateGeometryPractice() {
       customModalTitle="Custom CBSE Coordinate Geometry Problem"
       presetProblems={COORDGEO_PRESET_PROBLEMS}
       syncBadgeLabel="SYNC COORDINATE PLANE • LIVE"
+      filterBar={filterBar}
     />
   )
 }

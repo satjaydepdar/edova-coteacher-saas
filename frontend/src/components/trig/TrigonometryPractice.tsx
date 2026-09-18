@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import CoteacherWorkspace from './CoteacherWorkspace'
 import { trigApi, type TrigConceptSummary } from '../../lib/trig/trigApiClient'
 
 /** Top-level entry point for Trigonometry practice: loads the 10-concept DAG,
  *  picks a starting concept, and renders the workspace. This is what
  *  Practice.tsx now shows instead of the old generic chapter-practice UI. */
-export default function TrigonometryPractice() {
+export default function TrigonometryPractice({ filterBar }: { filterBar?: ReactNode }) {
   const [concepts, setConcepts] = useState<TrigConceptSummary[]>([])
   const [conceptId, setConceptId] = useState<string>('trig-101')
   const [loaded, setLoaded] = useState(false)
@@ -35,5 +35,5 @@ export default function TrigonometryPractice() {
     )
   }
 
-  return <CoteacherWorkspace conceptId={conceptId} onSelectConcept={setConceptId} availableConcepts={concepts} />
+  return <CoteacherWorkspace conceptId={conceptId} onSelectConcept={setConceptId} availableConcepts={concepts} filterBar={filterBar} />
 }

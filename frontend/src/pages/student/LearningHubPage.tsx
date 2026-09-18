@@ -45,7 +45,7 @@ export default function LearningHubPage() {
         description="Your daily study plan, mistake journal, and mastery progress."
       />
 
-      <div className="px-8 pb-8 space-y-5">
+      <div className="px-8 pt-6 pb-8 space-y-5">
       {/* Study Plan Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[

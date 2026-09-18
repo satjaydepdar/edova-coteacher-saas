@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime, timezone
 import json
 import psycopg
+import httpx
 
 from core import db, q, current_user_id, single_tenant_or_raise
 
@@ -348,6 +349,81 @@ def get_mastery_heatmap(user_id: str = Depends(current_user_id)):
             ]
         }
     ]
+
+@router.get("/resources")
+def get_student_resources(
+    subject_id: Optional[str] = Query(None),
+    chapter_id: Optional[str] = Query(None),
+    user_id: str = Depends(current_user_id)
+):
+    tenant = single_tenant_or_raise(user_id, roles=("STUDENT", "TEACHER", "ADMIN"))
+    tenant_id = tenant[0]
+
+    with db() as conn:
+        sql = """
+            SELECT
+                r.id, r.title, r.description, r.resource_type, r.file_url,
+                s.name AS subject_name, c.name AS chapter_name
+            FROM learning_resources r
+            LEFT JOIN subjects s ON r.subject_id = s.id
+            LEFT JOIN chapters c ON r.chapter_id = c.id
+            WHERE r.tenant_id = %s
+        """
+        params = [tenant_id]
+
+        if subject_id and subject_id != "ALL":
+            sql += " AND r.subject_id = %s"
+            params.append(subject_id)
+        if chapter_id and chapter_id != "ALL":
+            sql += " AND r.chapter_id = %s"
+            params.append(chapter_id)
+
+        sql += " ORDER BY r.created_at DESC"
+        rows = q(conn, sql, params).fetchall()
+
+        return [
+            {
+                "id": str(r[0]),
+                "title": r[1],
+                "description": r[2] or "",
+                "resource_type": r[3],
+                "file_url": r[4] or "",
+                "subject_name": r[5] or "General",
+                "chapter_name": r[6] or "General Chapter",
+            }
+            for r in rows
+        ]
+
+@router.get("/resources/{id}/file")
+def proxy_resource_file(id: str, user_id: str = Depends(current_user_id)):
+    """Streams an externally-hosted resource file server-side so the browser's PDF
+    viewer isn't blocked by the source host's CORS policy (e.g. ncert.nic.in doesn't
+    send Access-Control-Allow-Origin). Only used for http(s) file_urls -- locally
+    hosted resources are fetched directly by the frontend, same-origin."""
+    tenant = single_tenant_or_raise(user_id, roles=("STUDENT", "TEACHER", "ADMIN"))
+    tenant_id = tenant[0]
+
+    with db() as conn:
+        row = q(conn, "SELECT file_url FROM learning_resources WHERE id = %s AND tenant_id = %s", (id, tenant_id)).fetchone()
+    if not row or not row[0]:
+        raise HTTPException(404, "Resource not found")
+
+    file_url = row[0]
+    if not file_url.startswith(("http://", "https://")):
+        raise HTTPException(400, "Resource is not an external file")
+
+    try:
+        upstream = httpx.get(
+            file_url,
+            timeout=30.0,
+            follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; EdovaCoteacher/1.0)"},
+        )
+        upstream.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, f"Could not fetch resource: {exc}")
+
+    return Response(content=upstream.content, media_type=upstream.headers.get("content-type", "application/pdf"))
 
 @router.get("/wiki")
 def get_wiki_notes(user_id: str = Depends(current_user_id)):

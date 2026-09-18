@@ -154,6 +154,7 @@ from routers.assessments import router as assessments_router
 from routers.learning_resources import router as learning_resources_router
 from routers.attendance import router as attendance_router
 from routers.student_learning import router as student_learning_router
+from routers.chat import router as chat_router
 from trigonometry.database import init_db as trig_init_db
 from coordinate_geometry.database import init_db as coordgeo_init_db
 
@@ -196,5 +197,6 @@ app.include_router(assessments_router)
 app.include_router(learning_resources_router)
 app.include_router(attendance_router)
 app.include_router(student_learning_router)
+app.include_router(chat_router)
 
 

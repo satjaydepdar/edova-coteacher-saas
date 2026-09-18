@@ -26,6 +26,7 @@ import AttendancePage from './pages/teacher/AttendancePage'
 import LearningHubPage from './pages/student/LearningHubPage'
 import MyAssignmentsPage from './pages/student/MyAssignmentsPage'
 import StudentWikiPage from './pages/student/StudentWikiPage'
+import StudentResourcesPage from './pages/student/StudentResourcesPage'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/learning" element={<LearningHubPage />} />
         <Route path="/my-assignments" element={<MyAssignmentsPage />} />
         <Route path="/wiki" element={<StudentWikiPage />} />
+        <Route path="/my-resources" element={<StudentResourcesPage />} />
       </Route>
       <Route path="*" element={<Navigate to={homePath} replace />} />
     </Routes>

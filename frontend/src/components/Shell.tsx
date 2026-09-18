@@ -30,6 +30,7 @@ import { useTeacher } from '../store/teacherStore'
 import { useAuthStore } from '../store/authStore'
 import { api, type Chapter, type Tree } from '../lib/api'
 import { Badge } from './ui/badge'
+import ChatWidget from './ChatWidget'
 
 const activeNavClass =
   'bg-[rgba(127,191,122,0.3)] text-[#FBF7EE] border border-[rgba(127,191,122,0.2)] font-[Inter] text-[14px] font-medium shadow-xs'
@@ -459,6 +460,19 @@ export default function Shell() {
               <NotebookPen className="w-4 h-4 shrink-0" />
               {!isCollapsed && <span>My Wiki</span>}
             </NavLink>
+
+            <NavLink
+              to="/my-resources"
+              title="My Resources"
+              className={({ isActive }) =>
+                `w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
+              }
+            >
+              <FolderOpen className="w-4 h-4 shrink-0" />
+              {!isCollapsed && <span>My Resources</span>}
+            </NavLink>
           </div>
           )}
 
@@ -620,30 +634,55 @@ export default function Shell() {
         </div>
 
         {/* User / School Profile Card */}
-        <div className="mt-auto border-t border-white/10 p-3 shrink-0">
+        <div className="mt-auto border-t border-white/10 p-3 shrink-0 space-y-2">
           {isCollapsed ? (
-            <div
-              className="flex justify-center"
-              title={`${user?.full_name ?? session.tenant.name} • ${user?.role ?? ''}`}
-            >
-              <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shadow-xs">
-                {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
+            <>
+              <div
+                className="flex justify-center"
+                title={`${user?.full_name ?? session.tenant.name} • ${user?.role ?? ''}`}
+              >
+                <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shadow-xs">
+                  {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
+                </div>
               </div>
-            </div>
+              <button
+                onClick={() => {
+                  logoutUser()
+                  navigate('/login', { replace: true })
+                }}
+                title="Log Out"
+                className="w-full h-9 rounded-xl border border-danger/40 bg-danger/10 hover:bg-danger/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
           ) : (
-            <div className="px-2 py-1 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shrink-0 shadow-xs">
-                {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-white text-[13px] font-medium leading-none truncate">
-                  {user?.full_name ?? session.tenant.name}
+            <>
+              <div className="px-2 py-1 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center text-black font-bold text-[13px] shrink-0 shadow-xs">
+                  {user ? user.full_name.slice(0, 2).toUpperCase() : initials}
                 </div>
-                <div className="text-white/50 text-[11px] mt-1 truncate">
-                  <span className="text-gold font-semibold">{user?.role ?? 'MEMBER'}</span> • {user?.tenant_name ?? session.tenant.name}
+                <div className="min-w-0 flex-1">
+                  <div className="text-white text-[13px] font-medium leading-none truncate">
+                    {user?.full_name ?? session.tenant.name}
+                  </div>
+                  <div className="text-white/50 text-[11px] mt-1 truncate">
+                    <span className="text-gold font-semibold">{user?.role ?? 'MEMBER'}</span> • {user?.tenant_name ?? session.tenant.name}
+                  </div>
                 </div>
               </div>
-            </div>
+              <button
+                onClick={() => {
+                  logoutUser()
+                  navigate('/login', { replace: true })
+                }}
+                className="w-full h-9 px-3.5 rounded-xl border border-danger/40 bg-danger/10 hover:bg-danger/20 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-[Inter]"
+                title="Sign out of Edova"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log Out</span>
+              </button>
+            </>
           )}
         </div>
       </aside>
@@ -655,7 +694,8 @@ export default function Shell() {
           !location.pathname.startsWith('/my-assignments') &&
           !location.pathname.startsWith('/wiki') &&
           !location.pathname.startsWith('/lessons') &&
-          !location.pathname.startsWith('/labs') && (
+          !location.pathname.startsWith('/labs') &&
+          !location.pathname.startsWith('/my-resources') && (
           <header className="print:hidden h-16 shrink-0 bg-[#F5F1E6] border-b border-[#E5E1D2] flex items-center justify-between gap-3 px-6 lg:px-8">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -812,6 +852,8 @@ export default function Shell() {
           <Outlet context={ctx} />
         </main>
       </div>
+
+      {isStudent && <ChatWidget />}
     </div>
   )
 }

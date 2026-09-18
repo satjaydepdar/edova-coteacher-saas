@@ -595,6 +595,28 @@ export default function CoteacherWorkspace({
                     {allStudentSteps.length} verified • {allStudentSteps.length} total • steps • {hasStartedProblem ? (isFullySolved ? 'Solved' : 'Active') : 'Ready'} • {allStudentSteps.length} steps
                   </span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  title={isExpanded ? 'Collapse board' : 'Expand board'}
+                  aria-label={isExpanded ? 'Collapse board' : 'Expand board'}
+                  className="w-7 h-7 rounded-full bg-white border border-[#ece6d8] grid place-items-center text-[#7A9DB8] hover:bg-[#7A9DB8] hover:text-white hover:border-[#7A9DB8] transition-all duration-200 cursor-pointer shadow-xs"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
               </div>
 
               {/* Board Body: hidden entirely when collapsed, only the header row above stays visible */}

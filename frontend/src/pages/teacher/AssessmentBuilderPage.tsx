@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   FileQuestion,
   Calendar,
@@ -11,14 +11,12 @@ import {
   X,
   ChevronRight,
   ChevronDown,
-  Layers,
-  Award,
-  Sparkles,
-  BookOpen,
+  LayoutGrid,
+  List,
   ArrowLeft,
   CalendarDays,
   MapPin,
-  Check,
+  Pencil,
 } from 'lucide-react'
 import {
   useAssessmentStore,
@@ -28,6 +26,33 @@ import {
   type QuestionItem,
 } from '../../store/assessmentStore'
 import { useCalendarStore } from '../../store/calendarStore'
+import PageHeader from '../../components/PageHeader'
+import { searchInputClass } from '../../components/SearchToolbar'
+
+const BLUEPRINT_CHOICES = [
+  { id: 'all', label: 'All Blueprints' },
+  { id: 'cbse_80m', label: 'CBSE 80M Board Paper' },
+  { id: 'periodic_40m', label: 'Periodic Test (40M)' },
+  { id: 'unit_20m', label: 'Unit Diagnostic (20M)' },
+]
+const STATUS_CHOICES = [
+  { id: 'all', label: 'All Papers' },
+  { id: 'ready', label: 'Ready' },
+  { id: 'scheduled', label: 'Scheduled' },
+  { id: 'draft', label: 'Drafts' },
+]
+const STATUS_DOT_CLS: Record<string, string> = {
+  all: 'bg-[#9CA3AF]',
+  ready: 'bg-[#22C55E]',
+  scheduled: 'bg-[#3B82F6]',
+  draft: 'bg-[#D1D5DB]',
+}
+const STATUS_CARD_CLS: Record<string, string> = {
+  draft: 'bg-[#F3F4F6] border border-[#E5E7EB] text-[#4B5563]',
+  ready: 'bg-[#DCFCE7] border border-[#BBF7D0] text-[#166534]',
+  scheduled: 'bg-[#DBEAFE] border border-[#BFDBFE] text-[#1E40AF]',
+  completed: 'bg-[#F3F4F6] border border-[#E5E7EB] text-[#4B5563]',
+}
 
 const BLUEPRINT_TEMPLATES = [
   {
@@ -91,6 +116,10 @@ export default function AssessmentBuilderPage() {
   const [viewMode, setViewMode] = useState<'library' | 'builder'>('library')
   const [editingAssessment, setEditingAssessment] = useState<AssessmentDetailItem | null>(null)
   const [isNew, setIsNew] = useState(false)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections((prev) => ({ ...prev, [sectionId]: !(prev[sectionId] ?? true) }))
+  }
 
   // Scheduling Modal
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
@@ -103,6 +132,22 @@ export default function AssessmentBuilderPage() {
   // Print Preview Modal
   const [printModalOpen, setPrintModalOpen] = useState(false)
   const [printAsmt, setPrintAsmt] = useState<AssessmentDetailItem | null>(null)
+
+  // Library toolbar state
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid')
+  const [blueprintMenuOpen, setBlueprintMenuOpen] = useState(false)
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false)
+  const blueprintMenuRef = useRef<HTMLDivElement>(null)
+  const statusMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (blueprintMenuRef.current && !blueprintMenuRef.current.contains(e.target as Node)) setBlueprintMenuOpen(false)
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) setStatusMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     void fetchAssessments()
@@ -236,161 +281,195 @@ export default function AssessmentBuilderPage() {
     return acc + sec.questions.reduce((qAcc, q) => qAcc + (q.marks || sec.marks_per_q || 1), 0)
   }, 0) || 0
 
-  return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display font-bold text-2xl text-forest flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-forest/5 text-forest border border-cream-border">
-              <FileQuestion className="w-6 h-6 text-forest" />
-            </span>
-            Assessment Builder
-          </h1>
-          <p className="text-sm text-forest/65 mt-1">
-            Author CBSE blueprint-aligned question papers, verify cognitive balance, and schedule hall examinations.
-          </p>
-        </div>
+  const activeBlueprintLabel = BLUEPRINT_CHOICES.find((b) => b.id === filterBlueprint)?.label ?? 'All Blueprints'
+  const activeStatusLabel = STATUS_CHOICES.find((s) => s.id === filterStatus)?.label ?? 'All Papers'
 
-        {viewMode === 'library' ? (
-          <div className="flex items-center gap-2">
+  return (
+    <div className="min-h-full bg-[#FFFBF0]">
+      {viewMode === 'library' ? (
+        <PageHeader
+          title="Assessment Builder"
+          description="Author CBSE blueprint-aligned question papers, verify cognitive balance, and schedule hall examinations."
+          actions={
             <button
               onClick={() => handleOpenNewFromBlueprint('cbse_80m')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-forest hover:bg-forest-raised text-cream font-medium text-sm transition-all shadow-xs cursor-pointer shrink-0"
+              className="h-10 px-5 bg-[#11181C] hover:bg-[#1F2937] text-white rounded-[12px] text-[14px] font-medium flex items-center gap-2 shadow-sm shrink-0 transition-colors"
             >
-              <Plus className="w-4 h-4 text-gold" />
+              <Plus className="w-4 h-4" />
               Create Assessment
             </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setViewMode('library')}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-cream-border bg-[#FCFBF8] text-forest/80 hover:text-forest text-sm font-medium transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Bank
-          </button>
-        )}
-      </div>
+          }
+        />
+      ) : null}
 
       {/* ================= VIEW 1: ASSESSMENT BANK / LIBRARY ================= */}
       {viewMode === 'library' && (
-        <div className="space-y-5">
-          {/* Controls Bar: Search & Blueprint Filter */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card">
-            <div className="flex flex-1 items-center gap-2.5">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-forest/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search assessments by title, subject..."
-                  className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-cream-border/70 bg-[#FAF9F5] text-forest placeholder:text-forest/40 focus:outline-none focus:border-gold transition-colors"
-                />
-              </div>
-
-              {/* Blueprint Selector */}
-              <select
-                value={filterBlueprint}
-                onChange={(e) => setFilterBlueprint(e.target.value)}
-                className="text-xs py-2 px-2.5 rounded-xl border border-cream-border bg-[#FAF9F5] text-forest outline-none focus:border-gold hidden sm:inline"
-              >
-                <option value="all">All Blueprints</option>
-                <option value="cbse_80m">CBSE 80M Board Paper</option>
-                <option value="periodic_40m">Periodic Test (40M)</option>
-                <option value="unit_20m">Unit Diagnostic (20M)</option>
-              </select>
+        <div>
+          {/* Search & Filter Toolbar */}
+          <div className="px-8 pb-6 flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+            <div className="flex-1 relative">
+              <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search assessments by title, subject..."
+                className={`${searchInputClass} pl-10`}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#F3F4F6] flex items-center justify-center"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            {/* Status Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-              {[
-                { id: 'all', label: 'All Papers' },
-                { id: 'ready', label: 'Ready' },
-                { id: 'scheduled', label: 'Scheduled' },
-                { id: 'draft', label: 'Drafts' },
-              ].map((st) => {
-                const active = filterStatus === st.id
-                return (
-                  <button
-                    key={st.id}
-                    onClick={() => setFilterStatus(st.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                      active
-                        ? 'bg-forest text-cream shadow-xs'
-                        : 'bg-[#F5F1E6] text-forest/70 hover:text-forest hover:bg-[#EDE8DC]'
-                    }`}
-                  >
-                    {st.label}
-                  </button>
-                )
-              })}
+            <div className="flex items-center gap-2 lg:gap-3">
+              <div className="flex items-center bg-[#F8F5EE] border border-[#E5E7EB] rounded-[10px] p-[3px] shrink-0">
+                <button
+                  onClick={() => setLayoutMode('grid')}
+                  aria-label="Grid view"
+                  className={`w-8 h-8 rounded-[8px] flex items-center justify-center transition-colors ${
+                    layoutMode === 'grid' ? 'bg-[#11181C] text-white shadow-sm' : 'text-[#6B7280] hover:text-[#11181C]'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setLayoutMode('list')}
+                  aria-label="List view"
+                  className={`w-8 h-8 rounded-[8px] flex items-center justify-center transition-colors ${
+                    layoutMode === 'list' ? 'bg-[#11181C] text-white shadow-sm' : 'text-[#6B7280] hover:text-[#11181C]'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="relative shrink-0" ref={blueprintMenuRef}>
+                <button
+                  onClick={() => { setBlueprintMenuOpen((v) => !v); setStatusMenuOpen(false) }}
+                  className="h-10 px-3 bg-white border border-[#E5E7EB] rounded-[12px] text-[13px] font-medium text-[#11181C] flex items-center gap-2 shadow-sm w-[160px] justify-between"
+                >
+                  <span className="truncate">{activeBlueprintLabel}</span>
+                  <ChevronDown className={`w-4 h-4 text-[#6B7280] shrink-0 transition-transform ${blueprintMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {blueprintMenuOpen && (
+                  <div className="absolute right-0 top-[44px] w-[200px] bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg p-1 z-30">
+                    {BLUEPRINT_CHOICES.map((bp) => (
+                      <button
+                        key={bp.id}
+                        onClick={() => { setFilterBlueprint(bp.id); setBlueprintMenuOpen(false) }}
+                        className={`w-full text-left px-3 py-2 rounded-[8px] text-[13px] ${
+                          filterBlueprint === bp.id ? 'bg-[#F8F5EE] font-medium' : 'hover:bg-[#F9FAFB]'
+                        }`}
+                      >
+                        {bp.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="relative shrink-0" ref={statusMenuRef}>
+                <button
+                  onClick={() => { setStatusMenuOpen((v) => !v); setBlueprintMenuOpen(false) }}
+                  className="h-10 px-3 bg-white border border-[#E5E7EB] rounded-[12px] text-[13px] font-medium text-[#11181C] flex items-center gap-2 shadow-sm w-[160px] justify-between"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT_CLS[filterStatus] ?? 'bg-[#9CA3AF]'}`} />
+                    {activeStatusLabel}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-[#6B7280] shrink-0 transition-transform ${statusMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {statusMenuOpen && (
+                  <div className="absolute right-0 top-[44px] w-[180px] bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg p-1 z-30">
+                    {STATUS_CHOICES.map((st) => (
+                      <button
+                        key={st.id}
+                        onClick={() => { setFilterStatus(st.id); setStatusMenuOpen(false) }}
+                        className={`w-full text-left px-3 py-2 rounded-[8px] text-[13px] flex items-center gap-2 ${
+                          filterStatus === st.id ? 'bg-[#F8F5EE] font-medium' : 'hover:bg-[#F9FAFB]'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${STATUS_DOT_CLS[st.id]}`} />
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Assessment Cards Grid */}
           {loading ? (
-            <div className="py-20 text-center text-forest/50 flex flex-col items-center gap-2">
-              <span className="w-6 h-6 border-2 border-forest/30 border-t-forest rounded-full animate-spin" />
+            <div className="px-8 pb-8 py-20 text-center text-[#6B7280] flex flex-col items-center gap-2">
+              <span className="w-6 h-6 border-2 border-[#E5E7EB] border-t-[#11181C] rounded-full animate-spin" />
               <span className="text-sm">Loading assessments...</span>
             </div>
           ) : filteredAssessments.length === 0 ? (
-            <div className="py-16 text-center bg-[#FCFBF8] border border-dashed border-cream-border rounded-2xl p-8 space-y-3">
-              <FileQuestion className="w-10 h-10 text-forest/30 mx-auto" />
-              <div className="font-semibold text-forest">No assessments found</div>
-              <p className="text-xs text-forest/60 max-w-sm mx-auto">
-                Author your first CBSE blueprint-grounded examination or change filter parameters.
-              </p>
-              <button
-                onClick={() => handleOpenNewFromBlueprint('cbse_80m')}
-                className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest text-cream text-xs font-medium cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 text-gold" />
-                CBSE 80M Blueprint
-              </button>
+            <div className="px-8 pb-8">
+              <div className="py-16 text-center bg-[#FFFEF8] border border-dashed border-[#E5DDC8] rounded-[16px] p-8 space-y-3">
+                <FileQuestion className="w-10 h-10 text-[#9CA3AF] mx-auto" />
+                <div className="font-semibold text-[#11181C]">No assessments found</div>
+                <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
+                  Author your first CBSE blueprint-grounded examination or change filter parameters.
+                </p>
+                <button
+                  onClick={() => handleOpenNewFromBlueprint('cbse_80m')}
+                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#11181C] text-white text-xs font-medium cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  CBSE 80M Blueprint
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              className={`px-8 pb-8 ${
+                layoutMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'flex flex-col gap-3'
+              }`}
+            >
               {filteredAssessments.map((asmt) => {
-                const isScheduled = asmt.status === 'scheduled'
-                const isReady = asmt.status === 'ready'
                 const bpLabel =
                   asmt.blueprint_type === 'cbse_80m'
                     ? 'CBSE 80M'
                     : asmt.blueprint_type === 'periodic_40m'
                     ? 'Periodic 40M'
-                    : 'Unit 20M'
+                    : asmt.blueprint_type === 'unit_20m'
+                    ? 'Unit 20M'
+                    : 'Custom'
 
                 return (
                   <div
                     key={asmt.id}
                     onClick={() => handleEdit(asmt)}
-                    className="bg-[#FCFBF8] hover:bg-white border border-cream-border hover:border-gold/60 rounded-2xl p-5 shadow-card hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+                    className={`bg-white border border-[#E5E7EB] rounded-[16px] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-[#E5E0D5] transition-all cursor-pointer group ${
+                      layoutMode === 'list' ? 'flex flex-col lg:flex-row lg:items-start gap-5' : 'flex flex-col'
+                    }`}
                   >
-                    <div>
+                    <div className={layoutMode === 'list' ? 'flex-1 min-w-0' : undefined}>
                       {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-forest/5 text-forest border border-cream-border">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="h-[22px] px-2 inline-flex items-center bg-[#F3F1EB] border border-[#E5E0D5] rounded-[6px] text-[11px] font-semibold tracking-[0.02em] font-mono text-[#11181C]">
                             {bpLabel}
                           </span>
-                          <span className="text-[11px] text-forest/60 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+                          <span className="flex items-center gap-1 text-[11px] font-mono text-[#6B7280]">
+                            <Clock className="w-3 h-3 text-[#9CA3AF]" />
                             {asmt.duration_minutes}m
                           </span>
-                          <span className="text-[11px] font-bold text-forest">
+                          <span className="text-[12px] font-bold text-[#11181C]">
                             {asmt.total_marks} Marks
                           </span>
                         </div>
 
                         <span
-                          className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
-                            isScheduled
-                              ? 'bg-[#7FBF7A]/15 border-[#7FBF7A]/40 text-forest'
-                              : isReady
-                              ? 'bg-gold/15 border-gold/40 text-[#8C6D23]'
-                              : 'bg-cream/70 border-cream-border text-forest/60'
+                          className={`h-[22px] px-2.5 inline-flex items-center rounded-full text-[11px] font-medium font-mono ${
+                            STATUS_CARD_CLS[asmt.status] ?? STATUS_CARD_CLS.draft
                           }`}
                         >
                           {asmt.status.charAt(0).toUpperCase() + asmt.status.slice(1)}
@@ -398,55 +477,56 @@ export default function AssessmentBuilderPage() {
                       </div>
 
                       {/* Title & Instructions */}
-                      <h3 className="font-semibold text-base text-forest group-hover:text-forest leading-snug line-clamp-2 mb-1.5">
+                      <h3 className="text-[15px] font-bold text-[#11181C] leading-[1.3] line-clamp-2 mt-[14px] mb-2">
                         {asmt.title}
                       </h3>
-                      <p className="text-xs text-forest/65 line-clamp-2 leading-relaxed mb-4">
+                      <p className="text-[13px] text-[#6B7280] leading-[1.5] line-clamp-2 min-h-[39px]">
                         {asmt.instructions || 'Standard general examination instructions.'}
                       </p>
 
                       {/* Sections breakdown chips */}
-                      <div className="flex flex-wrap gap-1 mb-4">
+                      <div className="flex flex-wrap gap-1.5 mt-3">
                         {asmt.sections_summary?.map((sec) => (
                           <span
                             key={sec.section_id}
-                            className="text-[10px] px-2 py-0.5 rounded bg-[#F5F1E6] text-forest/80 border border-cream-border font-medium"
+                            className="h-6 px-2 inline-flex items-center rounded-[6px] bg-[#FFFBEB] border border-[#FDE68A] text-[11px] font-medium text-[#92400E]"
                           >
                             {sec.name}: {sec.question_count}Q ({sec.subtotal}M)
                           </span>
                         ))}
                       </div>
+                    </div>
 
+                    <div className={layoutMode === 'list' ? 'lg:w-[280px] w-full shrink-0' : undefined}>
                       {/* Difficulty Distribution Tri-bar */}
-                      <div className="mb-4 pt-3 border-t border-cream-border/60 space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-semibold text-forest/60">
-                          <span>Difficulty Balance</span>
-                          <span>
+                      <div className="pt-3 border-t border-[#F3F4F6] mt-4 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[#8A8F98]">Difficulty Balance</span>
+                          <span className="font-mono text-[#6B7280]">
                             {asmt.difficulty_spread?.easy || 30}% E / {asmt.difficulty_spread?.medium || 50}% M / {asmt.difficulty_spread?.hard || 20}% H
                           </span>
                         </div>
-                        <div className="w-full h-1.5 rounded-full bg-[#E8E0CC] overflow-hidden flex">
-                          <div style={{ width: `${asmt.difficulty_spread?.easy || 30}%` }} className="bg-[#7FBF7A]" title="Easy" />
-                          <div style={{ width: `${asmt.difficulty_spread?.medium || 50}%` }} className="bg-[#D9A94E]" title="Medium" />
-                          <div style={{ width: `${asmt.difficulty_spread?.hard || 20}%` }} className="bg-[#E5484D]" title="Hard" />
+                        <div className="w-full h-1.5 rounded-full bg-[#F3F4F6] overflow-hidden flex">
+                          <div style={{ width: `${asmt.difficulty_spread?.easy || 30}%` }} className="h-full bg-[#86C87E]" title="Easy" />
+                          <div style={{ width: `${asmt.difficulty_spread?.medium || 50}%` }} className="h-full bg-[#E8B73D]" title="Medium" />
+                          <div style={{ width: `${asmt.difficulty_spread?.hard || 20}%` }} className="h-full bg-[#F87171]" title="Hard" />
                         </div>
                       </div>
-                    </div>
 
-                    {/* Bottom Actions */}
-                    <div className="pt-3 border-t border-cream-border/60 flex items-center justify-between text-xs">
+                      {/* Bottom Actions */}
+                      <div className="mt-4 flex items-center justify-between text-xs">
                       {asmt.scheduled_date ? (
-                        <div className="flex items-center gap-1 text-forest/75 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-gold" />
+                        <div className="flex items-center gap-1.5 font-mono font-medium text-[#11181C]">
+                          <Calendar className="w-3.5 h-3.5 text-[#C8A86A]" />
                           <span>{asmt.scheduled_date}</span>
                         </div>
                       ) : (
                         <button
                           type="button"
                           onClick={(e) => handleOpenSchedule(asmt, e)}
-                          className="text-forest/70 hover:text-forest hover:underline font-medium flex items-center gap-1"
+                          className="text-[#6B7280] hover:text-[#11181C] hover:underline font-medium flex items-center gap-1.5"
                         >
-                          <CalendarDays className="w-3.5 h-3.5 text-gold" />
+                          <CalendarDays className="w-3.5 h-3.5 text-[#C8A86A]" />
                           Schedule Exam
                         </button>
                       )}
@@ -455,7 +535,7 @@ export default function AssessmentBuilderPage() {
                         <button
                           type="button"
                           onClick={(e) => handleOpenPrint(asmt, e)}
-                          className="p-1.5 rounded-lg text-forest/50 hover:text-forest hover:bg-cream transition-colors"
+                          className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-[#11181C] hover:bg-[#F9FAFB] transition-colors"
                           title="Print Question Paper"
                         >
                           <Printer className="w-3.5 h-3.5" />
@@ -468,14 +548,15 @@ export default function AssessmentBuilderPage() {
                               void deleteAssessment(asmt.id)
                             }
                           }}
-                          className="p-1.5 rounded-lg text-forest/40 hover:text-danger hover:bg-danger/10 transition-colors"
+                          className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-red-600 hover:bg-red-50 transition-colors"
                           title="Delete assessment"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                        <span className="text-forest/40 group-hover:text-gold flex items-center font-medium">
+                        <span className="text-[#6B7280] group-hover:text-[#11181C] flex items-center gap-1 font-medium">
                           Open <ChevronRight className="w-3.5 h-3.5" />
                         </span>
+                      </div>
                       </div>
                     </div>
                   </div>
@@ -488,52 +569,58 @@ export default function AssessmentBuilderPage() {
 
       {/* ================= VIEW 2: PAPER BUILDER STUDIO ================= */}
       {viewMode === 'builder' && editingAssessment && (
-        <div className="space-y-6">
+        <div className="px-8 py-6 space-y-4">
           {/* Builder Actions Bar */}
-          <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={editingAssessment.title}
-                onChange={(e) => setEditingAssessment({ ...editingAssessment, title: e.target.value })}
-                placeholder="Assessment Title (e.g. CBSE Mathematics Board Exam Model Paper)..."
-                className="w-full text-lg font-bold text-forest bg-transparent border-b border-cream-border focus:border-gold outline-none pb-1 font-display"
-              />
-              <div className="flex items-center gap-2.5 mt-2 text-xs text-forest/65">
-                <span>Class: {editingAssessment.class_label} ({editingAssessment.section_name})</span>
-                <span>•</span>
-                <span>Subject: {editingAssessment.subject}</span>
-                <span>•</span>
-                <span>Time: {editingAssessment.duration_minutes} Minutes</span>
-                <span>•</span>
-                <span className="font-bold text-forest">
-                  Marks: {liveTotalMarks} / {editingAssessment.total_marks} Target
+          <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-4 lg:p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex flex-col xl:flex-row xl:items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="relative group">
+                <input
+                  type="text"
+                  value={editingAssessment.title}
+                  onChange={(e) => setEditingAssessment({ ...editingAssessment, title: e.target.value })}
+                  placeholder="Enter assessment name..."
+                  className="peer w-full text-[18px] lg:text-[20px] font-bold leading-[1.2] tracking-[-0.02em] text-[#11181C] bg-transparent border border-dashed border-transparent rounded-[8px] px-3 py-[7px] -mx-3 outline-none transition-colors hover:border-[#E5E7EB] hover:bg-[#FFFEF8] focus:border-solid focus:border-[#E8B73D] focus:bg-[#FFFEF8] focus:shadow-[0_0_0_3px_rgba(232,183,61,0.15)]"
+                />
+                <Pencil className="w-[14px] h-[14px] text-[#8A8F98] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 peer-focus:opacity-0 transition-opacity" />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[12px] text-[#6B7280]">
+                <span><span className="font-medium text-[#374151]">Class:</span> {editingAssessment.class_label} ({editingAssessment.section_name})</span>
+                <span className="text-[#D1D5DB]">•</span>
+                <span><span className="font-medium text-[#374151]">Subject:</span> {editingAssessment.subject}</span>
+                <span className="text-[#D1D5DB]">•</span>
+                <span><span className="font-medium text-[#374151]">Time:</span> {editingAssessment.duration_minutes} Minutes</span>
+                <span className="text-[#D1D5DB]">•</span>
+                <span>
+                  <span className="font-medium text-[#374151]">Marks:</span>{' '}
+                  <span className="text-[#11181C] font-semibold">{liveTotalMarks} / {editingAssessment.total_marks} Target</span>
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewMode('library')}
-                className="px-3 py-2 rounded-xl border border-cream-border text-forest/70 text-xs font-semibold bg-[#FAF9F5]"
-              >
-                Cancel
-              </button>
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end xl:shrink-0">
               <button
                 type="button"
                 onClick={() => handleSaveAssessment('draft')}
-                className="px-3.5 py-2 rounded-xl border border-cream-border text-forest text-xs font-semibold bg-[#FCFBF8] hover:bg-forest/5"
+                className="h-9 px-4 rounded-full bg-white border border-[#E5E7EB] text-[13px] font-medium text-[#374151] hover:bg-[#F9FAFB] transition-colors"
               >
                 Save Draft
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveAssessment('ready')}
-                className="px-4 py-2 rounded-xl bg-forest hover:bg-forest-raised text-cream text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                className="h-9 px-[18px] rounded-full bg-[#11181C] text-white text-[13px] font-semibold hover:bg-black transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.1)] flex items-center gap-1.5"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-gold" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#F5C542]" />
                 Save &amp; Complete Paper
+              </button>
+              <div className="w-px h-6 bg-[#E5E7EB] mx-1 hidden sm:block" />
+              <button
+                type="button"
+                onClick={() => setViewMode('library')}
+                className="h-9 pl-3 pr-4 rounded-full bg-white border border-[#E5E7EB] text-[13px] font-medium text-[#6B7280] hover:text-[#11181C] hover:border-[#D1D5DB] inline-flex items-center gap-1.5 transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back to Bank
               </button>
             </div>
           </div>
@@ -542,40 +629,58 @@ export default function AssessmentBuilderPage() {
           <div className="space-y-4">
             {editingAssessment.sections?.map((section, secIdx) => {
               const secSubtotal = section.questions.reduce((acc, q) => acc + (q.marks || section.marks_per_q || 1), 0)
+              const expanded = expandedSections[section.section_id] ?? true
 
               return (
                 <div
                   key={section.section_id}
-                  className="rounded-2xl bg-[#FCFBF8] border border-cream-border p-5 shadow-card space-y-4"
+                  className="bg-white border border-[#E5E7EB] rounded-[12px] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
                 >
                   {/* Section Bar */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-cream-border">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-forest text-cream">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.section_id)}
+                    className="w-full flex items-center justify-between gap-3 px-4 lg:px-5 h-12 text-left hover:bg-[#FFFBF0]/60 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-[6px] bg-[#11181C] text-white leading-none">
                         {section.name}
                       </span>
-                      <span className="text-xs text-forest/70 font-medium">
+                      <span className="text-[12px] text-[#6B7280] truncate">
                         {section.type.toUpperCase()} • {section.marks_per_q} Mark(s) per question
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs font-bold text-forest">
-                      <span>{section.questions.length} Questions</span>
-                      <span>Subtotal: {secSubtotal} Marks</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="hidden sm:flex items-center gap-2 text-[12px]">
+                        <span className="text-[#6B7280]">{section.questions.length} Questions</span>
+                        <span className="w-1 h-1 rounded-full bg-[#D1D5DB]" />
+                        <span className="font-semibold text-[#11181C]">Subtotal: {secSubtotal} Marks</span>
+                      </div>
+                      <span className="w-7 h-7 rounded-full border border-[#E5E7EB] flex items-center justify-center bg-white group-hover:border-[#D1D5DB] transition-colors">
+                        <ChevronDown className={`w-4 h-4 text-[#6B7280] transition-transform ${expanded ? '' : '-rotate-90'}`} />
+                      </span>
                     </div>
-                  </div>
+                  </button>
 
+                  <div
+                    className={`grid transition-all duration-300 ease-in-out ${
+                      expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="px-4 lg:px-5 pb-5 pt-1 border-t border-[#F3F4F6] bg-[#FFFEF8]/50 space-y-3">
                   {/* Question Cards */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 pt-4">
                     {section.questions.map((q, qIdx) => (
                       <div
                         key={q.id || qIdx}
-                        className="p-4 rounded-xl border border-cream-border bg-[#FAF9F5] space-y-3"
+                        className="p-4 rounded-[12px] border border-[#E5E7EB] bg-white space-y-3"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-forest">
-                              Q{qIdx + 1}.
+                            <span className="w-7 h-7 rounded-full bg-[#F3F4F6] border border-[#E5E7EB] flex items-center justify-center text-[11px] font-bold text-[#374151] shrink-0">
+                              Q{qIdx + 1}
                             </span>
                             {/* Difficulty Selector */}
                             <select
@@ -585,7 +690,7 @@ export default function AssessmentBuilderPage() {
                                 updatedSecs[secIdx].questions[qIdx].difficulty = e.target.value as any
                                 setEditingAssessment({ ...editingAssessment, sections: updatedSecs })
                               }}
-                              className="text-[11px] font-semibold py-0.5 px-2 rounded-md border border-cream-border bg-white text-forest outline-none"
+                              className="h-7 pl-2.5 pr-2 rounded-full border border-[#E5E7EB] bg-white text-[11px] font-medium text-[#374151] outline-none hover:border-[#D1D5DB] focus:border-[#E8B73D]"
                             >
                               <option value="Easy">Easy</option>
                               <option value="Medium">Medium</option>
@@ -593,7 +698,7 @@ export default function AssessmentBuilderPage() {
                             </select>
 
                             {/* Marks Chip */}
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-forest/5 text-forest border border-cream-border">
+                            <span className="h-7 px-2.5 rounded-full bg-[#F3F1EB] border border-[#E5E0D5] inline-flex items-center text-[11px] font-medium text-[#374151]">
                               {q.marks} Mark(s)
                             </span>
                           </div>
@@ -605,7 +710,7 @@ export default function AssessmentBuilderPage() {
                               updatedSecs[secIdx].questions.splice(qIdx, 1)
                               setEditingAssessment({ ...editingAssessment, sections: updatedSecs })
                             }}
-                            className="text-forest/40 hover:text-danger p-1"
+                            className="text-[#9CA3AF] hover:text-red-600 p-1"
                             title="Remove question"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -614,7 +719,7 @@ export default function AssessmentBuilderPage() {
 
                         {/* Question Text */}
                         <textarea
-                          rows={2}
+                          rows={3}
                           value={q.text}
                           onChange={(e) => {
                             const updatedSecs = [...editingAssessment.sections]
@@ -622,19 +727,19 @@ export default function AssessmentBuilderPage() {
                             setEditingAssessment({ ...editingAssessment, sections: updatedSecs })
                           }}
                           placeholder="Enter question text or math problem..."
-                          className="w-full text-xs p-2.5 rounded-lg border border-cream-border/80 bg-white text-forest outline-none focus:border-gold"
+                          className="w-full min-h-[80px] resize-none rounded-[8px] border border-[#E5E7EB] bg-white px-3 py-2.5 text-[13px] leading-[1.5] text-[#11181C] placeholder:text-[#9CA3AF] outline-none focus:border-[#E8B73D] focus:shadow-[0_0_0_3px_rgba(232,183,61,0.12)]"
                         />
 
                         {/* MCQ Options if MCQ */}
                         {section.type === 'mcq' && q.options && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                             {q.options.map((opt, optIdx) => (
                               <div
                                 key={opt.key}
-                                className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-[8px] border text-[13px] ${
                                   opt.correct
-                                    ? 'bg-[#7FBF7A]/15 border-[#7FBF7A]/50 text-forest font-semibold'
-                                    : 'bg-white border-cream-border text-forest/70'
+                                    ? 'bg-[#E8F5E9] border-[#C8E6C9] text-[#2E7D32] font-medium'
+                                    : 'bg-white border-[#E5E7EB] text-[#374151]'
                                 }`}
                               >
                                 <button
@@ -646,10 +751,10 @@ export default function AssessmentBuilderPage() {
                                     })
                                     setEditingAssessment({ ...editingAssessment, sections: updatedSecs })
                                   }}
-                                  className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 border ${
+                                  className={`w-[18px] h-[18px] rounded-full flex items-center justify-center shrink-0 border text-[9px] font-bold ${
                                     opt.correct
-                                      ? 'bg-forest text-cream border-forest'
-                                      : 'bg-[#F5F1E6] text-forest/70 border-cream-border'
+                                      ? 'bg-white border-[#4CAF50] text-[#2E7D32]'
+                                      : 'bg-white border-[#D1D5DB] text-[#9CA3AF]'
                                   }`}
                                 >
                                   {opt.key}
@@ -662,7 +767,7 @@ export default function AssessmentBuilderPage() {
                                     updatedSecs[secIdx].questions[qIdx].options![optIdx].text = e.target.value
                                     setEditingAssessment({ ...editingAssessment, sections: updatedSecs })
                                   }}
-                                  className="flex-1 bg-transparent border-none outline-none text-xs"
+                                  className="flex-1 bg-transparent border-none outline-none text-[13px]"
                                 />
                               </div>
                             ))}
@@ -692,11 +797,14 @@ export default function AssessmentBuilderPage() {
                       })
                       setEditingAssessment({ ...editingAssessment, sections: updatedSecs })
                     }}
-                    className="w-full py-2 rounded-xl border border-dashed border-cream-border hover:border-gold/60 text-xs font-semibold text-forest/70 hover:text-forest flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full h-10 rounded-[8px] border border-dashed border-[#D1D5DB] text-[13px] font-medium text-[#6B7280] hover:bg-[#F8F5EE] hover:border-[#9CA3AF] hover:text-[#374151] transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Plus className="w-3.5 h-3.5 text-gold" />
+                    <Plus className="w-4 h-4" />
                     Add Question to {section.name}
                   </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )
             })}

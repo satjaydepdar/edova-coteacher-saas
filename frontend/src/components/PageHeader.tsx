@@ -15,7 +15,7 @@ interface PageHeaderProps {
 
 /**
  * Locked layout tokens so every page's H1 sits at the same X/Y position:
- * max-width 1280px, padding 24px 32px 0 32px (no bottom padding — the
+ * full width, padding 24px 32px 0 32px (no bottom padding — the
  * 16px gap down to a following SearchToolbar comes from the toolbar's
  * own top padding, not doubled up here).
  * Never put filters/breadcrumb dropdowns here — those belong in a
@@ -24,13 +24,16 @@ interface PageHeaderProps {
  * The gold accent bar and the role pill (e.g. "STUDENT" + name) are built
  * in here, not passed per-page, so every page gets them automatically and
  * they stay pixel-identical everywhere — top-left and top-right, aligned
- * to the same 32px margins as the content grid below.
+ * to the same 32px margins as the content grid below. Must stay unconstrained
+ * width (no max-w) to match SearchToolbar and page content, which are also
+ * full-width — a mismatched cap here throws the right-aligned role pill out
+ * of alignment with the content edge on wide viewports.
  */
 export default function PageHeader({ eyebrow, title, titlePill, description, actions }: PageHeaderProps) {
   const { user } = useAuthStore()
 
   return (
-    <div className="w-full max-w-[1280px] px-8 pt-6 pb-0">
+    <div className="w-full px-8 pt-6 pb-0">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           {eyebrow && (

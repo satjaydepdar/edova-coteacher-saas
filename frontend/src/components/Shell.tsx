@@ -695,7 +695,14 @@ export default function Shell() {
           !location.pathname.startsWith('/wiki') &&
           !location.pathname.startsWith('/lessons') &&
           !location.pathname.startsWith('/labs') &&
-          !location.pathname.startsWith('/my-resources') && (
+          !location.pathname.startsWith('/my-resources') &&
+          !location.pathname.startsWith('/calendar') &&
+          !location.pathname.startsWith('/syllabus') &&
+          !location.pathname.startsWith('/lesson-planner') &&
+          !location.pathname.startsWith('/assignments') &&
+          !location.pathname.startsWith('/assessment-builder') &&
+          !location.pathname.startsWith('/resources') &&
+          location.pathname !== '/dashboard' && (
           <header className="print:hidden h-16 shrink-0 bg-[#F5F1E6] border-b border-[#E5E1D2] flex items-center justify-between gap-3 px-6 lg:px-8">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -832,18 +839,6 @@ export default function Shell() {
                   </span>
                 </div>
               )}
-
-              <button
-                onClick={() => {
-                  logoutUser()
-                  navigate('/login', { replace: true })
-                }}
-                className="h-9 px-3.5 rounded-xl border border-danger/30 bg-danger/5 hover:bg-danger/10 text-danger text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-[Inter]"
-                title="Sign out of Edova"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </button>
             </div>
           </header>
         )}

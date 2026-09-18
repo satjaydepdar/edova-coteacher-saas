@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ClipboardList,
   Calendar,
@@ -6,19 +6,21 @@ import {
   Plus,
   Search,
   CheckCircle2,
-  AlertCircle,
-  BarChart2,
   Trash2,
   X,
   ChevronRight,
+  ChevronDown,
+  LayoutGrid,
+  List,
   BookOpen,
-  Layers,
   Award,
   Users,
   Send,
 } from 'lucide-react'
 import { useAssignmentStore, type AssignmentSummaryItem, type SubmissionItem } from '../../store/assignmentStore'
 import { useCalendarStore } from '../../store/calendarStore'
+import PageHeader from '../../components/PageHeader'
+import { searchInputClass } from '../../components/SearchToolbar'
 
 const SECTION_CHOICES = ['All', '10-A', '10-B', '9-A']
 const TYPE_CHOICES = [
@@ -27,6 +29,25 @@ const TYPE_CHOICES = [
   { id: 'practice', label: 'Practice Set' },
   { id: 'project', label: 'Project' },
 ]
+const STATUS_CHOICES = [
+  { id: 'all', label: 'All' },
+  { id: 'published', label: 'Active' },
+  { id: 'pending_grading', label: 'Pending Review' },
+  { id: 'draft', label: 'Drafts' },
+  { id: 'closed', label: 'Closed' },
+]
+const STATUS_DOT_CLS: Record<string, string> = {
+  all: 'bg-[#9CA3AF]',
+  published: 'bg-[#22C55E]',
+  pending_grading: 'bg-[#F97316]',
+  draft: 'bg-[#D1D5DB]',
+  closed: 'bg-[#6B7280]',
+}
+const STATUS_CARD_CLS: Record<string, string> = {
+  draft: 'bg-[#F3F4F6] border border-dashed border-[#D1D5DB] text-[#6B7280]',
+  published: 'bg-[#DCFCE7] border border-[#BBF7D0] text-[#166534]',
+  closed: 'bg-[#F3F4F6] border border-[#E5E7EB] text-[#6B7280]',
+}
 
 export default function AssignmentTrackerPage() {
   const {
@@ -65,6 +86,22 @@ export default function AssignmentTrackerPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [gradingState, setGradingState] = useState<Record<string, { score: number; feedback: string }>>({})
   const [gradeSuccessId, setGradeSuccessId] = useState<string | null>(null)
+
+  // View + filter toolbar state
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [sectionMenuOpen, setSectionMenuOpen] = useState(false)
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false)
+  const sectionMenuRef = useRef<HTMLDivElement>(null)
+  const statusMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (sectionMenuRef.current && !sectionMenuRef.current.contains(e.target as Node)) setSectionMenuOpen(false)
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) setStatusMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     void fetchAssignments()
@@ -153,189 +190,232 @@ export default function AssignmentTrackerPage() {
     setNewDescription('')
   }
 
+  const activeStatusLabel = STATUS_CHOICES.find((s) => s.id === filterStatus)?.label ?? 'All'
+  const activeSectionLabel = filterSection === 'All' ? 'All Sections' : filterSection
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display font-bold text-2xl text-forest flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-forest/5 text-forest border border-cream-border">
-              <ClipboardList className="w-6 h-6 text-forest" />
-            </span>
-            Assignment Tracker
-          </h1>
-          <p className="text-sm text-forest/65 mt-1">
-            Track student submissions, grade homework, and synchronize deadlines with My Calendar.
-          </p>
-        </div>
+    <div className="min-h-full bg-[#FFFBF0]">
+      <PageHeader
+        title="Assignment Tracker"
+        description="Track student submissions, grade homework, and synchronize deadlines with My Calendar."
+      />
 
-        <button
-          onClick={() => setCreateModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-forest hover:bg-forest-raised text-cream font-medium text-sm transition-all shadow-xs cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4 text-gold" />
-          Create Assignment
-        </button>
-      </div>
-
-      {/* Overview KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Active Assignments */}
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-forest/5 flex items-center justify-center text-forest border border-cream-border shrink-0">
-            <BookOpen className="w-5 h-5 text-forest" />
+      <div className="px-8 pt-6 pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#1E2D24]" />
+          <span className="absolute inset-0 bg-[#1E2D24]/[0.03]" />
+          <div className="relative w-10 h-10 rounded-full bg-[#F3F1EB] border border-[#EDE9E0] flex items-center justify-center shrink-0">
+            <BookOpen className="w-5 h-5 text-[#8A7E66]" />
           </div>
-          <div>
-            <div className="text-xs text-forest/60 font-medium">Active Assignments</div>
-            <div className="text-xl font-bold text-forest">{totalActive}</div>
+          <div className="relative">
+            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Active Assignments</div>
+            <div className="text-[20px] font-bold text-[#11181C] leading-none mt-1">{totalActive}</div>
           </div>
         </div>
 
-        {/* Card 2: Submission Rate */}
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-forest/5 flex items-center justify-center text-forest border border-cream-border shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-gold" />
+        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#F5C542]" />
+          <span className="absolute inset-0 bg-[#FFFBEB]" />
+          <div className="relative w-10 h-10 rounded-full bg-white border border-[#FDE8B0] flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-[#D4A017]" />
           </div>
-          <div>
-            <div className="text-xs text-forest/60 font-medium">Submission Rate</div>
-            <div className="text-xl font-bold text-forest">{overallSubmissionRate}%</div>
-          </div>
-        </div>
-
-        {/* Card 3: Pending Grading */}
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-gold/15 flex items-center justify-center text-[#8C6D23] border border-gold/30 shrink-0">
-            <Clock className="w-5 h-5 text-[#8C6D23]" />
-          </div>
-          <div>
-            <div className="text-xs text-forest/60 font-medium">Pending Review</div>
-            <div className="text-xl font-bold text-[#8C6D23]">{pendingGradingCount}</div>
+          <div className="relative">
+            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Submission Rate</div>
+            <div className="text-[20px] font-bold text-[#11181C] leading-none mt-1">{overallSubmissionRate}%</div>
           </div>
         </div>
 
-        {/* Card 4: Class Avg Score */}
-        <div className="p-4 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-forest/5 flex items-center justify-center text-forest border border-cream-border shrink-0">
-            <Award className="w-5 h-5 text-forest" />
+        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#F97316]" />
+          <span className="absolute inset-0 bg-[#FFF7ED]" />
+          <div className="relative w-10 h-10 rounded-full bg-white border border-[#FFD6B8] flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5 text-[#EA6B1E]" />
           </div>
-          <div>
-            <div className="text-xs text-forest/60 font-medium">Class Score Avg</div>
-            <div className="text-xl font-bold text-forest">{classAvgScore}%</div>
+          <div className="relative">
+            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Pending Review</div>
+            <div className="text-[20px] font-bold text-[#92400E] leading-none mt-1">{pendingGradingCount}</div>
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#22C55E]" />
+          <span className="absolute inset-0 bg-[#F6FEF8]" />
+          <div className="relative w-10 h-10 rounded-full bg-white border border-[#C8EACF] flex items-center justify-center shrink-0">
+            <Award className="w-5 h-5 text-[#2FAA4E]" />
+          </div>
+          <div className="relative">
+            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Class Score Avg</div>
+            <div className="text-[20px] font-bold text-[#11181C] leading-none mt-1">{classAvgScore}%</div>
           </div>
         </div>
       </div>
 
-      {/* Filter & Controls Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card">
-        <div className="flex flex-1 items-center gap-2.5">
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-forest/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search assignments by title, description..."
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-cream-border/70 bg-[#FAF9F5] text-forest placeholder:text-forest/40 focus:outline-none focus:border-gold transition-colors"
-            />
-          </div>
-
-          {/* Section Picker */}
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-forest/60 font-medium hidden sm:inline">Section:</span>
-            <select
-              value={filterSection}
-              onChange={(e) => setFilterSection(e.target.value)}
-              className="text-xs py-2 px-2.5 rounded-xl border border-cream-border bg-[#FAF9F5] text-forest outline-none focus:border-gold"
+      {/* Search & Filter Toolbar */}
+      <div className="px-8 pb-6 flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search assignments by title, description..."
+            className={`${searchInputClass} pl-10`}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#F3F4F6] flex items-center justify-center"
             >
-              {SECTION_CHOICES.map((sec) => (
-                <option key={sec} value={sec}>{sec === 'All' ? 'All Sections' : `Section ${sec}`}</option>
-              ))}
-            </select>
-          </div>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          {[
-            { id: 'all', label: 'All' },
-            { id: 'published', label: 'Active' },
-            { id: 'pending_grading', label: 'Pending Review' },
-            { id: 'draft', label: 'Drafts' },
-            { id: 'closed', label: 'Closed' },
-          ].map((st) => {
-            const active = filterStatus === st.id
-            return (
-              <button
-                key={st.id}
-                onClick={() => setFilterStatus(st.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  active
-                    ? 'bg-forest text-cream shadow-xs'
-                    : 'bg-[#F5F1E6] text-forest/70 hover:text-forest hover:bg-[#EDE8DC]'
-                }`}
-              >
-                {st.label}
-              </button>
-            )
-          })}
+        <div className="flex items-center gap-2 lg:gap-3">
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="h-10 px-4 bg-[#11181C] hover:bg-black text-white rounded-[12px] text-[14px] font-medium flex items-center gap-2 shadow-sm shrink-0 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Create Assignment
+          </button>
+
+          <div className="flex items-center bg-[#F8F5EE] border border-[#E5E7EB] rounded-[10px] p-[3px] shrink-0">
+            <button
+              onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              className={`w-8 h-8 rounded-[8px] flex items-center justify-center transition-colors ${
+                viewMode === 'grid' ? 'bg-[#11181C] text-white shadow-sm' : 'text-[#6B7280] hover:text-[#11181C]'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              aria-label="List view"
+              className={`w-8 h-8 rounded-[8px] flex items-center justify-center transition-colors ${
+                viewMode === 'list' ? 'bg-[#11181C] text-white shadow-sm' : 'text-[#6B7280] hover:text-[#11181C]'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="relative shrink-0" ref={sectionMenuRef}>
+            <button
+              onClick={() => { setSectionMenuOpen((v) => !v); setStatusMenuOpen(false) }}
+              className="h-10 px-3 bg-white border border-[#E5E7EB] rounded-[12px] text-[13px] font-medium text-[#11181C] flex items-center gap-2 shadow-sm min-w-[135px] justify-between"
+            >
+              <span>{activeSectionLabel}</span>
+              <ChevronDown className={`w-4 h-4 text-[#6B7280] transition-transform ${sectionMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionMenuOpen && (
+              <div className="absolute right-0 top-[44px] w-[160px] bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg p-1 z-30">
+                {SECTION_CHOICES.map((sec) => (
+                  <button
+                    key={sec}
+                    onClick={() => { setFilterSection(sec); setSectionMenuOpen(false) }}
+                    className={`w-full text-left px-3 py-2 rounded-[8px] text-[13px] ${
+                      filterSection === sec ? 'bg-[#F8F5EE] font-medium' : 'hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    {sec === 'All' ? 'All Sections' : sec}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative shrink-0" ref={statusMenuRef}>
+            <button
+              onClick={() => { setStatusMenuOpen((v) => !v); setSectionMenuOpen(false) }}
+              className="h-10 px-3 bg-white border border-[#E5E7EB] rounded-[12px] text-[13px] font-medium text-[#11181C] flex items-center gap-2 shadow-sm min-w-[150px] justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${STATUS_DOT_CLS[filterStatus] ?? 'bg-[#9CA3AF]'}`} />
+                {activeStatusLabel}
+              </span>
+              <ChevronDown className={`w-4 h-4 text-[#6B7280] transition-transform ${statusMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {statusMenuOpen && (
+              <div className="absolute right-0 top-[44px] w-[180px] bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg p-1 z-30">
+                {STATUS_CHOICES.map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => { setFilterStatus(st.id); setStatusMenuOpen(false) }}
+                    className={`w-full text-left px-3 py-2 rounded-[8px] text-[13px] flex items-center gap-2 ${
+                      filterStatus === st.id ? 'bg-[#F8F5EE] font-medium' : 'hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${STATUS_DOT_CLS[st.id]}`} />
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Assignments Card Grid */}
       {loading ? (
-        <div className="py-20 text-center text-forest/50 flex flex-col items-center gap-2">
-          <span className="w-6 h-6 border-2 border-forest/30 border-t-forest rounded-full animate-spin" />
+        <div className="px-8 pb-8 py-20 text-center text-[#6B7280] flex flex-col items-center gap-2">
+          <span className="w-6 h-6 border-2 border-[#E5E7EB] border-t-[#11181C] rounded-full animate-spin" />
           <span className="text-sm">Loading assignments...</span>
         </div>
       ) : filteredAssignments.length === 0 ? (
-        <div className="py-16 text-center bg-[#FCFBF8] border border-dashed border-cream-border rounded-2xl p-8 space-y-3">
-          <ClipboardList className="w-10 h-10 text-forest/30 mx-auto" />
-          <div className="font-semibold text-forest">No assignments found</div>
-          <p className="text-xs text-forest/60 max-w-sm mx-auto">
-            No assignments match your search or filter. Create your first assignment or select &quot;All&quot;.
-          </p>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest text-cream text-xs font-medium cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 text-gold" />
-            New Assignment
-          </button>
+        <div className="px-8 pb-8">
+          <div className="py-16 text-center bg-[#FFFEF8] border border-dashed border-[#E5DDC8] rounded-[16px] p-8 space-y-3">
+            <ClipboardList className="w-10 h-10 text-[#9CA3AF] mx-auto" />
+            <div className="font-semibold text-[#11181C]">No assignments found</div>
+            <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
+              No assignments match your search or filter. Create your first assignment or select &quot;All&quot;.
+            </p>
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#11181C] text-white text-xs font-medium cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Assignment
+            </button>
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          className={`px-8 pb-8 ${
+            viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4' : 'flex flex-col gap-3'
+          }`}
+        >
           {filteredAssignments.map((asg) => {
             const subRate = asg.total_students > 0 ? Math.round((asg.submitted_count / asg.total_students) * 100) : 0
-            const isClosed = asg.status === 'closed'
             const formattedDate = asg.due_date ? new Date(asg.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null
 
             return (
               <div
                 key={asg.id}
                 onClick={() => handleOpenDetail(asg)}
-                className="bg-[#FCFBF8] hover:bg-white border border-cream-border hover:border-gold/60 rounded-2xl p-5 shadow-card hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+                className={`bg-white border border-[#E5E7EB] rounded-[16px] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-shadow cursor-pointer group ${
+                  viewMode === 'list' ? 'flex flex-col lg:flex-row lg:items-center gap-4' : 'flex flex-col justify-between'
+                }`}
               >
-                <div>
+                <div className={viewMode === 'list' ? 'flex-1' : undefined}>
                   {/* Top Badges */}
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-forest/5 text-forest border border-cream-border">
+                      <span className="h-6 px-2 inline-flex items-center bg-[#F3F1EB] border border-[#E5E0D5] rounded-[6px] text-[11px] font-medium font-mono text-[#5A554B]">
                         {asg.section_name}
                       </span>
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-gold/15 text-[#8C6D23] border border-gold/30 capitalize">
+                      <span className="h-6 px-2 inline-flex items-center bg-[#FFFBEB] border border-[#FDE68A] rounded-[6px] text-[11px] font-medium text-[#92400E] capitalize">
                         {asg.type}
                       </span>
-                      <span className="text-[11px] text-forest/60 font-medium">
+                      <span className="h-6 px-2 inline-flex items-center bg-[#F9FAFB] border border-[#E5E7EB] rounded-[6px] text-[11px] font-mono text-[#6B7280]">
                         {asg.total_points} pts
                       </span>
                     </div>
 
                     <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
-                        isClosed
-                          ? 'bg-cream/70 border-cream-border text-forest/60'
-                          : 'bg-[#7FBF7A]/15 border-[#7FBF7A]/40 text-forest'
+                      className={`h-6 px-2.5 inline-flex items-center rounded-full text-[11px] font-medium ${
+                        STATUS_CARD_CLS[asg.status] ?? STATUS_CARD_CLS.closed
                       }`}
                     >
                       {asg.status.charAt(0).toUpperCase() + asg.status.slice(1)}
@@ -343,64 +423,67 @@ export default function AssignmentTrackerPage() {
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="font-semibold text-base text-forest group-hover:text-forest leading-snug line-clamp-2 mb-1.5">
+                  <h3 className="text-[16px] font-bold text-[#11181C] leading-[1.3] line-clamp-2 mb-1.5 group-hover:text-[#1E2D24] transition-colors">
                     {asg.title}
                   </h3>
-                  <p className="text-xs text-forest/65 line-clamp-2 leading-relaxed mb-4">
+                  <p className="text-[13px] text-[#6B7280] leading-[1.5] line-clamp-2 mb-4">
                     {asg.description || 'No instructions provided.'}
                   </p>
+                </div>
 
+                <div className={viewMode === 'list' ? 'lg:w-[260px] w-full' : undefined}>
                   {/* Submission Progress Meter */}
-                  <div className="mb-4 pt-3 border-t border-cream-border/60 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-semibold text-forest">
+                  <div className="pt-3 border-t border-[#F3F4F6] space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#11181C]">
                       <span>Submissions: {asg.submitted_count}/{asg.total_students}</span>
-                      <span className="text-forest/70">{subRate}%</span>
+                      <span className="text-[#6B7280]">{subRate}%</span>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-[#E8E0CC] overflow-hidden">
+                    <div className="w-full h-1.5 rounded-full bg-[#F3F1EB] overflow-hidden">
                       <div
-                        className="h-full bg-[#7FBF7A] rounded-full transition-all duration-500"
-                        style={{ width: `${subRate}%` }}
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${subRate}%`, background: subRate >= 50 ? '#86C87E' : '#D6CFC0' }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-forest/55 pt-0.5">
-                      <span>Graded: {asg.graded_count}</span>
-                      {asg.avg_score != null ? (
-                        <span className="font-semibold text-forest">Avg: {asg.avg_score}%</span>
-                      ) : (
+                    <div className="flex items-center justify-between text-[11px] text-[#8A8F98] pt-0.5">
+                      <div className="flex items-center gap-3">
+                        <span>Graded: {asg.graded_count}</span>
                         <span>Ungraded: {Math.max(0, asg.submitted_count - asg.graded_count)}</span>
+                      </div>
+                      {asg.avg_score != null && (
+                        <span className="font-bold text-[#11181C]">Avg: {asg.avg_score}%</span>
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Bottom Card Actions */}
-                <div className="pt-3 border-t border-cream-border/60 flex items-center justify-between text-xs">
-                  {formattedDate ? (
-                    <div className="flex items-center gap-1.5 text-forest/75 font-medium">
-                      <Calendar className="w-3.5 h-3.5 text-gold" />
-                      <span>Due {formattedDate}</span>
-                    </div>
-                  ) : (
-                    <span className="text-forest/40">No due date</span>
-                  )}
+                  {/* Bottom Card Actions */}
+                  <div className="mt-4 flex items-center justify-between text-xs">
+                    {formattedDate ? (
+                      <div className="flex items-center gap-1.5 font-mono font-medium text-[#11181C]">
+                        <Calendar className="w-3.5 h-3.5 text-[#C8A86A]" />
+                        <span>Due {formattedDate}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[#9CA3AF]">No due date</span>
+                    )}
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
                       onClick={(e) => {
                         e.stopPropagation()
                         if (confirm(`Delete assignment "${asg.title}"?`)) {
                           void deleteAssignment(asg.id)
                         }
                       }}
-                      className="p-1.5 rounded-lg text-forest/40 hover:text-danger hover:bg-danger/10 transition-colors"
+                      className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-red-600 hover:bg-red-50 transition-colors"
                       title="Delete assignment"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-forest/50 group-hover:text-gold flex items-center font-medium">
+                    <span className="text-[#6B7280] group-hover:text-[#11181C] flex items-center gap-1 font-medium">
                       Review <ChevronRight className="w-3.5 h-3.5" />
                     </span>
+                    </div>
                   </div>
                 </div>
               </div>

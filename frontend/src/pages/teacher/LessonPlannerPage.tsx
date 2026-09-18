@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BookOpen,
   Calendar,
@@ -9,18 +9,37 @@ import {
   CalendarDays,
   FileText,
   Trash2,
-  Edit3,
   ArrowLeft,
   Sparkles,
   Layers,
   Award,
   ChevronRight,
+  ChevronDown,
+  LayoutGrid,
+  List,
   X,
   MapPin,
 } from 'lucide-react'
+import PageHeader from '../../components/PageHeader'
+import SearchToolbar from '../../components/SearchToolbar'
 import { useLessonPlanStore, type LessonPlanItem } from '../../store/lessonPlanStore'
 import { useSyllabusStore } from '../../store/syllabusStore'
 import { useCalendarStore } from '../../store/calendarStore'
+
+const STATUS_FILTERS = [
+  { id: 'all', label: 'All Plans' },
+  { id: 'scheduled', label: 'Scheduled' },
+  { id: 'planned', label: 'Planned' },
+  { id: 'drafts', label: 'Drafts' },
+  { id: 'completed', label: 'Completed' },
+]
+
+const STATUS_PILL_CLS: Record<string, string> = {
+  scheduled: 'bg-[#DCFCE7] border-[#BBF7D0] text-[#166534]',
+  planned: 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]',
+  draft: 'bg-[#F3F4F6] border-[#E5E7EB] text-[#6B7280]',
+  completed: 'bg-[#F3F4F6] border-[#E5E7EB] text-[#6B7280]',
+}
 
 const BLOOM_OPTIONS = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create']
 const NEP_OPTIONS = ['Concept', 'Application', 'Critical thinking', 'Case Study']
@@ -49,6 +68,21 @@ export default function LessonPlannerPage() {
   const [viewMode, setViewMode] = useState<'library' | 'editor'>('library')
   const [editingPlan, setEditingPlan] = useState<Partial<LessonPlanItem> | null>(null)
   const [isNewPlan, setIsNewPlan] = useState(false)
+
+  // Library toolbar UI state
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid')
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false)
+  const statusMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setStatusMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   // Scheduling modal state
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
@@ -80,6 +114,17 @@ export default function LessonPlannerPage() {
       p.class_label.toLowerCase().includes(q)
     return matchesFilter && matchesSearch
   })
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: plans.length, scheduled: 0, planned: 0, drafts: 0, completed: 0 }
+    plans.forEach((p) => {
+      if (p.status === 'draft') counts.drafts += 1
+      else if (counts[p.status] !== undefined) counts[p.status] += 1
+    })
+    return counts
+  }, [plans])
+
+  const activeStatusLabel = STATUS_FILTERS.find((f) => f.id === filterStatus)?.label ?? 'All Plans'
 
   // Open Editor for new plan
   const handleOpenNewPlan = () => {
@@ -197,33 +242,295 @@ export default function LessonPlannerPage() {
     setEditingPlan({ ...editingPlan, nep_tags: updated })
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display font-bold text-2xl text-forest flex items-center gap-2.5">
-              <span className="p-2 rounded-xl bg-forest/5 text-forest border border-cream-border">
-                <FileText className="w-6 h-6 text-forest" />
-              </span>
-              Lesson Planner
-            </h1>
-          </div>
-          <p className="text-sm text-forest/65 mt-1">
-            Author, organize, and schedule NEP 2020 competency-grounded pedagogical lesson plans.
-          </p>
-        </div>
+  const PHASE_LABELS = [
+    { key: 'warmup', label: 'Warm' },
+    { key: 'instruction', label: 'Direct' },
+    { key: 'activity', label: 'Active' },
+    { key: 'assessment', label: 'Check' },
+    { key: 'homework', label: 'Home' },
+  ] as const
 
-        {viewMode === 'library' ? (
-          <button
-            onClick={handleOpenNewPlan}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-forest hover:bg-forest-raised text-cream font-medium text-sm transition-all shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4 text-gold" />
-            Create Lesson Plan
-          </button>
+  function renderPlanCard(plan: LessonPlanItem) {
+    const statusCls = STATUS_PILL_CLS[plan.status] || STATUS_PILL_CLS.draft
+    const metaRow = (
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="h-[22px] px-2 flex items-center rounded-[6px] bg-[#F3F1EB] border border-[#E5E0D5] text-[11px] font-mono font-medium tracking-[0.04em] text-[#44403C]">
+          {plan.class_label} • {plan.section_name}
+        </span>
+        <span className="flex items-center gap-1 text-[11px] font-mono text-[#8A8F98]">
+          <Clock className="w-3 h-3" />
+          {plan.duration_minutes}m
+        </span>
+      </div>
+    )
+    const statusPill = (
+      <span className={`shrink-0 h-6 px-2.5 rounded-full border flex items-center font-mono text-[11px] font-medium tracking-[0.02em] ${statusCls}`}>
+        {plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
+      </span>
+    )
+    const phasesBlock = (
+      <div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.08em] text-[#8A8F98] mb-2">
+          5E Lesson Phases
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {PHASE_LABELS.map((ph) => {
+            const hasContent = Boolean(plan.phases?.[ph.key as keyof typeof plan.phases])
+            return (
+              <span
+                key={ph.key}
+                title={ph.label}
+                className={`h-7 px-2.5 rounded-[8px] border flex items-center text-[11px] font-medium tracking-[-0.01em] ${
+                  hasContent
+                    ? 'bg-[#E8F5E9] border-[#C8E6C9] text-[#2E7D32]'
+                    : 'bg-[#F3F4F6] border-[#E5E7EB] text-[#9CA3AF]'
+                }`}
+              >
+                {ph.label}
+              </span>
+            )
+          })}
+        </div>
+      </div>
+    )
+    const tagsBlock = (
+      <div className="flex flex-wrap gap-1.5">
+        {plan.bloom_levels?.slice(0, 3).map((b) => (
+          <span key={b} className="h-6 px-2 rounded-[6px] bg-[#FFFBEB] border border-[#FDE68A] text-[11px] font-medium text-[#92400E] flex items-center">
+            {b}
+          </span>
+        ))}
+        {plan.nep_tags?.slice(0, 2).map((n) => (
+          <span key={n} className="h-6 px-2 rounded-[6px] bg-[#FFFBEB] border border-[#FDE68A] text-[11px] font-medium text-[#92400E] flex items-center">
+            {n}
+          </span>
+        ))}
+      </div>
+    )
+    const dateBlock = (
+      <div className="flex items-center gap-1.5">
+        <Calendar className="w-3.5 h-3.5 text-[#C8A86A]" />
+        <span className="font-mono text-[12px] font-medium text-[#11181C]">
+          {plan.status === 'scheduled' && plan.scheduled_date ? plan.scheduled_date : 'Schedule'}
+        </span>
+      </div>
+    )
+    const actionsBlock = (
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (confirm(`Delete plan "${plan.title}"?`)) void deletePlan(plan.id)
+          }}
+          className="w-7 h-7 rounded-[8px] hover:bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#6B7280] transition-colors"
+          title="Delete plan"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        {plan.status === 'scheduled' ? (
+          <span className="text-[12px] font-medium text-[#6B7280] flex items-center gap-1">
+            Open <ChevronRight className="w-3.5 h-3.5" />
+          </span>
         ) : (
+          <button
+            type="button"
+            onClick={(e) => handleOpenScheduleModal(plan, e)}
+            className="h-8 px-3 bg-white border border-[#E5E7EB] rounded-[10px] text-[12px] font-medium text-[#11181C] hover:bg-[#F8F5EE] flex items-center gap-1 transition-colors"
+          >
+            <CalendarDays className="w-3.5 h-3.5 text-[#C8A86A]" />
+            Schedule
+          </button>
+        )}
+      </div>
+    )
+
+    if (layoutMode === 'list') {
+      return (
+        <div
+          key={plan.id}
+          onClick={() => handleEditPlan(plan)}
+          className="bg-white rounded-[16px] border border-[#E5E7EB] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#E5E0D5] transition-all duration-200 flex flex-col lg:flex-row overflow-hidden cursor-pointer group"
+        >
+          <div className="flex-1 p-5 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              {metaRow}
+              {statusPill}
+            </div>
+            <h3 className="mt-3 text-[16px] font-bold leading-[1.3] tracking-[-0.01em] text-[#11181C] line-clamp-2">
+              {plan.title}
+            </h3>
+            <p className="mt-1.5 text-[13px] leading-[1.5] text-[#6B7280] line-clamp-2">
+              {plan.objective || 'No broad objective defined.'}
+            </p>
+          </div>
+          <div className="lg:w-[360px] shrink-0 p-5 bg-[#FFFEFB] border-t lg:border-t-0 lg:border-l border-[#F3F4F6] flex flex-col justify-between gap-4">
+            <div className="space-y-3">
+              {phasesBlock}
+              {tagsBlock}
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-[#F3F4F6] lg:border-0 lg:pt-0">
+              {dateBlock}
+              {actionsBlock}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        key={plan.id}
+        onClick={() => handleEditPlan(plan)}
+        className="bg-white rounded-[16px] border border-[#E5E7EB] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#E5E0D5] transition-all duration-200 flex flex-col cursor-pointer group"
+      >
+        <div className="flex items-start justify-between gap-2">
+          {metaRow}
+          {statusPill}
+        </div>
+        <h3 className="mt-3.5 text-[16px] font-bold leading-[1.3] tracking-[-0.01em] text-[#11181C] line-clamp-2">
+          {plan.title}
+        </h3>
+        <p className="mt-2 text-[13px] leading-[1.5] text-[#6B7280] line-clamp-2 min-h-[40px]">
+          {plan.objective || 'No broad objective defined.'}
+        </p>
+        <div className="h-px bg-[#F3F4F6] my-4" />
+        {phasesBlock}
+        <div className="mt-3">{tagsBlock}</div>
+        <div className="mt-auto pt-4 flex items-center justify-between">
+          {dateBlock}
+          {actionsBlock}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={viewMode === 'library' ? 'min-h-full bg-[#FFFBF0]' : 'p-6 lg:p-8 space-y-6'}>
+      {/* ================= VIEW 1: PLAN LIBRARY ================= */}
+      {viewMode === 'library' && (
+        <>
+          <PageHeader
+            title="Lesson Planner"
+            description="Author, organize, and schedule NEP 2020 competency-grounded pedagogical lesson plans."
+          />
+
+          <SearchToolbar>
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="w-[18px] h-[18px] text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search plans by title, objective, or class..."
+                className="w-full h-11 pl-11 pr-4 bg-white border border-[#E5E7EB] rounded-xl text-[14px] placeholder:text-[#9CA3AF] outline-none focus:border-[#11181C]/20 focus:ring-4 focus:ring-[#11181C]/[0.04] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+              />
+            </div>
+
+            <div className="flex items-center p-[3px] bg-[#F8F5EE] border border-[#E5E7EB] rounded-[10px] shrink-0">
+              <button
+                type="button"
+                onClick={() => setLayoutMode('grid')}
+                aria-label="Grid view"
+                className={`w-8 h-8 rounded-[8px] flex items-center justify-center transition-all cursor-pointer ${
+                  layoutMode === 'grid' ? 'bg-[#11181C] text-white shadow-sm' : 'text-[#8A8F98] hover:text-[#6B7280]'
+                }`}
+              >
+                <LayoutGrid className="w-[18px] h-[18px]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode('list')}
+                aria-label="List view"
+                className={`w-8 h-8 rounded-[8px] flex items-center justify-center transition-all cursor-pointer ${
+                  layoutMode === 'list' ? 'bg-[#11181C] text-white shadow-sm' : 'text-[#8A8F98] hover:text-[#6B7280]'
+                }`}
+              >
+                <List className="w-[18px] h-[18px]" />
+              </button>
+            </div>
+
+            <div className="relative shrink-0" ref={statusMenuRef}>
+              <button
+                type="button"
+                onClick={() => setStatusMenuOpen((v) => !v)}
+                className="w-[180px] h-10 px-3.5 bg-white border border-[#E5E7EB] rounded-xl flex items-center justify-between text-[13px] font-medium text-[#11181C] shadow-sm hover:bg-[#FFFEFB] transition-colors cursor-pointer"
+              >
+                <span>{activeStatusLabel}</span>
+                <ChevronDown className={`w-4 h-4 text-[#8A8F98] shrink-0 ml-2 transition-transform ${statusMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {statusMenuOpen && (
+                <div className="absolute top-[46px] right-0 w-[220px] bg-white border border-[#E5E7EB] rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.10)] p-1.5 z-30">
+                  {STATUS_FILTERS.map((filter) => {
+                    const active = filterStatus === filter.id
+                    const count = statusCounts[filter.id] ?? 0
+                    return (
+                      <div
+                        key={filter.id}
+                        onClick={() => {
+                          setFilterStatus(filter.id)
+                          setStatusMenuOpen(false)
+                        }}
+                        className={`px-3 py-2.5 rounded-[8px] text-[13px] cursor-pointer flex items-center justify-between transition-colors ${
+                          active ? 'bg-[#11181C] text-white' : 'hover:bg-[#F8F5EE] text-[#374151]'
+                        }`}
+                      >
+                        <span className="font-medium">{filter.label}</span>
+                        <span className={`font-mono text-[11px] px-2 h-5 rounded-full flex items-center justify-center min-w-[22px] ${
+                          active ? 'bg-white/15 text-white' : 'bg-[#F3F4F6] text-[#6B7280]'
+                        }`}>
+                          {count}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleOpenNewPlan}
+              className="h-10 px-4 bg-[#11181C] rounded-xl text-white text-[14px] font-medium flex items-center gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.12)] hover:bg-black transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Create Lesson Plan
+            </button>
+          </SearchToolbar>
+
+          <div className="px-8 pb-8">
+            {loading ? (
+              <div className="py-20 text-center text-[#6B7280] flex flex-col items-center gap-2">
+                <span className="w-6 h-6 border-2 border-[#E5E7EB] border-t-[#11181C] rounded-full animate-spin" />
+                <span className="text-sm">Loading lesson plans...</span>
+              </div>
+            ) : filteredPlans.length === 0 ? (
+              <div className="py-16 text-center bg-white border border-dashed border-[#E5E7EB] rounded-2xl p-8 space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-[#F8F5EE] flex items-center justify-center">
+                  <Search className="w-5 h-5 text-[#8A8F98]" />
+                </div>
+                <div className="font-semibold text-[#11181C]">No lesson plans found</div>
+                <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
+                  No lesson plans match your search or filter. Create your first pedagogical plan or select &quot;All Plans&quot;.
+                </p>
+                <button
+                  onClick={handleOpenNewPlan}
+                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#11181C] text-white text-xs font-medium cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  New Plan
+                </button>
+              </div>
+            ) : (
+              <div className={layoutMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4' : 'flex flex-col gap-3'}>
+                {filteredPlans.map((plan) => renderPlanCard(plan))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {viewMode === 'editor' && (
+        <div className="flex items-center justify-between gap-4">
           <button
             onClick={() => setViewMode('library')}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-cream-border bg-[#FCFBF8] text-forest/80 hover:text-forest text-sm font-medium transition-colors"
@@ -231,215 +538,6 @@ export default function LessonPlannerPage() {
             <ArrowLeft className="w-4 h-4" />
             Back to Library
           </button>
-        )}
-      </div>
-
-      {/* ================= VIEW 1: PLAN LIBRARY ================= */}
-      {viewMode === 'library' && (
-        <div className="space-y-5">
-          {/* Controls bar: Search & Status Filters */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-2xl bg-[#FCFBF8] border border-cream-border shadow-card">
-            {/* Search Box */}
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-forest/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search plans by title, objective, or class..."
-                className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-cream-border/70 bg-[#FAF9F5] text-forest placeholder:text-forest/40 focus:outline-none focus:border-gold transition-colors"
-              />
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-              {[
-                { id: 'all', label: 'All Plans' },
-                { id: 'scheduled', label: 'Scheduled' },
-                { id: 'planned', label: 'Planned' },
-                { id: 'drafts', label: 'Drafts' },
-                { id: 'completed', label: 'Completed' },
-              ].map((filter) => {
-                const active = filterStatus === filter.id
-                return (
-                  <button
-                    key={filter.id}
-                    onClick={() => setFilterStatus(filter.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                      active
-                        ? 'bg-forest text-cream shadow-xs'
-                        : 'bg-[#F5F1E6] text-forest/70 hover:text-forest hover:bg-[#EDE8DC]'
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Lesson Plans Grid */}
-          {loading ? (
-            <div className="py-20 text-center text-forest/50 flex flex-col items-center gap-2">
-              <span className="w-6 h-6 border-2 border-forest/30 border-t-forest rounded-full animate-spin" />
-              <span className="text-sm">Loading lesson plans...</span>
-            </div>
-          ) : filteredPlans.length === 0 ? (
-            <div className="py-16 text-center bg-[#FCFBF8] border border-dashed border-cream-border rounded-2xl p-8 space-y-3">
-              <BookOpen className="w-10 h-10 text-forest/30 mx-auto" />
-              <div className="font-semibold text-forest">No lesson plans found</div>
-              <p className="text-xs text-forest/60 max-w-sm mx-auto">
-                No lesson plans match your search or filter. Create your first pedagogical plan or select &quot;All Plans&quot;.
-              </p>
-              <button
-                onClick={handleOpenNewPlan}
-                className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest text-cream text-xs font-medium cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 text-gold" />
-                New Plan
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredPlans.map((plan) => {
-                const isScheduled = plan.status === 'scheduled'
-                const isPlanned = plan.status === 'planned'
-
-                return (
-                  <div
-                    key={plan.id}
-                    onClick={() => handleEditPlan(plan)}
-                    className="bg-[#FCFBF8] hover:bg-white border border-cream-border hover:border-gold/60 rounded-2xl p-5 shadow-card hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
-                  >
-                    <div>
-                      {/* Top badges */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-forest/5 text-forest border border-cream-border">
-                            {plan.class_label} • {plan.section_name}
-                          </span>
-                          <span className="text-[11px] text-forest/60 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {plan.duration_minutes}m
-                          </span>
-                        </div>
-
-                        {/* Status chip */}
-                        <span
-                          className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
-                            isScheduled
-                              ? 'bg-[#7FBF7A]/15 border-[#7FBF7A]/40 text-forest'
-                              : isPlanned
-                              ? 'bg-[#D9A94E]/15 border-[#D9A94E]/40 text-[#8C6D23]'
-                              : 'bg-cream/70 border-cream-border text-forest/60'
-                          }`}
-                        >
-                          {plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
-                        </span>
-                      </div>
-
-                      {/* Title & Objective */}
-                      <h3 className="font-semibold text-base text-forest group-hover:text-forest leading-snug line-clamp-2 mb-1.5">
-                        {plan.title}
-                      </h3>
-                      <p className="text-xs text-forest/65 line-clamp-2 leading-relaxed mb-4">
-                        {plan.objective || 'No broad objective defined.'}
-                      </p>
-
-                      {/* 5-Phase Mini Flow Indicators */}
-                      <div className="mb-4 pt-3 border-t border-cream-border/60">
-                        <div className="text-[10px] font-semibold text-forest/50 uppercase tracking-wider mb-1.5">
-                          5E Lesson Phases
-                        </div>
-                        <div className="grid grid-cols-5 gap-1 text-[10px] font-medium text-center">
-                          {[
-                            { key: 'warmup', label: 'Warm' },
-                            { key: 'instruction', label: 'Direct' },
-                            { key: 'activity', label: 'Active' },
-                            { key: 'assessment', label: 'Check' },
-                            { key: 'homework', label: 'Home' },
-                          ].map((ph) => {
-                            const hasContent = Boolean(plan.phases?.[ph.key as keyof typeof plan.phases])
-                            return (
-                              <div
-                                key={ph.key}
-                                className={`py-1 rounded px-0.5 truncate transition-colors ${
-                                  hasContent
-                                    ? 'bg-[#7FBF7A]/20 text-forest border border-[#7FBF7A]/30 font-semibold'
-                                    : 'bg-[#F5F1E6] text-forest/40 border border-cream-border/40'
-                                }`}
-                                title={ph.label}
-                              >
-                                {ph.label}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Bloom's & NEP Tag chips */}
-                      <div className="flex flex-wrap gap-1 mb-4">
-                        {plan.bloom_levels?.slice(0, 3).map((b) => (
-                          <span
-                            key={b}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-forest/5 text-forest border border-cream-border"
-                          >
-                            {b}
-                          </span>
-                        ))}
-                        {plan.nep_tags?.slice(0, 2).map((n) => (
-                          <span
-                            key={n}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-gold/15 text-[#8C6D23] border border-gold/30"
-                          >
-                            {n}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Bottom Actions */}
-                    <div className="pt-3 border-t border-cream-border/60 flex items-center justify-between text-xs">
-                      {isScheduled && plan.scheduled_date ? (
-                        <div className="flex items-center gap-1.5 text-forest/80 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-gold" />
-                          <span>{plan.scheduled_date}</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenScheduleModal(plan, e)}
-                          className="text-forest/70 hover:text-forest hover:underline font-medium flex items-center gap-1"
-                        >
-                          <CalendarDays className="w-3.5 h-3.5 text-gold" />
-                          Schedule
-                        </button>
-                      )}
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (confirm(`Delete plan "${plan.title}"?`)) {
-                              void deletePlan(plan.id)
-                            }
-                          }}
-                          className="p-1.5 rounded-lg text-forest/40 hover:text-danger hover:bg-danger/10 transition-colors"
-                          title="Delete plan"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-forest/40 group-hover:text-gold flex items-center font-medium">
-                          Open <ChevronRight className="w-3.5 h-3.5" />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
         </div>
       )}
 

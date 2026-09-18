@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Calendar as CalendarIcon,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
+import PageHeader from '../../components/PageHeader'
+import SearchToolbar from '../../components/SearchToolbar'
 import {
   CalendarEventItem,
   EventKind,
@@ -22,28 +24,28 @@ const EVENT_KIND_STYLES: Record<
 > = {
   class: {
     label: 'Class',
-    badgeCls: 'bg-[#13231F]/10 text-[#13231F] border border-[#13231F]/20',
-    dotCls: 'bg-[#13231F]',
+    badgeCls: 'bg-[#F3F1EB] text-[#374151] border border-[#E5E0D5]',
+    dotCls: 'bg-[#11181C]',
   },
   exam: {
     label: 'Exam',
-    badgeCls: 'bg-[#E5484D]/15 text-[#E5484D] border border-[#E5484D]/30',
-    dotCls: 'bg-[#E5484D]',
+    badgeCls: 'bg-[#FFE4E6] text-[#991B1B] border border-[#FECACA] border-l-[3px] border-l-[#EF4444]',
+    dotCls: 'bg-[#EF4444]',
   },
   homework: {
     label: 'Homework Due',
-    badgeCls: 'bg-[#D9A94E]/20 text-[#8A6A2E] border border-[#D9A94E]/40',
-    dotCls: 'bg-[#D9A94E]',
+    badgeCls: 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] border-l-[3px] border-l-[#D97706]',
+    dotCls: 'bg-[#D97706]',
   },
   holiday: {
     label: 'Holiday',
-    badgeCls: 'bg-[#7FBF7A]/25 text-[#1E5622] border border-[#7FBF7A]/40',
-    dotCls: 'bg-[#7FBF7A]',
+    badgeCls: 'bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0] border-l-[3px] border-l-[#22C55E]',
+    dotCls: 'bg-[#22C55E]',
   },
   meeting: {
     label: 'Meeting',
-    badgeCls: 'bg-black/5 text-[#13231F] border border-black/15',
-    dotCls: 'bg-[#1E352E]',
+    badgeCls: 'bg-[#DBEAFE] text-[#1E40AF] border border-[#BFDBFE] border-l-[3px] border-l-[#3B82F6]',
+    dotCls: 'bg-[#3B82F6]',
   },
 }
 
@@ -53,6 +55,19 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventItem | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<EventKind | 'ALL'>('ALL')
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
+  const categoryMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target as Node)) {
+        setCategoryMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   // Form state for creating a new event
   const [newEventTitle, setNewEventTitle] = useState('')
@@ -148,15 +163,36 @@ export default function CalendarPage() {
     return days
   }, [year, month])
 
-  // Events indexed by date string (YYYY-MM-DD)
+  // 7 days (Sun-Sat) for the week view, centered on the week containing currentDate
+  const weekDays = useMemo(() => {
+    const start = new Date(currentDate)
+    start.setDate(start.getDate() - start.getDay())
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      return { date: d, dateKey: d.toISOString().slice(0, 10) }
+    })
+  }, [currentDate])
+
+  // Events indexed by date string (YYYY-MM-DD), filtered by the selected category
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEventItem[]> = {}
-    events.forEach((ev) => {
-      const key = ev.start_at.slice(0, 10)
-      if (!map[key]) map[key] = []
-      map[key].push(ev)
-    })
+    events
+      .filter((ev) => categoryFilter === 'ALL' || ev.event_type === categoryFilter)
+      .forEach((ev) => {
+        const key = ev.start_at.slice(0, 10)
+        if (!map[key]) map[key] = []
+        map[key].push(ev)
+      })
     return map
+  }, [events, categoryFilter])
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: events.length, class: 0, exam: 0, homework: 0, holiday: 0, meeting: 0 }
+    events.forEach((ev) => {
+      if (counts[ev.event_type] !== undefined) counts[ev.event_type] += 1
+    })
+    return counts
   }, [events])
 
   const todayKey = new Date().toISOString().slice(0, 10)
@@ -198,148 +234,250 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBF7EE] text-[#13231F] font-[Inter] p-6 lg:p-8 space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-[#13231F] flex items-center gap-3">
-            <CalendarIcon className="w-7 h-7 text-[#7FBF7A]" />
-            My Calendar
-          </h1>
-          <p className="text-[14px] text-black/60 mt-1">
-            Teaching schedule, examinations, assignments due, and meetings.
-          </p>
+    <div className="min-h-full bg-[#FBF9F3] text-[#13231F] font-[Inter]">
+      <PageHeader
+        title="My Calendar"
+        description="Teaching schedule, examinations, assignments due, and meetings."
+        actions={
+          <div className="relative" ref={categoryMenuRef}>
+            <button
+              type="button"
+              onClick={() => setCategoryMenuOpen((v) => !v)}
+              className="h-7 pl-2.5 pr-2 rounded-full bg-white border border-[#E5E7EB] text-[11px] font-medium text-[#1A221E] flex items-center gap-1.5 cursor-pointer hover:border-[#D1D5DB] transition-colors"
+            >
+              {categoryFilter !== 'ALL' && (
+                <span className={`w-2 h-2 rounded-full ${EVENT_KIND_STYLES[categoryFilter].dotCls}`} />
+              )}
+              {categoryFilter === 'ALL' ? 'All Categories' : EVENT_KIND_STYLES[categoryFilter].label}
+              <ChevronDown className={`w-3.5 h-3.5 text-[#8A8F98] transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {categoryMenuOpen && (
+              <div className="absolute top-9 right-0 w-[200px] bg-white border border-[#E5E7EB] rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.10)] p-1.5 z-30">
+                <div
+                  onClick={() => {
+                    setCategoryFilter('ALL')
+                    setCategoryMenuOpen(false)
+                  }}
+                  className={`px-3 py-2 rounded-[8px] text-[13px] cursor-pointer flex items-center justify-between transition-colors ${
+                    categoryFilter === 'ALL' ? 'bg-[#11181C] text-white' : 'hover:bg-[#F8F5EE] text-[#374151]'
+                  }`}
+                >
+                  <span className="font-medium">All Categories</span>
+                  <span className={`font-mono text-[11px] px-2 h-5 rounded-full flex items-center justify-center min-w-[22px] ${
+                    categoryFilter === 'ALL' ? 'bg-white/15 text-white' : 'bg-[#F3F4F6] text-[#6B7280]'
+                  }`}>
+                    {categoryCounts.ALL}
+                  </span>
+                </div>
+                {(Object.keys(EVENT_KIND_STYLES) as EventKind[]).map((kind) => {
+                  const conf = EVENT_KIND_STYLES[kind]
+                  const active = categoryFilter === kind
+                  return (
+                    <div
+                      key={kind}
+                      onClick={() => {
+                        setCategoryFilter(kind)
+                        setCategoryMenuOpen(false)
+                      }}
+                      className={`px-3 py-2 rounded-[8px] text-[13px] cursor-pointer flex items-center justify-between transition-colors ${
+                        active ? 'bg-[#11181C] text-white' : 'hover:bg-[#F8F5EE] text-[#374151]'
+                      }`}
+                    >
+                      <span className="font-medium flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${conf.dotCls}`} />
+                        {conf.label}
+                      </span>
+                      <span className={`font-mono text-[11px] px-2 h-5 rounded-full flex items-center justify-center min-w-[22px] ${
+                        active ? 'bg-white/15 text-white' : 'bg-[#F3F4F6] text-[#6B7280]'
+                      }`}>
+                        {categoryCounts[kind]}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        }
+      />
+
+      <SearchToolbar>
+        <div className="flex items-center h-9 p-1 rounded-full bg-white border border-[#E5E7EB] gap-0.5 shrink-0">
+          {(['month', 'week', 'day'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`h-7 px-3 rounded-full text-[12px] font-medium capitalize transition-all cursor-pointer ${
+                viewMode === mode ? 'bg-[#1a2421] text-white' : 'text-[#6B7280] hover:text-[#11181C]'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* View Toggles */}
-          <div className="flex items-center bg-[#F5F1E6] p-1 rounded-xl border border-[#E8E0CC]">
-            {(['month', 'week', 'day'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-all cursor-pointer ${
-                  viewMode === mode
-                    ? 'bg-forest text-white shadow-xs'
-                    : 'text-black/60 hover:text-[#13231F]'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
+        <button
+          onClick={() => handleOpenAddModal()}
+          className="ml-auto h-10 px-4 rounded-xl bg-[#11181C] hover:bg-black text-white text-[14px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          Add Event
+        </button>
+      </SearchToolbar>
+
+      <div className="px-8 pb-8 space-y-4">
+        {/* Toolbar: Navigation and Month Display */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-3 px-4 rounded-2xl border border-[#E5E7EB]">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg lg:text-[18px] font-bold text-[#11181C]">
+              {monthName}
+            </h2>
+            <button
+              onClick={goToToday}
+              className="h-6 px-2.5 rounded-full border border-[#E5E7EB] bg-white text-[12px] font-medium text-[#11181C] cursor-pointer hover:border-[#D1D5DB] transition-colors"
+            >
+              Today
+            </button>
           </div>
 
-          <Button
-            variant="default"
-            size="default"
-            onClick={() => handleOpenAddModal()}
-            className="flex items-center gap-2 shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Event</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Toolbar: Navigation and Month Display */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#FCFBF8] p-4 rounded-2xl border border-[#E8E0CC] shadow-xs">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg lg:text-xl font-bold text-[#13231F]">
-            {monthName}
-          </h2>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={goToToday}
-            className="border border-[#E8E0CC] text-xs font-semibold"
-          >
-            Today
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={prevPeriod}
+              className="w-8 h-8 rounded-full border border-[#E5E7EB] bg-white flex items-center justify-center text-[#6B7280] hover:text-[#11181C] hover:border-[#D1D5DB] transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={nextPeriod}
+              className="w-8 h-8 rounded-full border border-[#E5E7EB] bg-white flex items-center justify-center text-[#6B7280] hover:text-[#11181C] hover:border-[#D1D5DB] transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={prevPeriod}
-            className="w-8 h-8 p-0 rounded-lg"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={nextPeriod}
-            className="w-8 h-8 p-0 rounded-lg"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Legend Indicator */}
-      <div className="flex flex-wrap items-center gap-3 px-1 text-xs">
-        <span className="text-black/50 font-medium">Categories:</span>
-        {(Object.keys(EVENT_KIND_STYLES) as EventKind[]).map((kind) => {
-          const conf = EVENT_KIND_STYLES[kind]
-          return (
-            <div key={kind} className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${conf.dotCls}`} />
-              <span className="text-black/70 font-medium">{conf.label}</span>
+        {/* Main Calendar View: Month Grid */}
+        {viewMode === 'month' && (
+          <div className="bg-white rounded-2xl border-2 border-[#E5DDC8] overflow-hidden">
+            {/* Days of week header */}
+            <div className="grid grid-cols-7 border-b-2 border-[#E5DDC8] divide-x divide-[#E5DDC8] bg-[#FEF6E7] h-11">
+              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d) => (
+                <div
+                  key={d}
+                  className="flex items-center justify-center text-[11px] font-mono uppercase tracking-wide text-[#6B7280]"
+                >
+                  {d}
+                </div>
+              ))}
             </div>
-          )
-        })}
-      </div>
 
-      {/* Main Calendar View: Month Grid */}
-      {viewMode === 'month' && (
-        <div className="bg-[#FCFBF8] rounded-2xl border border-[#E8E0CC] shadow-xs overflow-hidden">
-          {/* Days of week header */}
-          <div className="grid grid-cols-7 border-b border-[#E8E0CC] bg-[#F5F1E6]/70 text-center py-2.5 text-xs font-semibold text-black/60">
-            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d) => (
-              <div key={d}>{d}</div>
+            {/* Day Cells Matrix */}
+            <div className="grid grid-cols-7 divide-x divide-y divide-[#E8E0CC]">
+              {calendarDays.map((cell, idx) => {
+                const isToday = cell.dateKey === todayKey
+                const isWeekend = idx % 7 === 0 || idx % 7 === 6
+                const dayEvents = eventsByDate[cell.dateKey] || []
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => handleOpenAddModal(cell.dateKey)}
+                    className={`min-h-[120px] p-3 flex flex-col gap-1.5 transition-colors group cursor-pointer ${
+                      cell.isCurrentMonth
+                        ? isWeekend
+                          ? 'bg-[#FFFCF2] hover:bg-[#FFFAEE]'
+                          : 'bg-white hover:bg-[#FFFEFB]'
+                        : 'bg-[#FCFCFA] text-black/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`inline-flex items-center justify-center text-[14px] leading-none ${
+                          isToday
+                            ? 'w-7 h-7 rounded-full bg-[#11181C] text-white font-semibold'
+                            : cell.isCurrentMonth
+                            ? 'text-[#11181C] font-medium'
+                            : 'text-[#9CA3AF] font-medium'
+                        }`}
+                      >
+                        {cell.date.getDate()}
+                      </span>
+
+                      {dayEvents.length > 0 && (
+                        <span className="text-[10px] font-medium text-[#9CA3AF]">
+                          {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Event Chips */}
+                    <div className="space-y-1 flex-1 overflow-hidden">
+                      {dayEvents.slice(0, 3).map((ev) => {
+                        const conf = EVENT_KIND_STYLES[ev.event_type] || EVENT_KIND_STYLES.class
+                        return (
+                          <div
+                            key={ev.id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedEvent(ev)
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium truncate cursor-pointer shadow-sm transition-transform hover:scale-[1.02] ${conf.badgeCls}`}
+                          >
+                            {ev.title}
+                          </div>
+                        )
+                      })}
+                      {dayEvents.length > 3 && (
+                        <div className="text-[10px] text-black/50 font-medium pl-1">
+                          +{dayEvents.length - 3} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+      {/* Week View: 7-day grid, one row */}
+      {viewMode === 'week' && (
+        <div className="bg-white rounded-2xl border-2 border-[#E5DDC8] overflow-hidden">
+          <div className="grid grid-cols-7 border-b-2 border-[#E5DDC8] divide-x divide-[#E5DDC8] bg-[#FEF6E7] h-11">
+            {weekDays.map((d) => (
+              <div
+                key={d.dateKey}
+                className="flex items-center justify-center text-[11px] font-mono uppercase tracking-wide text-[#6B7280]"
+              >
+                {d.date.toLocaleDateString('default', { weekday: 'short' })}
+              </div>
             ))}
           </div>
 
-          {/* Day Cells Matrix */}
-          <div className="grid grid-cols-7 divide-x divide-y divide-[#E8E0CC]">
-            {calendarDays.map((cell, idx) => {
-              const isToday = cell.dateKey === todayKey
-              const dayEvents = eventsByDate[cell.dateKey] || []
+          <div className="grid grid-cols-7 divide-x divide-[#E8E0CC]">
+            {weekDays.map((d, idx) => {
+              const isToday = d.dateKey === todayKey
+              const isWeekend = idx === 0 || idx === 6
+              const dayEvents = eventsByDate[d.dateKey] || []
 
               return (
                 <div
-                  key={idx}
-                  onClick={() => handleOpenAddModal(cell.dateKey)}
-                  className={`min-h-[110px] sm:min-h-[130px] p-2 flex flex-col justify-between transition-colors group cursor-pointer ${
-                    cell.isCurrentMonth
-                      ? 'bg-[#FCFBF8] hover:bg-[#F5F1E6]/50'
-                      : 'bg-[#F9F6EE]/50 text-black/30'
+                  key={d.dateKey}
+                  onClick={() => handleOpenAddModal(d.dateKey)}
+                  className={`min-h-[420px] p-3 flex flex-col gap-1.5 cursor-pointer transition-colors ${
+                    isWeekend ? 'bg-[#FFFCF2] hover:bg-[#FFFAEE]' : 'hover:bg-[#FFFEFB]'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`inline-flex items-center justify-center w-7 h-7 text-xs font-semibold rounded-full transition-all ${
-                        isToday
-                          ? 'bg-forest text-white shadow-xs font-bold'
-                          : cell.isCurrentMonth
-                          ? 'text-[#13231F] group-hover:bg-[#E8E0CC]/50'
-                          : 'text-black/35'
-                      }`}
-                    >
-                      {cell.date.getDate()}
-                    </span>
+                  <span
+                    className={`inline-flex items-center justify-center self-start text-[14px] leading-none ${
+                      isToday ? 'w-7 h-7 rounded-full bg-[#11181C] text-white font-semibold' : 'text-[#11181C] font-medium'
+                    }`}
+                  >
+                    {d.date.getDate()}
+                  </span>
 
-                    {dayEvents.length > 0 && (
-                      <span className="text-[10px] font-mono text-black/40">
-                        {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Event Chips */}
-                  <div className="space-y-1 mt-1.5 flex-1 overflow-hidden">
-                    {dayEvents.slice(0, 3).map((ev) => {
+                  <div className="space-y-1 flex-1 overflow-y-auto">
+                    {dayEvents.map((ev) => {
                       const conf = EVENT_KIND_STYLES[ev.event_type] || EVENT_KIND_STYLES.class
                       return (
                         <div
@@ -348,17 +486,12 @@ export default function CalendarPage() {
                             e.stopPropagation()
                             setSelectedEvent(ev)
                           }}
-                          className={`px-2 py-1 rounded-md text-[11px] font-medium truncate cursor-pointer transition-transform hover:scale-[1.02] ${conf.badgeCls}`}
+                          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium truncate cursor-pointer shadow-sm transition-transform hover:scale-[1.02] ${conf.badgeCls}`}
                         >
                           {ev.title}
                         </div>
                       )
                     })}
-                    {dayEvents.length > 3 && (
-                      <div className="text-[10px] text-black/50 font-medium pl-1">
-                        +{dayEvents.length - 3} more
-                      </div>
-                    )}
                   </div>
                 </div>
               )
@@ -367,21 +500,21 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Week / Day View List Fallback */}
-      {viewMode !== 'month' && (
-        <div className="bg-[#FCFBF8] rounded-2xl border border-[#E8E0CC] p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#E8E0CC] pb-3">
-            <h3 className="font-bold text-lg text-[#13231F]">
+      {/* Day View: single-day agenda list */}
+      {viewMode === 'day' && (
+        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+            <h3 className="font-bold text-lg text-[#11181C]">
               Scheduled Entries for {currentDate.toLocaleDateString()}
             </h3>
-            <span className="text-xs text-black/50">
+            <span className="text-xs text-[#6B7280]">
               {eventsByDate[currentDate.toISOString().slice(0, 10)]?.length || 0} events
             </span>
           </div>
 
           <div className="space-y-3">
             {(eventsByDate[currentDate.toISOString().slice(0, 10)] || []).length === 0 ? (
-              <div className="text-center py-12 text-black/40 text-sm">
+              <div className="text-center py-12 text-[#9CA3AF] text-sm">
                 No events scheduled for this date. Click "+ Add Event" to create one.
               </div>
             ) : (
@@ -391,14 +524,14 @@ export default function CalendarPage() {
                   <div
                     key={ev.id}
                     onClick={() => setSelectedEvent(ev)}
-                    className="p-4 rounded-xl border border-[#E8E0CC] bg-[#F5F1E6]/40 hover:bg-[#F5F1E6] transition-all cursor-pointer flex items-center justify-between"
+                    className="p-4 rounded-xl border border-[#E5E7EB] bg-[#FEF9F3] hover:bg-[#FFFEFB] transition-all cursor-pointer flex items-center justify-between"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${conf.badgeCls}`}>
                           {conf.label}
                         </span>
-                        <h4 className="font-semibold text-[14px] text-[#13231F]">{ev.title}</h4>
+                        <h4 className="font-semibold text-[14px] text-[#11181C]">{ev.title}</h4>
                       </div>
                       {ev.description && (
                         <p className="text-xs text-black/60">{ev.description}</p>
@@ -423,6 +556,7 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* Add Event Modal Dialog */}
       {isAddModalOpen && (

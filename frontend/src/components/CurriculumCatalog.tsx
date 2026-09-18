@@ -192,9 +192,8 @@ export default function CurriculumCatalog({
               )}
             </nav>
 
-            {/* Display Title with Newsreader Font */}
             <div className="flex items-center gap-3">
-              <h1 className="font-news text-[24px] font-[600] tracking-[-0.02em] text-[#111814] leading-tight">
+              <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
                 {selectedChapter ? selectedChapter.title : `${subjectData.title} Curriculum`}
               </h1>
               <span className="h-6 px-3 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[11px] font-mono grid place-items-center text-[#6B7280]">

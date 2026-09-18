@@ -377,7 +377,7 @@ export default function CoteacherWorkspace({
       <div className="sticky top-0 z-20 backdrop-blur-xl bg-[#fdfaf5]/90 border-b border-[#ece8df]">
         <div className="px-5 lg:px-10 h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
+            <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
               Practice Questions
             </h1>
           </div>

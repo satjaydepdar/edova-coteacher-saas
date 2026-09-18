@@ -56,7 +56,7 @@ export default function Lessons() {
   return (
     <div className="p-4 lg:p-6 max-w-[1440px] mx-auto">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="font-display text-[22px] font-bold tracking-tight flex items-center gap-2">
+        <h2 className="page-header-h1 text-[24px] lg:text-[28px] flex items-center gap-2">
           <span className="w-1.5 h-8 rounded-full inline-block bg-gold" />
           {tree.subject_name}
           <span className="ml-2 text-[12px] font-normal opacity-50 bg-white border border-black/10 px-2 py-0.5 rounded-full">

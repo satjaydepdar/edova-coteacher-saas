@@ -41,7 +41,7 @@ export default function LearningHubPage() {
     <div className="min-h-full bg-[#FDFBF6] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
       {/* Header */}
       <div>
-        <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#121A16]">
+        <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
           Learning Hub
         </h1>
         <p className="text-[13px] text-[#6B7B6F] mt-1">

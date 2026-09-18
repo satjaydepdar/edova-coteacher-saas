@@ -106,7 +106,7 @@ export default function MyAssignmentsPage() {
   return (
     <div className="min-h-full bg-[#FBF9F3] px-5 lg:px-10 py-6 lg:py-8 space-y-5">
       <div>
-        <h1 className="font-serif text-[22px] lg:text-[26px] tracking-[-0.02em] font-medium text-[#111814]">
+        <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
           My Assignments
         </h1>
         <p className="text-[13px] text-[#8A8A7A] mt-1">Complete homework, take quizzes, and track feedback from your teacher.</p>

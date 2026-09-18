@@ -478,10 +478,7 @@ export default function CoteacherWorkspace({
                 <div className="max-w-[720px]">
                   {!hasStartedProblem ? (
                     <>
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f6f1e7] border border-[#ece6d8] font-mono text-[10px] tracking-[0.12em] text-[#7a756c]">
-                        READY STATE • INSTANCE 01
-                      </div>
-                      <h2 className="font-serif text-[28px] lg:text-[32px] leading-[1.05] tracking-[-0.03em] mt-4 text-[#111814]">
+                      <h2 className="font-serif text-[28px] lg:text-[32px] leading-[1.05] tracking-[-0.03em] text-[#111814]">
                         Ready to practice<br className="hidden sm:inline" /> this concept?
                       </h2>
                       <p className="mt-4 text-[14px] leading-[1.6] text-[#6b6760] max-w-[460px]">

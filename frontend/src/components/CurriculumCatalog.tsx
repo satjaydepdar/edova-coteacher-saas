@@ -22,6 +22,7 @@ import { CURRICULUM_DATABASE, SimulationItem } from '../data/curriculumData'
 import { searchSimulationsIntelligently, ParsedSearchIntent } from '../utils/intelligentSearch'
 import PageHeader from './PageHeader'
 import SearchToolbar, { filterSelectClass } from './SearchToolbar'
+import { useAuthStore } from '../store/authStore'
 
 interface CurriculumCatalogProps {
   onLaunchSimulation: (sim: SimulationItem) => void
@@ -65,6 +66,7 @@ export default function CurriculumCatalog({
   selectedSubTopicId: propSubTopicId,
   onSelectSubTopicId,
 }: CurriculumCatalogProps) {
+  const { user } = useAuthStore()
   const currentSubject = controlledSubject || 'maths'
 
   const [internalChapterId, setInternalChapterId] = useState<string | null>(null)
@@ -165,33 +167,31 @@ export default function CurriculumCatalog({
 
       <PageHeader
         eyebrow={
-          <nav className="flex items-center gap-1.5">
-            <span
-              onClick={handleResetToLevel1}
-              className="hover:text-[#111814] cursor-pointer transition-colors"
-            >
-              {subjectData.title}
-            </span>
-            {selectedChapter && (
-              <>
-                <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
-                <span
-                  onClick={() => handleSelectSubTopic(null)}
-                  className="hover:text-[#111814] cursor-pointer transition-colors"
-                >
-                  {selectedChapter.title}
-                </span>
-              </>
-            )}
-            {selectedSubTopicId && (
-              <>
-                <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
-                <span className="font-[600] text-[#111814]">
-                  {selectedChapter?.subtopics.find((st) => st.id === selectedSubTopicId)?.title}
-                </span>
-              </>
-            )}
-          </nav>
+          selectedChapter ? (
+            <nav className="flex items-center gap-1.5">
+              <span
+                onClick={handleResetToLevel1}
+                className="hover:text-[#111814] cursor-pointer transition-colors"
+              >
+                {subjectData.title}
+              </span>
+              <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
+              <span
+                onClick={() => handleSelectSubTopic(null)}
+                className="hover:text-[#111814] cursor-pointer transition-colors"
+              >
+                {selectedChapter.title}
+              </span>
+              {selectedSubTopicId && (
+                <>
+                  <ChevronRight className="w-3 h-3 text-[#D1D5DB]" />
+                  <span className="font-[600] text-[#111814]">
+                    {selectedChapter.subtopics.find((st) => st.id === selectedSubTopicId)?.title}
+                  </span>
+                </>
+              )}
+            </nav>
+          ) : undefined
         }
         title={selectedChapter ? selectedChapter.title : `${subjectData.title} Curriculum`}
         titlePill={
@@ -203,16 +203,23 @@ export default function CurriculumCatalog({
         }
         description={selectedChapter ? selectedChapter.desc : subjectData.description}
         actions={
-          selectedChapterId ? (
-            <button
-              type="button"
-              onClick={handleResetToLevel1}
-              className="h-8 px-3.5 rounded-[10px] bg-white border border-[#EDE8DD] text-[12px] font-[500] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex items-center gap-1.5 hover:bg-[#FBF9F3] text-[#111814] transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#6B7280]" />
-              <span>← Back to chapters</span>
-            </button>
-          ) : undefined
+          <>
+            {selectedChapterId && (
+              <button
+                type="button"
+                onClick={handleResetToLevel1}
+                className="h-8 px-3.5 rounded-[10px] bg-white border border-[#EDE8DD] text-[12px] font-[500] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex items-center gap-1.5 hover:bg-[#FBF9F3] text-[#111814] transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#6B7280]" />
+                <span>← Back to chapters</span>
+              </button>
+            )}
+            {user?.tenant_name && (
+              <span className="text-[13px] font-medium text-[#6B7280] font-[Inter] shrink-0">
+                {user.tenant_name}
+              </span>
+            )}
+          </>
         }
       />
 

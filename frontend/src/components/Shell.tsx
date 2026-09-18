@@ -653,7 +653,9 @@ export default function Shell() {
           !location.pathname.startsWith('/settings') &&
           !location.pathname.startsWith('/learning') &&
           !location.pathname.startsWith('/my-assignments') &&
-          !location.pathname.startsWith('/wiki') && (
+          !location.pathname.startsWith('/wiki') &&
+          !location.pathname.startsWith('/lessons') &&
+          !location.pathname.startsWith('/labs') && (
           <header className="print:hidden h-16 shrink-0 bg-[#F5F1E6] border-b border-[#E5E1D2] flex items-center justify-between gap-3 px-6 lg:px-8">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -719,9 +721,6 @@ export default function Shell() {
                     {activeSubject ? `C10.${activeSubject.name.slice(0, 3).toUpperCase()}` : 'C10.ALL'}
                   </Badge>
                 </div>
-              ) : location.pathname.startsWith('/labs') || location.pathname.startsWith('/lessons') ? (
-                // Filters for these pages now live in their own SearchToolbar, directly below the page header.
-                <div className="flex-1 min-w-0" />
               ) : (
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   <div className="relative">

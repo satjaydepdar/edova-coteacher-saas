@@ -21,6 +21,8 @@ import { useAssignmentStore, type AssignmentSummaryItem, type SubmissionItem } f
 import { useCalendarStore } from '../../store/calendarStore'
 import PageHeader from '../../components/PageHeader'
 import { searchInputClass } from '../../components/SearchToolbar'
+import SummaryCard from '../../components/SummaryCard'
+import { titleClass, bodyClass } from '../../components/typography'
 
 const SECTION_CHOICES = ['All', '10-A', '10-B', '9-A']
 const TYPE_CHOICES = [
@@ -201,53 +203,22 @@ export default function AssignmentTrackerPage() {
       />
 
       <div className="px-8 pt-6 pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#1E2D24]" />
-          <span className="absolute inset-0 bg-[#1E2D24]/[0.03]" />
-          <div className="relative w-10 h-10 rounded-full bg-[#F3F1EB] border border-[#EDE9E0] flex items-center justify-center shrink-0">
-            <BookOpen className="w-5 h-5 text-[#8A7E66]" />
-          </div>
-          <div className="relative">
-            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Active Assignments</div>
-            <div className="text-[20px] font-bold text-[#11181C] leading-none mt-1">{totalActive}</div>
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#F5C542]" />
-          <span className="absolute inset-0 bg-[#FFFBEB]" />
-          <div className="relative w-10 h-10 rounded-full bg-white border border-[#FDE8B0] flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-[#D4A017]" />
-          </div>
-          <div className="relative">
-            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Submission Rate</div>
-            <div className="text-[20px] font-bold text-[#11181C] leading-none mt-1">{overallSubmissionRate}%</div>
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#F97316]" />
-          <span className="absolute inset-0 bg-[#FFF7ED]" />
-          <div className="relative w-10 h-10 rounded-full bg-white border border-[#FFD6B8] flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-[#EA6B1E]" />
-          </div>
-          <div className="relative">
-            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Pending Review</div>
-            <div className="text-[20px] font-bold text-[#92400E] leading-none mt-1">{pendingGradingCount}</div>
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] p-4 flex items-center gap-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#22C55E]" />
-          <span className="absolute inset-0 bg-[#F6FEF8]" />
-          <div className="relative w-10 h-10 rounded-full bg-white border border-[#C8EACF] flex items-center justify-center shrink-0">
-            <Award className="w-5 h-5 text-[#2FAA4E]" />
-          </div>
-          <div className="relative">
-            <div className="text-[11px] font-medium tracking-[0.04em] text-[#6B7280] uppercase">Class Score Avg</div>
-            <div className="text-[20px] font-bold text-[#11181C] leading-none mt-1">{classAvgScore}%</div>
-          </div>
-        </div>
+        <SummaryCard
+          eyebrow="Active Assignments" metric={totalActive} sub="Currently Published"
+          icon={<BookOpen className="w-4 h-4" />} accent="#8A7F6B" iconBg="#F2F1ED"
+        />
+        <SummaryCard
+          eyebrow="Submission Rate" metric={`${overallSubmissionRate}%`} sub="All Assignments"
+          icon={<CheckCircle2 className="w-4 h-4" />} accent="#8A6D00" iconBg="#FFF4CC"
+        />
+        <SummaryCard
+          eyebrow="Pending Review" metric={pendingGradingCount} sub="Awaiting Grades"
+          icon={<Clock className="w-4 h-4" />} accent="#B45309" iconBg="#FFEDD5"
+        />
+        <SummaryCard
+          eyebrow="Class Score Avg" metric={`${classAvgScore}%`} sub="Across Graded Work"
+          icon={<Award className="w-4 h-4" />} accent="#2F6F46" iconBg="#E6F7ED"
+        />
       </div>
 
       {/* Search & Filter Toolbar */}
@@ -423,10 +394,10 @@ export default function AssignmentTrackerPage() {
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="text-[16px] font-bold text-[#11181C] leading-[1.3] line-clamp-2 mb-1.5 group-hover:text-[#1E2D24] transition-colors">
+                  <h3 className={`${titleClass} line-clamp-2 mb-1.5 group-hover:text-black transition-colors`}>
                     {asg.title}
                   </h3>
-                  <p className="text-[13px] text-[#6B7280] leading-[1.5] line-clamp-2 mb-4">
+                  <p className={`${bodyClass} line-clamp-2 mb-4`}>
                     {asg.description || 'No instructions provided.'}
                   </p>
                 </div>

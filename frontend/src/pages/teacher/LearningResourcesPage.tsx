@@ -22,6 +22,8 @@ import { useResourceStore, ResourceItem } from '../../store/resourceStore'
 import { useApp } from '../../store'
 import { api, type Chapter } from '../../lib/api'
 import { searchInputClass } from '../../components/SearchToolbar'
+import SummaryCard from '../../components/SummaryCard'
+import { eyebrowClass, titleClass, bodyClass } from '../../components/typography'
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string; border: string }> = {
   textbook: {
@@ -310,60 +312,22 @@ export default function LearningResourcesPage() {
 
       {/* KPI METRICS BAR */}
       <div className="px-8 pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] shadow-sm px-5 py-4 flex items-start gap-4">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#1E2D24]" />
-          <div className="w-10 h-10 rounded-full bg-[#F3F1EB] flex items-center justify-center shrink-0">
-            <FolderOpen className="w-5 h-5 text-[#57534E]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] tracking-[0.12em] font-semibold uppercase text-[#8A8F98]">Total Resources</div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-[24px] font-bold leading-none text-[#11181C]">{totalCount}</span>
-              <span className="text-[12px] text-[#6B7280]">Across All Chapters</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] shadow-sm px-5 py-4 flex items-start gap-4">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#3B82F6]" />
-          <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center shrink-0">
-            <BookOpen className="w-5 h-5 text-[#1D4ED8]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] tracking-[0.12em] font-semibold uppercase text-[#8A8F98]">NCERT Textbooks</div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-[24px] font-bold leading-none text-[#11181C]">{textbookCount}</span>
-              <span className="text-[12px] text-[#6B7280]">Official E-Books</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] shadow-sm px-5 py-4 flex items-start gap-4">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#F5C542]" />
-          <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center shrink-0">
-            <FileSpreadsheet className="w-5 h-5 text-[#92400E]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] tracking-[0.12em] font-semibold uppercase text-[#8A8F98]">Formula Sheets</div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-[24px] font-bold leading-none text-[#11181C]">{formulaCount}</span>
-              <span className="text-[12px] text-[#6B7280]">Quick Revision Cards</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden bg-white rounded-[16px] border border-[#E5E7EB] shadow-sm px-5 py-4 flex items-start gap-4">
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#22C55E]" />
-          <div className="w-10 h-10 rounded-full bg-[#DCFCE7] flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5 text-[#166534]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] tracking-[0.12em] font-semibold uppercase text-[#8A8F98]">Assigned to Classes</div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-[24px] font-bold leading-none text-[#11181C]">{assignedCount}</span>
-            </div>
-          </div>
-        </div>
+        <SummaryCard
+          eyebrow="Total Resources" metric={totalCount} sub="Across All Chapters"
+          icon={<FolderOpen className="w-4 h-4" />} accent="#8A7F6B" iconBg="#F2F1ED"
+        />
+        <SummaryCard
+          eyebrow="NCERT Textbooks" metric={textbookCount} sub="Official E-Books"
+          icon={<BookOpen className="w-4 h-4" />} accent="#3B5B9A" iconBg="#E8F0FF"
+        />
+        <SummaryCard
+          eyebrow="Formula Sheets" metric={formulaCount} sub="Quick Revision Cards"
+          icon={<FileSpreadsheet className="w-4 h-4" />} accent="#8A6D00" iconBg="#FFF4CC"
+        />
+        <SummaryCard
+          eyebrow="Assigned to Classes" metric={assignedCount} sub="Across Sections"
+          icon={<Users className="w-4 h-4" />} accent="#2F6F46" iconBg="#E6F7ED"
+        />
       </div>
 
       <div className="px-8 pb-6">
@@ -517,18 +481,18 @@ export default function LearningResourcesPage() {
                           {/* TITLE & DESCRIPTION */}
                           <h3
                             onClick={() => setPreviewResource(r)}
-                            className="text-[15px] font-bold leading-[1.3] text-[#11181C] group-hover:text-black transition-colors cursor-pointer"
+                            className={`${titleClass} group-hover:text-black transition-colors cursor-pointer`}
                           >
                             {r.title}
                           </h3>
-                          <p className="text-[13px] text-[#6B7280] mt-1.5 line-clamp-2 leading-[1.5]">
+                          <p className={`${bodyClass} mt-1.5 line-clamp-2`}>
                             {r.description || 'No description provided.'}
                           </p>
 
                           {/* ASSIGNED SECTIONS PILLS */}
                           {isAssigned && (
                             <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-[#8A8F98]">
+                              <span className={eyebrowClass}>
                                 Assigned to:
                               </span>
                               {r.assigned_sections.map((sec) => (

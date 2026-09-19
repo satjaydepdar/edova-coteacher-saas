@@ -100,29 +100,44 @@ def practice_chapters(authorization: str = Header(...)):
     current_principal(authorization)
     with db() as conn:
         rows = q(conn, """
-            SELECT s.standard_grade, s.id, s.name, c.id, c.name, c.sequence_order
+            SELECT s.standard_grade, s.id, s.name, c.id, c.name, c.sequence_order,
+                   t.id, t.name
             FROM subjects s
             LEFT JOIN chapters c ON c.subject_id = s.id
+            LEFT JOIN topics t ON t.chapter_id = c.id
             WHERE s.tenant_id IS NULL
-            ORDER BY s.standard_grade, s.name, c.sequence_order NULLS LAST
+            ORDER BY s.standard_grade, s.name, c.sequence_order NULLS LAST, t.sequence_order NULLS LAST
         """).fetchall()
 
+    # Chapters keyed by id while building (a topics JOIN repeats a chapter's row
+    # once per topic) -- flattened back to a list per subject below.
     classes: dict[str, dict] = {}
-    for grade, subj_id, subj_name, ch_id, ch_name, _ in rows:
+    for grade, subj_id, subj_name, ch_id, ch_name, ch_seq, top_id, top_name in rows:
         subjects = classes.setdefault(grade, {})
-        subject = subjects.setdefault(str(subj_id), {"id": str(subj_id), "name": subj_name, "chapters": []})
-        if ch_id is not None:
-            subject["chapters"].append({
-                "id": str(ch_id),
-                "name": ch_name,
-                "practice_available": ch_name in PRACTICE_READY_CHAPTERS,
-                "practice_module": PRACTICE_READY_CHAPTERS.get(ch_name),
-                "is_default": ch_name == DEFAULT_PRACTICE_CHAPTER,
-            })
+        subject = subjects.setdefault(str(subj_id), {"id": str(subj_id), "name": subj_name, "chapters": {}})
+        if ch_id is None:
+            continue
+        chapter = subject["chapters"].setdefault(str(ch_id), {
+            "id": str(ch_id),
+            "name": ch_name,
+            "sequence_order": ch_seq,
+            "practice_available": ch_name in PRACTICE_READY_CHAPTERS,
+            "practice_module": PRACTICE_READY_CHAPTERS.get(ch_name),
+            "is_default": ch_name == DEFAULT_PRACTICE_CHAPTER,
+            "topics": [],
+        })
+        if top_id is not None:
+            chapter["topics"].append({"id": str(top_id), "name": top_name})
 
     return {
         "classes": [
-            {"grade": grade, "subjects": list(subjects.values())}
+            {
+                "grade": grade,
+                "subjects": [
+                    {**subj, "chapters": list(subj["chapters"].values())}
+                    for subj in subjects.values()
+                ],
+            }
             for grade, subjects in sorted(classes.items())
         ]
     }

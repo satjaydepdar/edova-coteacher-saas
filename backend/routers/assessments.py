@@ -24,6 +24,16 @@ class QuestionOption(BaseModel):
     correct: bool = False
 
 
+class MatchingPair(BaseModel):
+    left: str
+    right: str
+
+
+class SubQuestion(BaseModel):
+    text: str
+    answer: str
+
+
 class QuestionIn(BaseModel):
     id: Optional[str] = None
     text: str
@@ -32,6 +42,14 @@ class QuestionIn(BaseModel):
     bloom: str = "Understand"   # Remember, Understand, Apply, Analyze, Evaluate, Create
     rubric: Optional[str] = None
     marks: int = 1
+    # Palette question shapes (Matching / Fill-in-Blank / Short Answer / Scenario /
+    # Multi-Part) — field names match the frontend QuestionItem shape verbatim
+    # (no alias) since `sections` round-trips as raw JSON into a JSONB column.
+    pairs: Optional[List[MatchingPair]] = None
+    correctAnswer: Optional[str] = None
+    modelAnswer: Optional[str] = None
+    scenarioText: Optional[str] = None
+    subQuestions: Optional[List[SubQuestion]] = None
 
 
 class AssessmentSectionIn(BaseModel):

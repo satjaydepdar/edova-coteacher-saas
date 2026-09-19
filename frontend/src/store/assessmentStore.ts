@@ -9,6 +9,16 @@ export interface QuestionOption {
   correct: boolean
 }
 
+export interface MatchingPair {
+  left: string
+  right: string
+}
+
+export interface SubQuestion {
+  text: string
+  answer: string
+}
+
 export interface QuestionItem {
   id?: string
   text: string
@@ -17,12 +27,27 @@ export interface QuestionItem {
   bloom: string
   rubric?: string
   marks: number
+  // Palette-driven question shapes (Matching / Fill-in-Blank / Short Answer /
+  // Scenario / Multi-Part) — optional, additive to the original MCQ-only shape.
+  pairs?: MatchingPair[]
+  correctAnswer?: string
+  modelAnswer?: string
+  scenarioText?: string
+  subQuestions?: SubQuestion[]
 }
+
+// Section types: the original 5 CBSE blueprint types plus the 9 palette
+// question types (Assessment Builder redesign) — both kept so existing saved
+// assessments built from a blueprint keep rendering correctly.
+export type SectionType =
+  | 'mcq' | 'short_answer_1' | 'short_answer_2' | 'long_answer' | 'case_study'
+  | 'multi_select' | 'true_false' | 'matching' | 'fill_blank' | 'short_answer'
+  | 'scenario' | 'multi_part' | 'essay'
 
 export interface AssessmentSection {
   section_id: string
   name: string
-  type: 'mcq' | 'short_answer_1' | 'short_answer_2' | 'long_answer' | 'case_study'
+  type: SectionType
   marks_per_q: number
   instructions: string
   questions: QuestionItem[]
@@ -66,6 +91,35 @@ export interface AssessmentDetailItem extends AssessmentSummaryItem {
   sections: AssessmentSection[]
 }
 
+// Question Bank import (admin-authored, PUBLISHED-only content — see /admin/questions).
+export interface CurriculumTopic {
+  id: string
+  name: string
+}
+export interface QuestionBankChapter {
+  id: string
+  name: string
+  sequence_order?: number | null
+  topics: CurriculumTopic[]
+}
+export interface QuestionBankSubject {
+  id: string
+  name: string
+  chapters: QuestionBankChapter[]
+}
+export interface QuestionBankClass {
+  grade: string
+  subjects: QuestionBankSubject[]
+}
+export interface QuestionBankItem {
+  question_id: string
+  question_type: string
+  question_text: string
+  marks: number
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD' | null
+  options: QuestionOption[]
+}
+
 interface AssessmentState {
   assessments: AssessmentSummaryItem[]
   activeAssessment: AssessmentDetailItem | null
@@ -76,6 +130,8 @@ interface AssessmentState {
   searchQuery: string
   fetchAssessments: () => Promise<void>
   fetchAssessmentDetail: (id: string) => Promise<AssessmentDetailItem | null>
+  fetchQuestionBankChapters: () => Promise<QuestionBankClass[]>
+  fetchQuestionBank: (chapterId: string) => Promise<QuestionBankItem[]>
   createAssessment: (data: any) => Promise<AssessmentDetailItem>
   updateAssessment: (id: string, updates: any) => Promise<AssessmentDetailItem>
   deleteAssessment: (id: string) => Promise<void>
@@ -342,6 +398,48 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
       // fallback
     }
     return null
+  },
+
+  fetchQuestionBankChapters: async () => {
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) return []
+    try {
+      const res = await fetch(`${BASE}/api/student/practice/chapters`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data.classes || []).map((c: any) => ({
+        grade: c.grade,
+        subjects: (c.subjects || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          chapters: (s.chapters || []).map((ch: any) => ({
+            id: ch.id,
+            name: ch.name,
+            sequence_order: ch.sequence_order ?? null,
+            topics: (ch.topics || []).map((t: any) => ({ id: t.id, name: t.name })),
+          })),
+        })),
+      }))
+    } catch {
+      return []
+    }
+  },
+
+  fetchQuestionBank: async (chapterId: string) => {
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) return []
+    try {
+      const res = await fetch(`${BASE}/admin/questions?chapter_id=${chapterId}&status=PUBLISHED`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data.questions || []) as QuestionBankItem[]
+    } catch {
+      return []
+    }
   },
 
   createAssessment: async (data) => {

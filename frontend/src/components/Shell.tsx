@@ -553,20 +553,17 @@ export default function Shell() {
             )}
 
             {!isStudent && (
-            <NavLink
-              to="/attendance"
-              title="Attendance"
-              className={({ isActive }) =>
-                `w-full flex items-center ${
-                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                } h-10 rounded-xl ${isActive ? activeNavClass : inactiveNavClass}`
-              }
+            <div
+              title="Attendance (Currently Disabled)"
+              className={`w-full flex items-center ${
+                isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+              } h-10 rounded-xl text-white/35 cursor-not-allowed select-none transition-colors`}
             >
-              <UserCheck className="w-4 h-4 shrink-0" />
+              <UserCheck className="w-4 h-4 shrink-0 opacity-60" />
               {!isCollapsed && (
                 <span className="font-[Inter] text-[14px]">Attendance</span>
               )}
-            </NavLink>
+            </div>
             )}
 
             <div>

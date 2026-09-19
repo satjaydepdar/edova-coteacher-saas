@@ -3,9 +3,14 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Percent,
+  Award,
+  ClipboardCheck,
+  Layers,
 } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import SearchToolbar, { filterSelectClass } from '../../components/SearchToolbar'
+import SummaryCard from '../../components/SummaryCard'
 import { useSyllabusStore } from '../../store/syllabusStore'
 
 export default function SyllabusPage() {
@@ -103,55 +108,22 @@ export default function SyllabusPage() {
       <div className="px-8 pb-8 space-y-4">
         {/* Progress & Weightage Stats Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white border border-[#E5E7EB] p-4 rounded-2xl space-y-2">
-            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-[#8A8F98]">
-              Overall Pacing
-            </span>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[20px] font-bold font-mono tracking-[-0.02em] text-[#11181C]">
-                {overallProgress}%
-              </span>
-              <span className="text-xs font-medium text-[#6B7280]">
-                {completedTopicsCount} of {totalTopics} topics
-              </span>
-            </div>
-            <div className="w-full h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#4A7C59] rounded-full transition-all duration-300"
-                style={{ width: `${overallProgress}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="bg-white border border-[#E5E7EB] p-4 rounded-2xl space-y-1">
-            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-[#8A8F98]">
-              Board Assessment
-            </span>
-            <div className="text-[20px] font-bold font-mono tracking-[-0.02em] text-[#C8A86A]">
-              80 Marks
-            </div>
-            <p className="text-xs text-[#8A8F98]">CBSE Annual Theory Examination</p>
-          </div>
-
-          <div className="bg-white border border-[#E5E7EB] p-4 rounded-2xl space-y-1">
-            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-[#8A8F98]">
-              Internal Assessment
-            </span>
-            <div className="text-[20px] font-bold font-mono tracking-[-0.02em] text-[#11181C]">
-              20 Marks
-            </div>
-            <p className="text-xs text-[#8A8F98]">Lab activities, quizzes & homework</p>
-          </div>
-
-          <div className="bg-white border border-[#E5E7EB] p-4 rounded-2xl space-y-1">
-            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-[#8A8F98]">
-              Curriculum Structure
-            </span>
-            <div className="text-[16px] font-bold tracking-[-0.01em] text-[#11181C]">
-              {units.length} Units · {totalChapters} Chapters
-            </div>
-            <p className="text-xs text-[#8A8F98]">100% NEP 2020 Aligned</p>
-          </div>
+          <SummaryCard
+            eyebrow="Overall Pacing" metric={`${overallProgress}%`} sub={`${completedTopicsCount} of ${totalTopics} topics`}
+            icon={<Percent className="w-4 h-4" />} accent="#2F6F46" iconBg="#E6F7ED"
+          />
+          <SummaryCard
+            eyebrow="Board Assessment" metric="80" sub="Marks · CBSE Theory Exam"
+            icon={<Award className="w-4 h-4" />} accent="#8A6D00" iconBg="#FFF4CC"
+          />
+          <SummaryCard
+            eyebrow="Internal Assessment" metric="20" sub="Marks · Labs & Homework"
+            icon={<ClipboardCheck className="w-4 h-4" />} accent="#3B5B9A" iconBg="#E8F0FF"
+          />
+          <SummaryCard
+            eyebrow="Curriculum Structure" metric={units.length} sub={`Units · ${totalChapters} Chapters`}
+            icon={<Layers className="w-4 h-4" />} accent="#8A7F6B" iconBg="#F2F1ED"
+          />
         </div>
 
         {/* Units & Chapters Tree */}

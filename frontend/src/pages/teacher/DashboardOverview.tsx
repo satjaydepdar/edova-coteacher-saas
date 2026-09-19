@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, LogOut } from 'lucide-react'
+import { ChevronRight, LogOut, TrendingUp, Users, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useApp } from '../../store'
 import { useWorkspace } from '../../components/Shell'
 import { teacherApi, type DashboardOverview as Overview } from '../../lib/teacherApi'
 import PageHeader from '../../components/PageHeader'
 import SearchToolbar, { filterSelectClass } from '../../components/SearchToolbar'
+import SummaryCard from '../../components/SummaryCard'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 const severityColor = (pct: number) =>
@@ -139,46 +139,22 @@ export default function DashboardOverview() {
       </SearchToolbar>
 
       <div className="px-8 pt-2 pb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-[#FFFEF8] border-[#E5E7EB] rounded-[16px] p-5 flex flex-col gap-2 border-l-4 border-l-[#F5C542] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <p className="text-[10px] font-bold font-mono tracking-[0.14em] text-[#8A8F98] uppercase">OVERALL MASTERY</p>
-          <p className="font-bold font-mono tracking-[-0.02em] text-[32px] leading-none text-[#11181C]">
-            {data.overall_mastery_pct}%
-          </p>
-          <p className="text-[12px] text-[#6B7280]">Across all sections</p>
-        </Card>
-
-        <Card className="bg-[#F6FEF8] border-[#E5E7EB] rounded-[16px] p-5 flex flex-col gap-2 border-l-4 border-l-[#22C55E] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold font-mono tracking-[0.14em] text-[#8A8F98] uppercase">ACTIVE STUDENTS</p>
-            <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse shadow-[0_0_0_3px_rgba(34,197,94,0.18)]" />
-          </div>
-          <p className="font-bold font-mono tracking-[-0.02em] text-[32px] leading-none text-[#11181C]">
-            {data.active_students}
-          </p>
-          <p className="text-[12px] text-[#6B7280]">Currently engaging</p>
-        </Card>
-
-        <Card className="bg-[#FFFBFB] border-[#E5E7EB] rounded-[16px] p-5 flex flex-col gap-2 border-l-4 border-l-[#EF4444] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold font-mono tracking-[0.14em] text-[#8A8F98] uppercase">CONCEPTS FLAGGED</p>
-            <Badge variant="danger" className="h-5 px-2 text-[10px] font-bold rounded-full">Alert</Badge>
-          </div>
-          <p className="font-bold font-mono tracking-[-0.02em] text-[28px] leading-none text-[#DC2626]">
-            {data.concepts_flagged}
-          </p>
-          <p className="text-[12px] text-[#6B7280]">Mastery &lt; 50%</p>
-        </Card>
-
-        <Card className="bg-[#FFFBF5] border-[#E5E7EB] rounded-[16px] p-5 flex flex-col gap-2 border-l-4 border-l-[#F97316] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold font-mono tracking-[0.14em] text-[#8A8F98] uppercase">NEED INTERVENTION</p>
-            <Badge variant="warning" className="h-5 px-2 text-[10px] font-bold rounded-full">Action</Badge>
-          </div>
-          <p className="font-bold font-mono tracking-[-0.02em] text-[24px] leading-none text-[#11181C]">
-            {data.students_needing_intervention} students
-          </p>
-          <p className="text-[12px] text-[#6B7280]">Score below 60%</p>
-        </Card>
+        <SummaryCard
+          eyebrow="Overall Mastery" metric={`${data.overall_mastery_pct}%`} sub="Across All Sections"
+          icon={<TrendingUp className="w-4 h-4" />} accent="#8A6D00" iconBg="#FFF4CC"
+        />
+        <SummaryCard
+          eyebrow="Active Students" metric={data.active_students} sub="Currently Engaging"
+          icon={<Users className="w-4 h-4" />} accent="#2F6F46" iconBg="#E6F7ED"
+        />
+        <SummaryCard
+          eyebrow="Concepts Flagged" metric={data.concepts_flagged} sub="Mastery Below 50%"
+          icon={<AlertTriangle className="w-4 h-4" />} accent="#DC2626" iconBg="#FEE2E2"
+        />
+        <SummaryCard
+          eyebrow="Need Intervention" metric={data.students_needing_intervention} sub="Students · Score Below 60%"
+          icon={<ShieldAlert className="w-4 h-4" />} accent="#B45309" iconBg="#FFEDD5"
+        />
       </div>
 
       <div className="px-8 pb-3">

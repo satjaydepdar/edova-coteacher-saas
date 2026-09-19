@@ -222,8 +222,90 @@ def create_authored_question(body: QuestionCreateIn, authorization: str = Header
     return {"question_id": str(qid), "version_id": str(vid), "version_no": 1, "status": "DRAFT"}
 
 
+# --- Bulk create: structured Q&A rows (not raw PDF text — see /admin/questions/ingest
+# below for that), each with its own chapter/topic and full options + correct answer.
+# No review/publish workflow exists yet (Authoring Studio is not built), so bulk-imported
+# rows default straight to PUBLISHED -- pass publish=false per-call to land them as DRAFT
+# instead. ---
+class QuestionBulkItem(BaseModel):
+    chapter_id: str
+    topic_id: str | None = None
+    question_type: str
+    question_text: str
+    marks: float = 1
+    difficulty: str | None = None
+    options: list[OptionIn] = []
+    passage: str | None = None
+    explanation: str | None = None
+    source_papers: list[str] = []
+
+
+class QuestionBulkIn(BaseModel):
+    questions: list[QuestionBulkItem]
+    publish: bool = True
+
+
+@router.post("/admin/questions/bulk", status_code=201)
+def bulk_create_authored_questions(body: QuestionBulkIn, authorization: str = Header(...)):
+    admin = get_admin(authorization)
+    if not body.questions:
+        raise HTTPException(422, "questions list is empty")
+
+    status = "PUBLISHED" if body.publish else "DRAFT"
+    created, invalid = [], []
+
+    with db() as conn:
+        # Authorize every distinct chapter up front so a bad row can't sneak a
+        # write into a chapter this admin/teacher shouldn't touch.
+        chapter_cache: dict[str, bool] = {}
+        for cid in {item.chapter_id for item in body.questions}:
+            row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
+                          "WHERE c.id = %s", (cid,)).fetchone()
+            if row is None:
+                raise HTTPException(404, f"chapter not found: {cid}")
+            authorize_subject_tenant(admin, row[0])
+            chapter_cache[cid] = True
+
+        for i, item in enumerate(body.questions):
+            if item.question_type not in QUESTION_TYPES:
+                invalid.append({"index": i, "error": f"invalid question_type: {item.question_type}"})
+                continue
+            if item.difficulty is not None and item.difficulty not in DIFFICULTIES:
+                invalid.append({"index": i, "error": f"invalid difficulty: {item.difficulty}"})
+                continue
+            if not item.question_text.strip():
+                invalid.append({"index": i, "error": "empty question_text"})
+                continue
+            if item.topic_id is not None:
+                topic_row = q(conn, "SELECT chapter_id FROM topics WHERE id = %s", (item.topic_id,)).fetchone()
+                if topic_row is None or str(topic_row[0]) != str(item.chapter_id):
+                    invalid.append({"index": i, "error": "topic_id does not belong to this question's chapter"})
+                    continue
+
+            question_text = sanitize_rich_text(item.question_text)
+            passage = sanitize_rich_text(item.passage)
+            explanation = sanitize_rich_text(item.explanation)
+            options = [{**o.model_dump(), "text": sanitize_rich_text(o.text)} for o in item.options]
+            source_papers = [sanitize_plain_text(s) for s in item.source_papers if sanitize_plain_text(s)]
+
+            qid = q(conn, "INSERT INTO authored_questions (chapter_id, created_by, topic_id, source_papers, status) "
+                          "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    (item.chapter_id, admin["user_id"], item.topic_id, Jsonb(source_papers), status)).fetchone()[0]
+            vid = q(conn, "INSERT INTO authored_question_versions "
+                          "(question_id, version_no, question_type, question_text, marks, difficulty, options, "
+                          " passage, explanation, created_by) "
+                          "VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (qid, item.question_type, question_text, item.marks, item.difficulty,
+                     Jsonb(options), passage, explanation, admin["user_id"])).fetchone()[0]
+            q(conn, "UPDATE authored_questions SET current_version_id = %s WHERE id = %s", (vid, qid))
+            created.append({"index": i, "question_id": str(qid), "version_id": str(vid)})
+
+    return {"created": created, "invalid": invalid, "created_count": len(created), "status": status}
+
+
 @router.get("/admin/questions")
-def list_authored_questions(chapter_id: str = Query(...), authorization: str = Header(...)):
+def list_authored_questions(chapter_id: str = Query(...), status: str | None = Query(None),
+                             authorization: str = Header(...)):
     admin = get_admin(authorization)
     with db() as conn:
         row = q(conn, "SELECT s.tenant_id FROM chapters c JOIN subjects s ON s.id = c.subject_id "
@@ -232,14 +314,19 @@ def list_authored_questions(chapter_id: str = Query(...), authorization: str = H
             raise HTTPException(404, "chapter not found")
         authorize_subject_tenant(admin, row[0])
 
+        # No status -> CMS list view (everything but archived). A specific status
+        # (e.g. PUBLISHED, for the Assessment Builder's question-bank import) narrows
+        # to just that state instead.
+        status_clause = "aq.status = %s" if status else "aq.status != 'ARCHIVED'"
+        status_param = [status] if status else []
         rows = q(conn,
             "SELECT aq.id, aq.status, v.id, v.version_no, v.question_type, v.question_text, "
             "       v.marks, v.difficulty, v.options, v.passage, v.explanation, "
             "       aq.topic_id, t.name, aq.source_papers "
             "FROM authored_questions aq JOIN authored_question_versions v ON v.id = aq.current_version_id "
             "LEFT JOIN topics t ON t.id = aq.topic_id "
-            "WHERE aq.chapter_id = %s AND aq.status != 'ARCHIVED' ORDER BY aq.created_at DESC",
-            (chapter_id,)).fetchall()
+            f"WHERE aq.chapter_id = %s AND {status_clause} ORDER BY aq.created_at DESC",
+            [chapter_id] + status_param).fetchall()
 
     return {"questions": [
         {"question_id": str(r[0]), "status": r[1], "version_id": str(r[2]), "version_no": r[3],

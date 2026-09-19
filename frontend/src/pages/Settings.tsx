@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   User,
   Shield,
-  Sliders,
   GraduationCap,
   Building2,
   CheckCircle2,
@@ -323,12 +322,10 @@ export default function Settings() {
       {/* Top Header Bar matching Practice Questions */}
       <header className="relative z-10 h-[72px] px-6 lg:px-8 flex items-center justify-between border-b border-[#EDE8DD] bg-[#FBF9F3]/80 backdrop-blur-[8px] sticky top-0 shrink-0">
         <div className="flex items-center gap-4">
-          <div className="w-8 h-8 rounded-[10px] bg-[#1A221E] flex items-center justify-center shadow-xs">
-            <Sliders className="w-4 h-4 text-[#DDB56E]" />
-          </div>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="font-display text-[22px] font-[600] tracking-[-0.02em] leading-none text-[#111814]">
+            <div className="flex items-center gap-3">
+              <span className="w-1 h-7 rounded shrink-0" style={{ background: '#D4A017' }} />
+              <h1 className="page-header-h1 text-[24px] lg:text-[28px]">
                 Settings
               </h1>
               <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-[#F6F1E6] border border-[#EDE8DD] text-[#8A7D67]">

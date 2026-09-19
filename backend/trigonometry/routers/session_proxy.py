@@ -122,6 +122,7 @@ async def submit_step(
     active_step_index = reasoner_res.get("active_step_index", step_index)
     metrics_data = reasoner_res.get("metrics") or {}
     updated_sal = float(metrics_data.get("assistance_sal", 1.0))
+    diagnosed_prereq_node = reasoner_res.get("diagnosed_prereq_node")
 
     # 3. Locate student state in PostgreSQL
     state = db.query(StudentState).filter(
@@ -160,6 +161,24 @@ async def submit_step(
             timestamp=datetime.now(timezone.utc)
         )
         db.add(log_entry)
+
+        # Diagnosed prerequisite-gap event (Reasoner DAG upgrade): when a wrong
+        # answer traces back to a specific missing lower-grade skill, record it
+        # as a "struggle" mastery_event -- reuses the same tenant-wide table and
+        # error_detail field the "mastery" event below already writes, so the
+        # existing teacher analytics page (student StudentProfile) picks this up
+        # with no new column or UI needed.
+        if not is_correct and diagnosed_prereq_node:
+            try:
+                from core import db as get_raw_conn, q as execute_raw
+                with get_raw_conn() as raw_conn:
+                    execute_raw(raw_conn, """
+                        INSERT INTO mastery_events
+                        (classroom_id, student_id, student_name, chapter_id, concept_id, event_type, error_detail)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (school_id, student_id, f"Student {student_id[:8]}", "Introduction to Trigonometry", concept_id, "struggle", diagnosed_prereq_node))
+            except Exception:
+                pass
 
         # Update StudentState
         if state:

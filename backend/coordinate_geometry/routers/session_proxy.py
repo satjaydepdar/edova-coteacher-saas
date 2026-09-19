@@ -105,6 +105,7 @@ async def submit_step(payload: dict, authorization: str = Header(...), db: Sessi
     active_step_index = reasoner_res.get("active_step_index", step_index)
     metrics_data = reasoner_res.get("metrics") or {}
     updated_sal = float(metrics_data.get("assistance_sal", 1.0))
+    diagnosed_prereq_node = reasoner_res.get("diagnosed_prereq_node")
 
     state = db.query(StudentState).filter(
         StudentState.student_id == student_id,
@@ -136,6 +137,29 @@ async def submit_step(payload: dict, authorization: str = Header(...), db: Sessi
             mastery_at_step=new_mastery,
             timestamp=datetime.now(timezone.utc),
         ))
+
+        # Diagnosed prerequisite-gap event (Reasoner DAG upgrade): when a wrong
+        # answer traces back to a specific missing lower-grade skill, record it
+        # as a "struggle" mastery_event -- reuses the same tenant-wide table and
+        # error_detail field the "mastery" event below already writes, so the
+        # existing teacher analytics page (StudentProfile) picks this up with
+        # no new column or UI needed.
+        if not is_correct and diagnosed_prereq_node:
+            try:
+                concept_for_gap = db.query(Concept).filter(Concept.id == concept_id).first()
+                gap_chapter_name = concept_for_gap.chapter if concept_for_gap else "Coordinate Geometry"
+                from core import db as get_raw_conn, q as execute_raw
+                with get_raw_conn() as raw_conn:
+                    execute_raw(raw_conn, """
+                        INSERT INTO mastery_events
+                        (classroom_id, student_id, student_name, chapter_id, concept_id, event_type, error_detail)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        str(principal.get("tenant_id") or "default_school"), student_id,
+                        f"Student {student_id[:8]}", gap_chapter_name, concept_id, "struggle", diagnosed_prereq_node,
+                    ))
+            except Exception:
+                pass
 
         if state:
             state.active_step_index = active_step_index
